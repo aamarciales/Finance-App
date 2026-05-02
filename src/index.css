@@ -1,0 +1,163 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ========================================================================
+   PATRIMONIO · Sistema de diseño
+   Filosofía: minimalismo cálido tipo Mercury × revista financiera.
+   Fondo crema, serif editorial, mono para cifras.
+   Las CSS vars están listas para añadir dark mode después sin tocar Tailwind.
+   ======================================================================== */
+
+@theme inline {
+    /* Tipografía */
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Geist', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-heading: 'Fraunces', Georgia, serif;
+
+    /* Tokens propios del sistema (expuestos como bg-bg, text-text-muted, etc.) */
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-border-strong: var(--border-strong);
+    --color-text: var(--text);
+    --color-text-muted: var(--text-muted);
+    --color-text-faint: var(--text-faint);
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-soft: var(--brand-soft);
+    --color-warm: var(--warm);
+    --color-warm-soft: var(--warm-soft);
+    --color-danger-strong: var(--danger-strong);
+    --color-danger-soft: var(--danger-soft);
+    --color-gold: var(--gold);
+    --color-gold-soft: var(--gold-soft);
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+
+    /* Bridge a las CSS vars de shadcn (botones, cards, dialogs, etc.) */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Radios — README: cards 10px, botones/inputs 6px, modales 12px */
+    --radius: 0.625rem;
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+    /* Paleta principal del README (light mode) */
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --surface-2: #f4f3ee;
+    --surface-3: #ecebe4;
+    --border: #e8e6df;
+    --border-strong: #d4d1c7;
+    --text: #1a1a17;
+    --text-muted: #6b6960;
+    --text-faint: #9a978d;
+
+    --brand: #2d4a3e;
+    --brand-hover: #1f3329;
+    --brand-soft: #d9e2dc;
+
+    --warm: #c4621d;
+    --warm-soft: #f5e4d3;
+    --danger-strong: #a83e2b;
+    --danger-soft: #f0d9d2;
+    --gold: #b8923a;
+    --gold-soft: #ede2c5;
+    --info: #4a6e8a;
+    --info-soft: #d8e2eb;
+
+    /* Bridge a shadcn — botones primary = verde profundo, etc. */
+    --background: var(--bg);
+    --foreground: var(--text);
+    --card: var(--surface);
+    --card-foreground: var(--text);
+    --popover: var(--surface);
+    --popover-foreground: var(--text);
+    --primary: var(--brand);
+    --primary-foreground: var(--bg);
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--text);
+    --muted: var(--surface-2);
+    --muted-foreground: var(--text-muted);
+    /* shadcn usa --accent como hover/highlight claro, NO como brand color */
+    --accent: var(--surface-2);
+    --accent-foreground: var(--text);
+    --destructive: var(--danger-strong);
+    --input: var(--border-strong);
+    --ring: var(--brand);
+
+    /* Charts (Recharts) — paleta del README */
+    --chart-1: var(--brand);
+    --chart-2: var(--gold);
+    --chart-3: var(--warm);
+    --chart-4: var(--info);
+    --chart-5: var(--danger-strong);
+
+    /* Sidebar (shadcn sidebar tokens) */
+    --sidebar: var(--surface-2);
+    --sidebar-foreground: var(--text);
+    --sidebar-primary: var(--brand);
+    --sidebar-primary-foreground: var(--bg);
+    --sidebar-accent: var(--surface);
+    --sidebar-accent-foreground: var(--text);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--brand);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html {
+        @apply font-sans;
+    }
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings: 'cv11', 'ss01';
+    }
+    /* Cifras siempre alineadas con tabular-nums cuando se use mono */
+    .font-mono,
+    .tabular-nums {
+        font-variant-numeric: tabular-nums;
+    }
+}

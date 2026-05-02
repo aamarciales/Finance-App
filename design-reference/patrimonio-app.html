@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Patrimonio · Finanzas personales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --surface-2: #f4f3ee;
+    --surface-3: #ecebe4;
+    --border: #e8e6df;
+    --border-strong: #d4d1c7;
+    --text: #1a1a17;
+    --text-muted: #6b6960;
+    --text-faint: #9a978d;
+    --accent: #2d4a3e;
+    --accent-hover: #1f3329;
+    --accent-soft: #d9e2dc;
+    --warm: #c4621d;
+    --warm-soft: #f5e4d3;
+    --danger: #a83e2b;
+    --danger-soft: #f0d9d2;
+    --gold: #b8923a;
+    --gold-soft: #ede2c5;
+    --info: #4a6e8a;
+    --info-soft: #d8e2eb;
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* ============ SIDEBAR ============ */
+  .sidebar {
+    background: var(--surface-2);
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-bottom: 32px; padding: 0 8px; }
+  .brand-mark { font-family: var(--serif); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; font-style: italic; }
+  .brand-sub { font-size: 11px; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .nav-label { font-size: 10px; color: var(--text-faint); letter-spacing: 0.12em; text-transform: uppercase; padding: 0 12px; margin: 18px 0 6px; }
+  .nav-label:first-of-type { margin-top: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 6px;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 13.5px; transition: all 0.12s; user-select: none;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.03); color: var(--text); }
+  .nav-item.active {
+    background: var(--surface); color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.85; }
+
+  .sidebar-footer {
+    margin-top: auto; padding: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;
+  }
+  .sidebar-footer .label { color: var(--text-faint); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .sidebar-footer .rate { font-family: var(--mono); font-size: 14px; }
+  .sidebar-footer .delta { color: var(--accent); font-size: 11px; font-family: var(--mono); }
+
+  /* ============ MAIN ============ */
+  .main { padding: 32px 40px 60px; max-width: 1320px; }
+
+  .topbar {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border);
+  }
+  .page-title { font-family: var(--serif); font-size: 30px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; }
+  .page-title em { font-style: italic; color: var(--accent); }
+  .page-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 14px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: var(--surface);
+    color: var(--text); font-family: inherit; font-size: 13px;
+    cursor: pointer; transition: all 0.12s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn-primary:hover { background: #000; }
+  .btn-accent { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-accent:hover { background: var(--accent-hover); }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-icon { padding: 6px; aspect-ratio: 1; }
+
+  /* ============ PAGES ============ */
+  .page { display: none; animation: fadeIn 0.2s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ============ KPI ============ */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; position: relative; }
+  .kpi-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 10px; }
+  .kpi-value { font-family: var(--serif); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+  .kpi-value .currency { font-size: 14px; color: var(--text-muted); margin-right: 2px; font-family: var(--sans); font-weight: 400; }
+  .kpi-secondary { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+  .kpi-trend { position: absolute; top: 18px; right: 20px; font-family: var(--mono); font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  .trend-up { background: var(--accent-soft); color: var(--accent); }
+  .trend-down { background: var(--danger-soft); color: var(--danger); }
+  .trend-flat { background: var(--surface-2); color: var(--text-muted); }
+
+  /* ============ CARDS / LAYOUT ============ */
+  .row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .row-2 { grid-template-columns: 1.6fr 1fr; }
+  .row-2-eq { grid-template-columns: 1fr 1fr; }
+  .row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; }
+  .card-compact { padding: 18px 20px; }
+  .card-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; gap: 16px; }
+  .card-title { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+  .card-meta { font-size: 11.5px; color: var(--text-faint); font-family: var(--mono); }
+
+  .pill-group { display: inline-flex; background: var(--surface-2); border-radius: 6px; padding: 2px; }
+  .pill { padding: 4px 10px; font-size: 11.5px; border-radius: 4px; cursor: pointer; color: var(--text-muted); user-select: none; transition: all 0.12s; }
+  .pill.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+  .section-title { font-family: var(--serif); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; margin: 8px 0 14px; display: flex; align-items: baseline; gap: 12px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .section-title .badge { font-family: var(--mono); font-size: 10px; font-weight: 400; padding: 2px 6px; background: var(--surface-2); border-radius: 4px; color: var(--text-muted); }
+
+  /* ============ CHARTS ============ */
+  .chart-wrap { position: relative; height: 240px; }
+  .chart-wrap-sm { height: 180px; }
+  .chart-wrap-lg { height: 300px; }
+
+  /* ============ TX LIST ============ */
+  .tx-list { display: flex; flex-direction: column; }
+  .tx { display: grid; grid-template-columns: 32px 1fr auto auto; gap: 12px; align-items: center; padding: 12px 8px; border-top: 1px solid var(--border); cursor: pointer; transition: background 0.1s; margin: 0 -8px; border-radius: 6px; }
+  .tx:first-child { border-top: none; }
+  .tx:hover { background: var(--surface-2); }
+  .tx.has-detail::after { content: '›'; color: var(--text-faint); font-size: 16px; margin-left: 4px; }
+  .tx-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
+  .tx-icon.cat-super { background: var(--accent-soft); color: var(--accent); }
+  .tx-icon.cat-transport { background: var(--warm-soft); color: var(--warm); }
+  .tx-icon.cat-food { background: var(--gold-soft); color: var(--gold); }
+  .tx-icon.cat-services { background: #e3e0f0; color: #5a4ea0; }
+  .tx-icon.cat-income { background: var(--accent-soft); color: var(--accent); }
+  .tx-icon.cat-tithe { background: var(--gold-soft); color: var(--gold); }
+  .tx-icon.cat-debt { background: var(--danger-soft); color: var(--danger); }
+  .tx-icon.cat-tax { background: var(--info-soft); color: var(--info); }
+
+  .tx-main { min-width: 0; }
+  .tx-title { font-weight: 500; font-size: 13.5px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+  .tx-title .attach-badge { font-size: 10px; color: var(--text-faint); display: inline-flex; align-items: center; gap: 2px; }
+  .tx-sub { font-size: 11.5px; color: var(--text-muted); }
+  .tx-amount { font-family: var(--mono); font-size: 13px; text-align: right; font-weight: 500; }
+  .tx-amount.income { color: var(--accent); }
+  .tx-amount-sub { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; font-family: var(--mono); }
+
+  /* ============ MODAL ============ */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(20, 20, 17, 0.4);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(2px); padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 12px;
+    width: 600px; max-width: 100%; max-height: 90vh;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+  }
+  .modal-lg { width: 720px; }
+  .modal-header {
+    padding: 22px 24px 18px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .modal-eyebrow { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+  .modal-title { font-family: var(--serif); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+  .modal-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; font-family: var(--mono); }
+  .modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 22px; line-height: 1; padding: 4px 8px; }
+  .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--surface-2); }
+
+  .modal-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px 16px; background: var(--surface-2); border-radius: 8px; margin-bottom: 18px; }
+  .modal-summary .stat .label { font-size: 10.5px; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+  .modal-summary .stat .value { font-family: var(--mono); font-size: 13px; }
+
+  .item-list { border-top: 1px solid var(--border); }
+  .item { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: center; }
+  .item-name { font-size: 13px; }
+  .item-meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .item-qty { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+  .item-amount { font-family: var(--mono); font-size: 13px; text-align: right; min-width: 90px; }
+
+  /* attachments */
+  .attachments-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .attach-thumb {
+    width: 72px; height: 72px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px; cursor: pointer;
+    overflow: hidden; position: relative;
+  }
+  .attach-thumb svg { width: 22px; height: 22px; color: var(--text-muted); }
+  .attach-thumb .name { font-size: 9px; color: var(--text-faint); padding: 0 4px; text-align: center; line-height: 1.2; }
+  .attach-thumb.add { border-style: dashed; color: var(--text-muted); }
+  .attach-thumb.add:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  /* ============ FORMS ============ */
+  .form-grid { display: grid; gap: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 11.5px; color: var(--text-muted); font-weight: 500; }
+  .form-label .req { color: var(--danger); }
+  .form-input, .form-select, .form-textarea {
+    font-family: inherit; font-size: 13.5px;
+    padding: 9px 12px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: var(--surface);
+    color: var(--text); transition: border 0.12s, box-shadow 0.12s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.08);
+  }
+  .form-input.mono { font-family: var(--mono); }
+  .form-help { font-size: 11px; color: var(--text-faint); }
+  .form-textarea { min-height: 70px; resize: vertical; font-family: inherit; }
+
+  /* ============ UPLOAD ============ */
+  .upload-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    background: var(--surface-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .upload-zone svg { width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 10px; }
+  .upload-zone .title { font-family: var(--serif); font-size: 16px; margin-bottom: 4px; }
+  .upload-zone .sub { font-size: 12px; color: var(--text-muted); }
+  .upload-zone .formats { font-size: 10.5px; color: var(--text-faint); margin-top: 8px; font-family: var(--mono); letter-spacing: 0.06em; }
+
+  /* ============ TITHE CARD ============ */
+  .tithe-card { background: linear-gradient(160deg, #fbf7ed 0%, #f5ecd3 100%); border: 1px solid var(--gold-soft); }
+  .tithe-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px dashed rgba(184, 146, 58, 0.3); }
+  .tithe-row:first-of-type { border-top: none; }
+  .tithe-row .lbl { font-size: 12.5px; color: var(--text-muted); }
+  .tithe-row .lbl strong { color: var(--text); font-weight: 500; }
+  .tithe-row .val { font-family: var(--mono); font-size: 13px; color: var(--gold); font-weight: 500; }
+  .tithe-total { margin-top: 14px; padding: 12px 14px; background: rgba(184, 146, 58, 0.12); border-radius: 6px; display: flex; justify-content: space-between; align-items: baseline; }
+  .tithe-total .l { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .tithe-total .v { font-family: var(--serif); font-size: 20px; font-style: italic; color: var(--gold); }
+  .tithe-note { font-size: 11.5px; color: var(--text-muted); font-style: italic; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(184, 146, 58, 0.2); line-height: 1.55; }
+
+  /* ============ GOALS / DEBTS ============ */
+  .goal { padding: 14px 0; border-top: 1px solid var(--border); }
+  .goal:first-child { border-top: none; padding-top: 0; }
+  .goal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .goal-name { font-size: 13.5px; font-weight: 500; }
+  .goal-pct { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+  .goal-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .goal-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .goal-meta { font-size: 11px; color: var(--text-faint); font-family: var(--mono); display: flex; justify-content: space-between; }
+
+  .debt { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .debt:first-child { border-top: none; padding-top: 0; }
+  .debt-name { font-size: 13.5px; font-weight: 500; }
+  .debt-balance { font-family: var(--mono); font-size: 13px; text-align: right; }
+  .debt-meta { font-size: 11px; color: var(--text-faint); grid-column: 1 / 2; }
+  .debt-cuota { font-size: 10.5px; color: var(--text-muted); font-family: var(--mono); text-align: right; }
+
+  /* ============ INSIGHT BANNER ============ */
+  .insight-banner {
+    background: linear-gradient(135deg, #1a3a2e 0%, #2d4a3e 100%);
+    color: #f0ede4; border-radius: 10px;
+    padding: 22px 26px; margin-bottom: 24px;
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 20px; align-items: center;
+    position: relative; overflow: hidden;
+  }
+  .insight-banner::before {
+    content: ''; position: absolute; right: -40px; top: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .insight-eyebrow { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(240, 237, 228, 0.6); margin-bottom: 6px; }
+  .insight-text { font-family: var(--serif); font-size: 19px; font-weight: 400; line-height: 1.35; letter-spacing: -0.01em; }
+  .insight-text em { font-style: italic; color: #d4c693; }
+
+  /* ============ CATEGORIES BREAKDOWN ============ */
+  .cat-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; font-size: 13px; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cat-amount { font-family: var(--mono); font-size: 12.5px; }
+  .cat-pct { font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-left: 8px; }
+
+  /* ============ TAX SECTION ============ */
+  .tax-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--info-soft); color: var(--info);
+    border-radius: 8px; font-size: 12.5px;
+    margin-bottom: 18px;
+  }
+  .tax-status svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .tax-bar-track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 8px 0 6px; position: relative; }
+  .tax-bar-fill { height: 100%; background: var(--info); border-radius: 4px; }
+  .tax-bar-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--danger); }
+  .tax-threshold {
+    display: grid; grid-template-columns: 1fr auto auto;
+    gap: 12px; padding: 14px 0;
+    border-top: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .tax-threshold:first-child { border-top: none; padding-top: 0; }
+  .tax-threshold-name { font-size: 13.5px; font-weight: 500; }
+  .tax-threshold-meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .tax-threshold-progress { font-family: var(--mono); font-size: 12px; color: var(--text-muted); text-align: right; }
+  .tax-threshold-pct { font-family: var(--mono); font-size: 14px; font-weight: 500; min-width: 50px; text-align: right; }
+
+  .disclaimer {
+    background: var(--warm-soft); border: 1px solid var(--warm);
+    padding: 12px 16px; border-radius: 8px;
+    font-size: 12px; color: #6b3812;
+    margin-bottom: 20px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .disclaimer svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--warm); }
+  .disclaimer strong { font-weight: 600; }
+
+  /* ============ TABS ============ */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 10px 16px; font-size: 13px; cursor: pointer;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    transition: all 0.12s; user-select: none;
+    margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+
+  /* ============ EMPTY STATES ============ */
+  .empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .empty svg { width: 32px; height: 32px; opacity: 0.4; margin-bottom: 10px; }
+  .empty .title { font-family: var(--serif); font-size: 17px; color: var(--text); margin-bottom: 4px; }
+  .empty .sub { font-size: 12.5px; }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--text); color: var(--bg);
+    padding: 12px 18px; border-radius: 8px;
+    font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 200; display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { transform: translateY(0); }
+  .toast svg { width: 16px; height: 16px; color: var(--accent-soft); }
+
+  /* ============ TABLE ============ */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; padding: 10px 12px;
+    font-size: 11px; font-weight: 500;
+    color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td { padding: 12px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: var(--surface-2); }
+  .data-table .mono { font-family: var(--mono); }
+  .data-table .right { text-align: right; }
+
+  /* ============ BADGES ============ */
+  .badge-pill {
+    display: inline-block; font-size: 11px; padding: 2px 8px;
+    border-radius: 10px; font-family: var(--mono);
+  }
+  .badge-pill.green { background: var(--accent-soft); color: var(--accent); }
+  .badge-pill.warm { background: var(--warm-soft); color: var(--warm); }
+  .badge-pill.gold { background: var(--gold-soft); color: var(--gold); }
+  .badge-pill.danger { background: var(--danger-soft); color: var(--danger); }
+  .badge-pill.info { background: var(--info-soft); color: var(--info); }
+  .badge-pill.gray { background: var(--surface-2); color: var(--text-muted); }
+
+  /* ============ OCR PREVIEW ============ */
+  .ocr-preview {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; align-items: start;
+  }
+  .ocr-image-pane {
+    background: var(--surface-2); border-radius: 8px;
+    aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center;
+    color: var(--text-faint); font-size: 12px;
+    border: 1px solid var(--border);
+    background-image:
+      linear-gradient(45deg, transparent 48%, rgba(0,0,0,0.04) 49%, rgba(0,0,0,0.04) 51%, transparent 52%),
+      linear-gradient(-45deg, transparent 48%, rgba(0,0,0,0.04) 49%, rgba(0,0,0,0.04) 51%, transparent 52%);
+    background-size: 20px 20px;
+  }
+  .ocr-data-pane { display: flex; flex-direction: column; gap: 10px; }
+  .ocr-field {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 12px; background: var(--accent-soft); border-radius: 6px;
+    font-size: 12.5px;
+  }
+  .ocr-field-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ocr-field-value { font-family: var(--mono); font-weight: 500; color: var(--accent); }
+  .ocr-confidence { font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 4px; }
+  .ocr-confidence::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  @media (max-width: 1100px) {
+    .row-2 { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: relative; height: auto; }
+    .row-3, .row-2-eq { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .main { padding: 24px 20px 60px; }
+    .ocr-preview { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ========== SIDEBAR ========== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">Patrimonio</span>
+      <span class="brand-sub">v0.1</span>
+    </div>
+
+    <div class="nav-label">Resumen</div>
+    <div class="nav-item active" data-page="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" data-page="transactions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+      Transacciones
+    </div>
+    <div class="nav-item" data-page="invoices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+      Facturas
+    </div>
+    <div class="nav-item" data-page="import">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M5 10l7-7 7 7"/><path d="M5 21h14"/></svg>
+      Importar
+    </div>
+
+    <div class="nav-label">Análisis</div>
+    <div class="nav-item" data-page="categories">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 21H3V3"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+      Categorías
+    </div>
+
+    <div class="nav-label">Compromisos</div>
+    <div class="nav-item" data-page="tithe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V7z"/></svg>
+      Diezmo & Ofrendas
+    </div>
+    <div class="nav-item" data-page="goals">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+      Metas de ahorro
+    </div>
+    <div class="nav-item" data-page="debts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 15h3"/></svg>
+      Deudas
+    </div>
+    <div class="nav-item" data-page="taxes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h2"/></svg>
+      Impuestos
+    </div>
+
+    <div class="nav-label">Configuración</div>
+    <div class="nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="label">TRM hoy · 2 May</div>
+      <div class="rate">$4.087,30 COP</div>
+      <div class="delta">↗ +0.42% vs ayer</div>
+    </div>
+  </aside>
+
+  <!-- ========== MAIN ========== -->
+  <main class="main">
+
+    <!-- ============ DASHBOARD PAGE ============ -->
+    <div class="page active" id="page-dashboard">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Buenas noches, <em>Andrés</em>.</h1>
+          <div class="page-sub">Mayo 2026 · Resumen del mes en curso</div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="goTo('import')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M5 10l7-7 7 7M5 21h14"/></svg>
+            Subir factura
+          </button>
+          <button class="btn btn-primary" onclick="openModal('newTxModal')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            Nueva transacción
+          </button>
+        </div>
+      </div>
+
+      <div class="insight-banner">
+        <div>
+          <div class="insight-eyebrow">Observación del mes</div>
+          <div class="insight-text">
+            Vas <em>17% por debajo</em> de tu gasto promedio en supermercado. A este ritmo, ahorrarás cerca de <em>$185.000 COP</em> al cierre del mes.
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Ingresos del mes</div>
+          <div class="kpi-value"><span class="currency">USD</span>2.840,00</div>
+          <div class="kpi-secondary">≈ $11.607.932 COP</div>
+          <span class="kpi-trend trend-up">+12.4%</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Gastos del mes</div>
+          <div class="kpi-value"><span class="currency">COP</span>4.842.300</div>
+          <div class="kpi-secondary">≈ USD 1.184,55</div>
+          <span class="kpi-trend trend-down">−8.1%</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Disponible</div>
+          <div class="kpi-value"><span class="currency">USD</span>1.367,00</div>
+          <div class="kpi-secondary">después de diezmo y gastos</div>
+          <span class="kpi-trend trend-up">+22%</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Tasa efectiva del mes</div>
+          <div class="kpi-value"><span class="currency">$</span>4.078,90</div>
+          <div class="kpi-secondary">promedio ponderado</div>
+          <span class="kpi-trend trend-flat">TRM 4.087,30</span>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Flujo de caja</div>
+              <div class="card-meta">Ingresos vs gastos · últimos 6 meses</div>
+            </div>
+            <div class="pill-group">
+              <span class="pill">Semana</span>
+              <span class="pill active">Mes</span>
+              <span class="pill">Año</span>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="cashflowChart"></canvas></div>
+        </div>
+
+        <div class="card tithe-card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Diezmo & Ofrendas</div>
+              <div class="card-meta">Pendiente de devolver / entregar</div>
+            </div>
+          </div>
+          <div class="tithe-row"><div class="lbl"><strong>Freelance</strong> · 10% + 10%</div><div class="val">USD 568,00</div></div>
+          <div class="tithe-row"><div class="lbl"><strong>Sueldo regular</strong> · 10% + 5%</div><div class="val">USD 0,00</div></div>
+          <div class="tithe-row"><div class="lbl">Diezmo (10%)</div><div class="val">USD 284,00</div></div>
+          <div class="tithe-row"><div class="lbl">Ofrendas</div><div class="val">USD 284,00</div></div>
+          <div class="tithe-total"><span class="l">Total a apartar</span><span class="v">$2.318.143 COP</span></div>
+          <div class="tithe-note">"Traed todos los diezmos al alfolí…" — Cada ingreso registrado calcula automáticamente lo que pertenece al Señor.</div>
+        </div>
+      </div>
+
+      <div class="section-title">Movimientos recientes</div>
+
+      <div class="row row-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Transacciones</div>
+              <div class="card-meta">Toca el supermercado para ver el detalle</div>
+            </div>
+            <div class="pill-group">
+              <span class="pill active">Todo</span>
+              <span class="pill">Gastos</span>
+              <span class="pill">Ingresos</span>
+            </div>
+          </div>
+
+          <div class="tx-list">
+            <div class="tx has-detail" onclick="openModal('superModal')">
+              <div class="tx-icon cat-super"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 12H5L3 6zM8 6V4a4 4 0 0 1 8 0v2"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">
+                  Supermercado D1 · Chapinero
+                  <span class="attach-badge">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11l-9 9a6 6 0 0 1-8-8l9-9a4 4 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>
+                  </span>
+                </div>
+                <div class="tx-sub">Hoy, 10:42 · 14 ítems · TRM $4.087,30</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount">−$184.520</div>
+                <div class="tx-amount-sub">−USD 45,14</div>
+              </div>
+            </div>
+
+            <div class="tx">
+              <div class="tx-icon cat-income"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">Pago freelance · BRIX Templates</div>
+                <div class="tx-sub">Ayer · Wise · Cambio a $4.082,10</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount income">+USD 1.420,00</div>
+                <div class="tx-amount-sub">+$5.796.582</div>
+              </div>
+            </div>
+
+            <div class="tx">
+              <div class="tx-icon cat-services"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">Internet · Movistar Fibra</div>
+                <div class="tx-sub">29 abr · Recurrente mensual</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount">−$89.900</div>
+                <div class="tx-amount-sub">−USD 22,00</div>
+              </div>
+            </div>
+
+            <div class="tx">
+              <div class="tx-icon cat-food"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11h18l-1 9H4z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">Almuerzo · La Puerta Falsa</div>
+                <div class="tx-sub">28 abr · Centro</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount">−$32.000</div>
+                <div class="tx-amount-sub">−USD 7,84</div>
+              </div>
+            </div>
+
+            <div class="tx has-detail" onclick="openModal('superModal')">
+              <div class="tx-icon cat-super"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 12H5L3 6zM8 6V4a4 4 0 0 1 8 0v2"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">Éxito · Andino</div>
+                <div class="tx-sub">26 abr · 22 ítems · TRM $4.069,80</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount">−$312.450</div>
+                <div class="tx-amount-sub">−USD 76,77</div>
+              </div>
+            </div>
+
+            <div class="tx">
+              <div class="tx-icon cat-tithe"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V7z"/></svg></div>
+              <div class="tx-main">
+                <div class="tx-title">Diezmo · Iglesia Bogotá Central</div>
+                <div class="tx-sub">25 abr · Devuelto vía consignación</div>
+              </div>
+              <div></div>
+              <div>
+                <div class="tx-amount">−$580.140</div>
+                <div class="tx-amount-sub">−USD 142,00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Distribución del gasto</div>
+                <div class="card-meta">Mayo 2026</div>
+              </div>
+            </div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="categoryChart"></canvas></div>
+            <div style="margin-top: 12px;">
+              <div class="cat-row"><div class="cat-dot" style="background: var(--accent)"></div><div>Supermercado</div><div><span class="cat-amount">$1.420.300</span><span class="cat-pct">29%</span></div></div>
+              <div class="cat-row"><div class="cat-dot" style="background: var(--gold)"></div><div>Comida fuera</div><div><span class="cat-amount">$420.000</span><span class="cat-pct">9%</span></div></div>
+              <div class="cat-row"><div class="cat-dot" style="background: #5a4ea0"></div><div>Servicios</div><div><span class="cat-amount">$310.000</span><span class="cat-pct">6%</span></div></div>
+              <div class="cat-row"><div class="cat-dot" style="background: var(--danger)"></div><div>Deudas</div><div><span class="cat-amount">$245.000</span><span class="cat-pct">5%</span></div></div>
+              <div class="cat-row"><div class="cat-dot" style="background: var(--warm)"></div><div>Transporte</div><div><span class="cat-amount">$184.000</span><span class="cat-pct">4%</span></div></div>
+              <div class="cat-row"><div class="cat-dot" style="background: var(--text-muted)"></div><div>Otros</div><div><span class="cat-amount">$2.263.000</span><span class="cat-pct">47%</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TRANSACTIONS PAGE ============ -->
+    <div class="page" id="page-transactions">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Transacciones</h1>
+          <div class="page-sub">Todas las entradas y salidas registradas</div>
+        </div>
+        <div class="actions">
+          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M9 18h6"/></svg>Filtrar</button>
+          <button class="btn btn-primary" onclick="openModal('newTxModal')">+ Nueva transacción</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="tabs">
+          <div class="tab active">Todas</div>
+          <div class="tab">Ingresos</div>
+          <div class="tab">Gastos</div>
+          <div class="tab">Recurrentes</div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Concepto</th>
+              <th>Categoría</th>
+              <th class="right">Monto</th>
+              <th class="right">Equivalente</th>
+              <th>TRM</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">02 may</td><td>Supermercado D1 · Chapinero</td><td><span class="badge-pill green">Supermercado</span></td><td class="right mono">−$184.520</td><td class="right mono" style="color:var(--text-faint)">−USD 45,14</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.087,30</td><td><a style="color:var(--accent); font-size:12px; cursor:pointer" onclick="openModal('superModal')">Ver factura →</a></td></tr>
+            <tr><td class="mono">01 may</td><td>Pago freelance · BRIX Templates</td><td><span class="badge-pill green">Ingreso freelance</span></td><td class="right mono" style="color:var(--accent)">+USD 1.420,00</td><td class="right mono" style="color:var(--text-faint)">+$5.796.582</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.082,10</td><td></td></tr>
+            <tr><td class="mono">29 abr</td><td>Internet · Movistar Fibra</td><td><span class="badge-pill info">Servicios</span></td><td class="right mono">−$89.900</td><td class="right mono" style="color:var(--text-faint)">−USD 22,00</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.085,40</td><td></td></tr>
+            <tr><td class="mono">28 abr</td><td>Almuerzo · La Puerta Falsa</td><td><span class="badge-pill gold">Comida fuera</span></td><td class="right mono">−$32.000</td><td class="right mono" style="color:var(--text-faint)">−USD 7,84</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.080,15</td><td></td></tr>
+            <tr><td class="mono">26 abr</td><td>Éxito · Andino</td><td><span class="badge-pill green">Supermercado</span></td><td class="right mono">−$312.450</td><td class="right mono" style="color:var(--text-faint)">−USD 76,77</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.069,80</td><td><a style="color:var(--accent); font-size:12px; cursor:pointer" onclick="openModal('superModal')">Ver factura →</a></td></tr>
+            <tr><td class="mono">25 abr</td><td>Diezmo · Iglesia Bogotá Central</td><td><span class="badge-pill gold">Diezmo</span></td><td class="right mono">−$580.140</td><td class="right mono" style="color:var(--text-faint)">−USD 142,00</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.085,50</td><td></td></tr>
+            <tr><td class="mono">25 abr</td><td>Uber · Casa → Iglesia</td><td><span class="badge-pill warm">Transporte</span></td><td class="right mono">−$14.500</td><td class="right mono" style="color:var(--text-faint)">−USD 3,55</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.085,50</td><td></td></tr>
+            <tr><td class="mono">22 abr</td><td>Cuota tarjeta · Bancolombia</td><td><span class="badge-pill danger">Deuda</span></td><td class="right mono">−$245.000</td><td class="right mono" style="color:var(--text-faint)">−USD 60,18</td><td class="mono" style="color:var(--text-muted); font-size:11.5px">$4.071,20</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ INVOICES PAGE ============ -->
+    <div class="page" id="page-invoices">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Facturas</h1>
+          <div class="page-sub">Compras con detalle de ítems y soportes adjuntos</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="goTo('import')">+ Subir factura nueva</button>
+        </div>
+      </div>
+
+      <div class="row row-3">
+        <div class="card" onclick="openModal('superModal')" style="cursor:pointer">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px">
+            <div class="tx-icon cat-super" style="width:36px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 12H5L3 6zM8 6V4a4 4 0 0 1 8 0v2"/></svg></div>
+            <span class="badge-pill green">14 ítems</span>
+          </div>
+          <div class="card-title" style="font-size:15px">Supermercado D1</div>
+          <div style="font-size:11.5px; color:var(--text-faint); margin:3px 0 12px; font-family:var(--mono)">Chapinero · Hoy, 10:42</div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding-top:12px; border-top:1px solid var(--border)">
+            <span style="font-family:var(--mono); font-size:15px; font-weight:500">$184.520</span>
+            <span style="font-size:11px; color:var(--text-faint); font-family:var(--mono)">USD 45,14</span>
+          </div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px">
+            <div class="tx-icon cat-super" style="width:36px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 12H5L3 6zM8 6V4a4 4 0 0 1 8 0v2"/></svg></div>
+            <span class="badge-pill green">22 ítems</span>
+          </div>
+          <div class="card-title" style="font-size:15px">Éxito Andino</div>
+          <div style="font-size:11.5px; color:var(--text-faint); margin:3px 0 12px; font-family:var(--mono)">Chapinero · 26 abr</div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding-top:12px; border-top:1px solid var(--border)">
+            <span style="font-family:var(--mono); font-size:15px; font-weight:500">$312.450</span>
+            <span style="font-size:11px; color:var(--text-faint); font-family:var(--mono)">USD 76,77</span>
+          </div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px">
+            <div class="tx-icon cat-super" style="width:36px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 12H5L3 6zM8 6V4a4 4 0 0 1 8 0v2"/></svg></div>
+            <span class="badge-pill green">9 ítems</span>
+          </div>
+          <div class="card-title" style="font-size:15px">Carulla Express</div>
+          <div style="font-size:11.5px; color:var(--text-faint); margin:3px 0 12px; font-family:var(--mono)">Quinta Camacho · 18 abr</div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding-top:12px; border-top:1px solid var(--border)">
+            <span style="font-family:var(--mono); font-size:15px; font-weight:500">$87.300</span>
+            <span style="font-size:11px; color:var(--text-faint); font-family:var(--mono)">USD 21,45</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ IMPORT PAGE ============ -->
+    <div class="page" id="page-import">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Importar</h1>
+          <div class="page-sub">Sube fotos de facturas, archivos CSV o PDFs</div>
+        </div>
+      </div>
+
+      <div class="row row-2-eq">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Foto de factura</div>
+              <div class="card-meta">Reconocimiento automático con IA</div>
+            </div>
+            <span class="badge-pill info">OCR + Claude</span>
+          </div>
+          <div class="upload-zone" onclick="simulateOCR()" id="ocrZone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            <div class="title">Arrastra una foto aquí</div>
+            <div class="sub">o haz clic para seleccionar</div>
+            <div class="formats">JPG · PNG · HEIC · PDF · max 10MB</div>
+          </div>
+          <div style="margin-top: 16px; padding: 14px; background: var(--surface-2); border-radius: 8px; font-size: 12px; color: var(--text-muted);">
+            <strong style="color: var(--text); font-weight: 500;">Cómo funciona:</strong> tomas la foto del ticket, la IA extrae cada ítem con su precio, los categoriza automáticamente y crea una transacción con drill-down. Tú solo confirmas.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Archivo CSV</div>
+              <div class="card-meta">Extracto bancario o exportación</div>
+            </div>
+          </div>
+          <div class="upload-zone" id="csvZone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 2v6h6M8 13h8M8 17h5M8 9h2"/>
+            </svg>
+            <div class="title">Sube un CSV o XLSX</div>
+            <div class="sub">o pega el contenido directamente</div>
+            <div class="formats">CSV · XLSX · TSV · max 5MB</div>
+          </div>
+          <div style="margin-top: 16px; padding: 14px; background: var(--surface-2); border-radius: 8px; font-size: 12px; color: var(--text-muted);">
+            <strong style="color: var(--text); font-weight: 500;">Soportados:</strong> Bancolombia, Davivienda, Wise, Binance P2P. Mapeas las columnas la primera vez y queda guardado para próximas importaciones.
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Importaciones recientes <span class="badge">3</span></div>
+
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Archivo</th>
+              <th>Tipo</th>
+              <th>Fecha</th>
+              <th class="right">Transacciones</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>factura_d1_chapinero.jpg</td><td><span class="badge-pill info">Foto OCR</span></td><td class="mono">02 may, 10:43</td><td class="right mono">14 ítems</td><td><span class="badge-pill green">Procesado</span></td></tr>
+            <tr><td>extracto_bancolombia_abr.csv</td><td><span class="badge-pill gray">CSV</span></td><td class="mono">30 abr, 18:20</td><td class="right mono">28 movs</td><td><span class="badge-pill green">Procesado</span></td></tr>
+            <tr><td>wise_transactions_apr2026.csv</td><td><span class="badge-pill gray">CSV</span></td><td class="mono">28 abr, 09:15</td><td class="right mono">6 movs</td><td><span class="badge-pill green">Procesado</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ CATEGORIES PAGE ============ -->
+    <div class="page" id="page-categories">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Categorías</h1>
+          <div class="page-sub">En qué se va tu dinero</div>
+        </div>
+        <div class="actions">
+          <div class="pill-group">
+            <span class="pill">Mes</span>
+            <span class="pill active">Trimestre</span>
+            <span class="pill">Año</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Tendencia por categoría</div>
+              <div class="card-meta">Últimos 3 meses</div>
+            </div>
+          </div>
+          <div class="chart-wrap chart-wrap-lg"><canvas id="trendChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Top categorías</div>
+              <div class="card-meta">Por monto acumulado</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                <strong style="font-size: 13.5px">Supermercado</strong>
+                <span class="mono" style="font-size: 13px">$4.260.900</span>
+              </div>
+              <div class="goal-bar"><div class="goal-fill" style="width: 100%; background: var(--accent)"></div></div>
+              <div style="font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-top: 6px;">3 meses · 12 facturas · USD 1.043,20</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                <strong style="font-size: 13.5px">Diezmo & Ofrendas</strong>
+                <span class="mono" style="font-size: 13px">$1.740.420</span>
+              </div>
+              <div class="goal-bar"><div class="goal-fill" style="width: 41%; background: var(--gold)"></div></div>
+              <div style="font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-top: 6px;">3 meses · USD 426,30</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                <strong style="font-size: 13.5px">Comida fuera</strong>
+                <span class="mono" style="font-size: 13px">$1.260.000</span>
+              </div>
+              <div class="goal-bar"><div class="goal-fill" style="width: 30%; background: var(--gold)"></div></div>
+              <div style="font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-top: 6px;">3 meses · 38 visitas · USD 308,70</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                <strong style="font-size: 13.5px">Servicios</strong>
+                <span class="mono" style="font-size: 13px">$930.000</span>
+              </div>
+              <div class="goal-bar"><div class="goal-fill" style="width: 22%; background: #5a4ea0"></div></div>
+              <div style="font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-top: 6px;">Internet, luz, agua, celular · USD 227,80</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TITHE PAGE ============ -->
+    <div class="page" id="page-tithe">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title"><em>Diezmo</em> & Ofrendas</h1>
+          <div class="page-sub">"Porque el Señor tu Dios es quien te da el poder para hacer las riquezas" · Dt 8:18</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-accent">+ Registrar devolución</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Diezmo del mes</div>
+          <div class="kpi-value"><span class="currency">USD</span>284,00</div>
+          <div class="kpi-secondary">10% de USD 2.840 · ≈ $1.160.793</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Ofrendas del mes</div>
+          <div class="kpi-value"><span class="currency">USD</span>284,00</div>
+          <div class="kpi-secondary">10% freelance + 5% sueldo</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Devuelto este mes</div>
+          <div class="kpi-value"><span class="currency">USD</span>0,00</div>
+          <div class="kpi-secondary">Pendiente: USD 568,00</div>
+          <span class="kpi-trend trend-down">Pendiente</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Total año en curso</div>
+          <div class="kpi-value"><span class="currency">USD</span>1.840,00</div>
+          <div class="kpi-secondary">Diezmo + ofrendas · 4 meses</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Por tipo de ingreso</div>
+              <div class="card-meta">Configuración personal</div>
+            </div>
+          </div>
+          <div style="padding: 16px; background: var(--accent-soft); border-radius: 8px; margin-bottom: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong>Ingresos freelance</strong>
+              <span class="badge-pill green">10% + 10%</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">Diezmo del 10% sobre el ingreso bruto + ofrendas del 10%. Total apartado: <strong style="color:var(--text)">20% por cada pago recibido</strong>.</div>
+          </div>
+          <div style="padding: 16px; background: var(--gold-soft); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong>Sueldo regular</strong>
+              <span class="badge-pill gold">10% + 5%</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">Diezmo del 10% + ofrendas del 5%. Total apartado: <strong style="color:var(--text)">15% del sueldo neto</strong>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Histórico mensual</div>
+              <div class="card-meta">Últimos 6 meses</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="titheChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="section-title">Historial de devoluciones</div>
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr><th>Fecha</th><th>Concepto</th><th>Iglesia / Destino</th><th class="right">Diezmo</th><th class="right">Ofrenda</th><th class="right">Total USD</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">25 abr</td><td>Devolución mensual</td><td>Iglesia Bogotá Central</td><td class="right mono">USD 95,00</td><td class="right mono">USD 47,00</td><td class="right mono">USD 142,00</td></tr>
+            <tr><td class="mono">28 mar</td><td>Devolución mensual</td><td>Iglesia Bogotá Central</td><td class="right mono">USD 110,00</td><td class="right mono">USD 55,00</td><td class="right mono">USD 165,00</td></tr>
+            <tr><td class="mono">25 feb</td><td>Devolución mensual</td><td>Iglesia Bogotá Central</td><td class="right mono">USD 88,00</td><td class="right mono">USD 44,00</td><td class="right mono">USD 132,00</td></tr>
+            <tr><td class="mono">26 ene</td><td>Devolución mensual + Pacto</td><td>Iglesia Bogotá Central</td><td class="right mono">USD 102,00</td><td class="right mono">USD 51,00</td><td class="right mono">USD 153,00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ GOALS PAGE ============ -->
+    <div class="page" id="page-goals">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Metas de ahorro</h1>
+          <div class="page-sub">Objetivos que te acercan a tu próximo paso</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary">+ Nueva meta</button>
+        </div>
+      </div>
+
+      <div class="row row-3">
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+            <div class="tx-icon" style="background: var(--accent-soft); color: var(--accent); width: 36px; height: 36px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z"/><circle cx="12" cy="9" r="3"/></svg>
+            </div>
+            <div>
+              <div style="font-weight:500; font-size:14px">Fondo de emergencia</div>
+              <div style="font-size:11.5px; color:var(--text-faint)">6 meses de gastos</div>
+            </div>
+          </div>
+          <div style="font-family:var(--serif); font-size:24px; font-weight:500; margin-bottom:4px">USD 4.080</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">de USD 6.000 · 68%</div>
+          <div class="goal-bar"><div class="goal-fill" style="width: 68%"></div></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:11.5px; color:var(--text-faint); font-family:var(--mono)">
+            <span>+USD 320 / mes</span>
+            <span>~ 7 meses</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+            <div class="tx-icon" style="background: var(--gold-soft); color: var(--gold); width: 36px; height: 36px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+            </div>
+            <div>
+              <div style="font-weight:500; font-size:14px">MacBook Pro</div>
+              <div style="font-size:11.5px; color:var(--text-faint)">Equipo de trabajo</div>
+            </div>
+          </div>
+          <div style="font-family:var(--serif); font-size:24px; font-weight:500; margin-bottom:4px">USD 850</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">de USD 2.500 · 34%</div>
+          <div class="goal-bar"><div class="goal-fill" style="width: 34%; background: var(--gold)"></div></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:11.5px; color:var(--text-faint); font-family:var(--mono)">
+            <span>+USD 200 / mes</span>
+            <span>Meta: dic 2026</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+            <div class="tx-icon" style="background: var(--warm-soft); color: var(--warm); width: 36px; height: 36px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+            </div>
+            <div>
+              <div style="font-weight:500; font-size:14px">Visita familia VE</div>
+              <div style="font-size:11.5px; color:var(--text-faint)">Tiquetes + viáticos</div>
+            </div>
+          </div>
+          <div style="font-family:var(--serif); font-size:24px; font-weight:500; margin-bottom:4px">USD 180</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">de USD 1.500 · 12%</div>
+          <div class="goal-bar"><div class="goal-fill" style="width: 12%; background: var(--warm)"></div></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:11.5px; color:var(--text-faint); font-family:var(--mono)">
+            <span>Sin aporte fijo</span>
+            <span>Sin fecha</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Sugerencia para Andrés</div>
+            <div class="card-meta">Basado en tu flujo actual</div>
+          </div>
+        </div>
+        <div style="padding: 16px; background: var(--accent-soft); border-radius: 8px; font-size: 13.5px; line-height: 1.65; color: var(--text);">
+          Tu disponible mensual promedio (después de diezmos, ofrendas, gastos fijos y deudas) es <strong>USD 1.367</strong>. Si destinas <strong>el 25%</strong> a tus metas (USD 342), terminas el fondo de emergencia en <strong>~6 meses</strong> y el MacBook en <strong>~5 meses</strong>. Como recibes en USD, considera <em>no</em> cambiar a COP el dinero destinado a metas — así te proteges de la volatilidad de la TRM.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DEBTS PAGE ============ -->
+    <div class="page" id="page-debts">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Deudas</h1>
+          <div class="page-sub">Saldos, intereses y cronograma de pagos</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary">+ Nueva deuda</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Deuda total</div>
+          <div class="kpi-value"><span class="currency">COP</span>3.140.000</div>
+          <div class="kpi-secondary">USD 768,40 · 2 deudas activas</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Cuota mensual total</div>
+          <div class="kpi-value"><span class="currency">COP</span>417.500</div>
+          <div class="kpi-secondary">3.6% de tus ingresos</div>
+          <span class="kpi-trend trend-up">Saludable</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Intereses año en curso</div>
+          <div class="kpi-value"><span class="currency">COP</span>187.420</div>
+          <div class="kpi-secondary">Solo Bancolombia</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Libre de deudas en</div>
+          <div class="kpi-value">~9 <span class="currency">meses</span></div>
+          <div class="kpi-secondary">Pagando cuotas mínimas</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Cronograma de pagos</div>
+            <div class="card-meta">Próximas cuotas</div>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Deuda</th><th>Acreedor</th><th class="right">Saldo</th><th class="right">Cuota</th><th>Tasa</th><th>Progreso</th><th>Próximo pago</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Tarjeta de crédito</strong><div style="font-size:11px;color:var(--text-faint)">Compra equipo cómputo</div></td>
+              <td>Bancolombia</td>
+              <td class="right mono">$2.450.000</td>
+              <td class="right mono">$245.000</td>
+              <td><span class="badge-pill warm">21,5% E.A.</span></td>
+              <td>
+                <div class="goal-bar" style="width:120px"><div class="goal-fill" style="width: 33%; background: var(--warm)"></div></div>
+                <div style="font-size:10.5px;color:var(--text-faint);font-family:var(--mono);margin-top:3px">4 / 12 cuotas</div>
+              </td>
+              <td class="mono">22 may</td>
+            </tr>
+            <tr>
+              <td><strong>Préstamo familiar</strong><div style="font-size:11px;color:var(--text-faint)">Equipo trabajo</div></td>
+              <td>Familia</td>
+              <td class="right mono">$690.000</td>
+              <td class="right mono">$172.500</td>
+              <td><span class="badge-pill green">0% (sin interés)</span></td>
+              <td>
+                <div class="goal-bar" style="width:120px"><div class="goal-fill" style="width: 33%; background: var(--accent)"></div></div>
+                <div style="font-size:10.5px;color:var(--text-faint);font-family:var(--mono);margin-top:3px">2 / 6 cuotas</div>
+              </td>
+              <td class="mono">15 may</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Estrategia recomendada</div>
+            <div class="card-meta">Avalancha vs bola de nieve</div>
+          </div>
+        </div>
+        <div style="padding: 16px; background: var(--accent-soft); border-radius: 8px; font-size: 13.5px; line-height: 1.65;">
+          La tarjeta de Bancolombia te cuesta <strong>~$43.875 en intereses al mes</strong> (21.5% E.A.). Si añades <strong>USD 100 extra cada mes</strong> a esa cuota, terminas la deuda en 7 meses en vez de 8 y te ahorras ~$31.000 COP en intereses. El préstamo familiar puede mantenerse en cuota mínima — no genera costo financiero.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAXES PAGE ============ -->
+    <div class="page" id="page-taxes">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Impuestos · <em>Colombia</em></h1>
+          <div class="page-sub">Seguimiento de obligaciones tributarias DIAN</div>
+        </div>
+        <div class="actions">
+          <button class="btn">Configurar perfil</button>
+        </div>
+      </div>
+
+      <div class="disclaimer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div><strong>Importante:</strong> esta sección es una herramienta de seguimiento basada en topes oficiales DIAN, no asesoría tributaria. Como extranjero residente y freelancer recibiendo pagos en USD, tu situación tiene matices (residencia fiscal, régimen tributario, facturación electrónica). <strong>Valida tu configuración con un contador antes de tomar decisiones.</strong></div>
+      </div>
+
+      <div class="tax-status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div><strong>Tu perfil tributario:</strong> Residente fiscal en Colombia · Trabajador independiente · Régimen Simple de Tributación (configurado por ti — confirma con contador).</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Ingresos brutos año</div>
+          <div class="kpi-value"><span class="currency">COP</span>46.430.000</div>
+          <div class="kpi-secondary">≈ USD 11.360 · 4 meses</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Proyección anual</div>
+          <div class="kpi-value"><span class="currency">COP</span>139.290.000</div>
+          <div class="kpi-secondary">~3.000 UVT · línea base</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Próxima obligación</div>
+          <div class="kpi-value">15 <span class="currency">jul</span></div>
+          <div class="kpi-secondary">Bimestre 2 · Régimen Simple</div>
+          <span class="kpi-trend trend-flat">en 74 días</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Provisión sugerida</div>
+          <div class="kpi-value"><span class="currency">COP</span>2.785.800</div>
+          <div class="kpi-secondary">2% sobre ingresos brutos</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Topes y umbrales 2026</div>
+              <div class="card-meta">Valor UVT 2026: $49.799 · referencia DIAN</div>
+            </div>
+          </div>
+
+          <div class="tax-threshold">
+            <div>
+              <div class="tax-threshold-name">Tope para declarar renta</div>
+              <div class="tax-threshold-meta">Ingresos brutos anuales · 1.400 UVT (~$69.7M)</div>
+              <div class="tax-bar-track" style="margin-top:8px"><div class="tax-bar-fill" style="width: 67%"></div></div>
+            </div>
+            <div class="tax-threshold-progress">$46.4M<br><span style="font-size:10px">de $69.7M</span></div>
+            <div class="tax-threshold-pct" style="color: var(--warm)">67%</div>
+          </div>
+
+          <div class="tax-threshold">
+            <div>
+              <div class="tax-threshold-name">Tope responsable de IVA</div>
+              <div class="tax-threshold-meta">Ingresos brutos · 3.500 UVT (~$174.3M)</div>
+              <div class="tax-bar-track" style="margin-top:8px"><div class="tax-bar-fill" style="width: 27%; background:var(--accent)"></div></div>
+            </div>
+            <div class="tax-threshold-progress">$46.4M<br><span style="font-size:10px">de $174.3M</span></div>
+            <div class="tax-threshold-pct" style="color: var(--accent)">27%</div>
+          </div>
+
+          <div class="tax-threshold">
+            <div>
+              <div class="tax-threshold-name">Tope Régimen Simple</div>
+              <div class="tax-threshold-meta">Ingresos brutos · 100.000 UVT (~$4.980M)</div>
+              <div class="tax-bar-track" style="margin-top:8px"><div class="tax-bar-fill" style="width: 1%; background:var(--accent)"></div></div>
+            </div>
+            <div class="tax-threshold-progress">$46.4M<br><span style="font-size:10px">de $4.980M</span></div>
+            <div class="tax-threshold-pct" style="color: var(--accent)">~1%</div>
+          </div>
+
+          <div class="tax-threshold">
+            <div>
+              <div class="tax-threshold-name">Patrimonio líquido</div>
+              <div class="tax-threshold-meta">Tope para declarar · 4.500 UVT (~$224.1M)</div>
+              <div class="tax-bar-track" style="margin-top:8px"><div class="tax-bar-fill" style="width: 12%; background:var(--accent)"></div></div>
+            </div>
+            <div class="tax-threshold-progress">~$27M<br><span style="font-size:10px">de $224M</span></div>
+            <div class="tax-threshold-pct" style="color: var(--accent)">12%</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Calendario tributario</div>
+              <div class="card-meta">Tus obligaciones próximas</div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="padding: 14px; background: var(--info-soft); border-radius: 8px; border-left: 3px solid var(--info);">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="font-size:13.5px">Régimen Simple · Bim 2</strong>
+                <span class="mono" style="font-size:12px; color:var(--info)">15 jul 2026</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">Anticipo bimestral · Formulario 2593</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="font-size:13.5px">Régimen Simple · Bim 3</strong>
+                <span class="mono" style="font-size:12px; color:var(--text-muted)">15 sep 2026</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">Anticipo bimestral</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="font-size:13.5px">Declaración anual Simple</strong>
+                <span class="mono" style="font-size:12px; color:var(--text-muted)">~feb 2027</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">Consolidación año gravable 2026</div>
+            </div>
+            <div style="padding: 14px; background: var(--surface-2); border-radius: 8px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong style="font-size:13.5px">Renta personas naturales</strong>
+                <span class="mono" style="font-size:12px; color:var(--text-muted)">ago — oct 2027</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">Solo si superas el tope · vencimiento por NIT</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Provisión automática</div>
+            <div class="card-meta">Apartar para impuestos sin sentirlo</div>
+          </div>
+        </div>
+        <div style="padding: 16px; background: var(--info-soft); border-radius: 8px; font-size: 13.5px; line-height: 1.65; color: var(--text);">
+          La app aparta automáticamente <strong>el 2% de cada ingreso bruto</strong> en una bolsa virtual de "Impuestos pendientes". Esa tasa es una aproximación conservadora del Régimen Simple para servicios profesionales (categoría 4 — del 5.9%). Cuando llegue cada bimestre, ya tendrás el dinero apartado. <strong>Confirma el porcentaje real con tu contador</strong> — varía según la actividad económica registrada en tu RUT.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SETTINGS PAGE ============ -->
+    <div class="page" id="page-settings">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Ajustes</h1>
+          <div class="page-sub">Configuración personal y preferencias</div>
+        </div>
+      </div>
+
+      <div class="row row-2-eq">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Monedas</div></div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Moneda base</label>
+              <select class="form-select"><option>USD — Dólar estadounidense</option><option>COP — Peso colombiano</option></select>
+              <div class="form-help">Tu patrimonio se calcula en esta moneda</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Moneda secundaria</label>
+              <select class="form-select"><option>COP — Peso colombiano</option><option>USD — Dólar estadounidense</option></select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Fuente de TRM</label>
+              <select class="form-select"><option>Banco de la República (oficial)</option><option>Casa de cambio Wise</option><option>Manual</option></select>
+              <div class="form-help">Se actualiza automáticamente cada día hábil</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Diezmo y ofrendas</div></div>
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="form-field">
+                <label class="form-label">Freelance · diezmo (%)</label>
+                <input class="form-input mono" value="10" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Freelance · ofrenda (%)</label>
+                <input class="form-input mono" value="10" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label class="form-label">Sueldo · diezmo (%)</label>
+                <input class="form-input mono" value="10" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Sueldo · ofrenda (%)</label>
+                <input class="form-input mono" value="5" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Iglesia / destino</label>
+              <input class="form-input" value="Iglesia Adventista Bogotá Central" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row row-2-eq" style="margin-top: 16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Datos & privacidad</div></div>
+          <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
+            Toda tu información se guarda localmente en tu navegador (IndexedDB). Nada se envía a servidores externos excepto cuando importas una factura por OCR (la imagen se procesa y se descarta).
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Exportar todo (JSON)</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V8a2 2 0 0 1 2-2h3l2-3h6l2 3h3a2 2 0 0 1 2 2v13"/></svg> Backup a archivo</button>
+            <button class="btn" style="color: var(--danger); border-color: var(--danger)">Borrar todos los datos</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Importación inteligente</div></div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Procesamiento OCR</label>
+              <select class="form-select"><option>Claude (Anthropic) — recomendado</option><option>Tesseract local (gratis, menos preciso)</option><option>Desactivado</option></select>
+              <div class="form-help">Claude reconoce facturas colombianas con ~98% de precisión</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Categorización automática</label>
+              <select class="form-select"><option>Activada (sugerencias IA)</option><option>Manual</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ========== MODAL: Drill-down factura ========== -->
+<div class="modal-overlay" id="superModal" onclick="if(event.target===this) closeModal('superModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <div class="modal-eyebrow">Factura · Supermercado</div>
+        <div class="modal-title">Supermercado D1 · Chapinero</div>
+        <div class="modal-sub">2 may 2026 · 10:42 · TRM $4.087,30</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('superModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-summary">
+        <div class="stat"><div class="label">Ítems</div><div class="value">14</div></div>
+        <div class="stat"><div class="label">Total COP</div><div class="value">$184.520</div></div>
+        <div class="stat"><div class="label">Total USD</div><div class="value">USD 45,14</div></div>
+      </div>
+
+      <div class="item-list">
+        <div class="item"><div><div class="item-name">Arroz Diana · 5 kg</div><div class="item-meta">Despensa</div></div><div class="item-qty">×1</div><div class="item-amount">$24.900</div></div>
+        <div class="item"><div><div class="item-name">Aceite girasol · 1L</div><div class="item-meta">Despensa</div></div><div class="item-qty">×2</div><div class="item-amount">$18.400</div></div>
+        <div class="item"><div><div class="item-name">Huevos AA · 30 und</div><div class="item-meta">Refrigerados</div></div><div class="item-qty">×1</div><div class="item-amount">$16.500</div></div>
+        <div class="item"><div><div class="item-name">Leche entera · 1L</div><div class="item-meta">Refrigerados</div></div><div class="item-qty">×4</div><div class="item-amount">$15.600</div></div>
+        <div class="item"><div><div class="item-name">Pan integral</div><div class="item-meta">Panadería</div></div><div class="item-qty">×2</div><div class="item-amount">$11.800</div></div>
+        <div class="item"><div><div class="item-name">Banano</div><div class="item-meta">Frutas · 2.4 kg</div></div><div class="item-qty">×1</div><div class="item-amount">$7.920</div></div>
+        <div class="item"><div><div class="item-name">Manzana roja</div><div class="item-meta">Frutas · 1.8 kg</div></div><div class="item-qty">×1</div><div class="item-amount">$13.500</div></div>
+        <div class="item"><div><div class="item-name">Lentejas</div><div class="item-meta">Despensa · 500g</div></div><div class="item-qty">×3</div><div class="item-amount">$11.700</div></div>
+        <div class="item"><div><div class="item-name">Avena en hojuelas</div><div class="item-meta">Despensa</div></div><div class="item-qty">×2</div><div class="item-amount">$9.800</div></div>
+        <div class="item"><div><div class="item-name">Tomate chonto</div><div class="item-meta">Verduras · 1 kg</div></div><div class="item-qty">×1</div><div class="item-amount">$4.200</div></div>
+        <div class="item"><div><div class="item-name">Cebolla cabezona</div><div class="item-meta">Verduras · 1 kg</div></div><div class="item-qty">×1</div><div class="item-amount">$3.800</div></div>
+        <div class="item"><div><div class="item-name">Jabón de baño</div><div class="item-meta">Aseo</div></div><div class="item-qty">×3</div><div class="item-amount">$12.600</div></div>
+        <div class="item"><div><div class="item-name">Papel higiénico · 12 rollos</div><div class="item-meta">Aseo</div></div><div class="item-qty">×1</div><div class="item-amount">$22.900</div></div>
+        <div class="item"><div><div class="item-name">Detergente líquido</div><div class="item-meta">Aseo</div></div><div class="item-qty">×1</div><div class="item-amount">$10.900</div></div>
+      </div>
+
+      <div class="attachments-strip">
+        <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); width: 100%; margin-bottom: 4px;">Soportes</div>
+        <div class="attach-thumb">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <div class="name">factura.jpg</div>
+        </div>
+        <div class="attach-thumb">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div class="name">recibo.pdf</div>
+        </div>
+        <div class="attach-thumb add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <div class="name">Añadir</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn">Editar</button>
+      <button class="btn btn-primary" onclick="closeModal('superModal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL: Nueva transacción ========== -->
+<div class="modal-overlay" id="newTxModal" onclick="if(event.target===this) closeModal('newTxModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-eyebrow">Registrar</div>
+        <div class="modal-title">Nueva transacción</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('newTxModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Tipo <span class="req">*</span></label>
+            <select class="form-select">
+              <option>Gasto</option>
+              <option>Ingreso freelance</option>
+              <option>Ingreso sueldo</option>
+              <option>Transferencia</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Fecha <span class="req">*</span></label>
+            <input class="form-input mono" type="date" value="2026-05-02" />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Concepto <span class="req">*</span></label>
+          <input class="form-input" placeholder="Ej. Almuerzo en La Puerta Falsa" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Monto <span class="req">*</span></label>
+            <input class="form-input mono" placeholder="0,00" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Moneda</label>
+            <select class="form-select">
+              <option>COP</option>
+              <option>USD</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Categoría</label>
+          <select class="form-select">
+            <option>Supermercado</option>
+            <option>Comida fuera</option>
+            <option>Transporte</option>
+            <option>Servicios</option>
+            <option>Salud</option>
+            <option>Diezmo / Ofrenda</option>
+            <option>Otros</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">TRM del día</label>
+          <input class="form-input mono" value="4.087,30" />
+          <div class="form-help">Se autocompleta con la TRM oficial. Edítala si usaste tasa de cambio diferente.</div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Notas</label>
+          <textarea class="form-textarea" placeholder="Detalles adicionales..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('newTxModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTx()">Guardar transacción</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL: OCR Preview ========== -->
+<div class="modal-overlay" id="ocrModal" onclick="if(event.target===this) closeModal('ocrModal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <div class="modal-eyebrow">Reconocimiento automático</div>
+        <div class="modal-title">Factura detectada</div>
+        <div class="modal-sub">Confirma los datos antes de guardar</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('ocrModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="ocr-preview">
+        <div class="ocr-image-pane">[ Vista previa de la foto ]</div>
+        <div class="ocr-data-pane">
+          <div class="ocr-confidence">Confianza · 97%</div>
+          <div class="ocr-field"><span class="ocr-field-label">Establecimiento</span><span class="ocr-field-value">D1 Chapinero</span></div>
+          <div class="ocr-field"><span class="ocr-field-label">Fecha</span><span class="ocr-field-value">02/05/2026</span></div>
+          <div class="ocr-field"><span class="ocr-field-label">Total</span><span class="ocr-field-value">$184.520</span></div>
+          <div class="ocr-field"><span class="ocr-field-label">Ítems detectados</span><span class="ocr-field-value">14</span></div>
+          <div class="ocr-field"><span class="ocr-field-label">Categoría sugerida</span><span class="ocr-field-value">Supermercado</span></div>
+          <div style="font-size: 11.5px; color: var(--text-muted); padding: 8px 0;">Cada ítem fue clasificado en una sub-categoría (despensa, frutas, aseo…) automáticamente. Podrás editarlas en el siguiente paso.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('ocrModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="confirmOCR()">Confirmar y crear transacción</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+  <span id="toast-msg">Guardado</span>
+</div>
+
+<script>
+  // ============ NAVEGACIÓN ============
+  function goTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    item.addEventListener('click', () => goTo(item.dataset.page));
+  });
+
+  // ============ MODALES ============
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+
+  // ============ PILL TOGGLES ============
+  document.querySelectorAll('.pill-group').forEach(group => {
+    group.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pill')) {
+        group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        e.target.classList.add('active');
+      }
+    });
+  });
+
+  // ============ TABS ============
+  document.querySelectorAll('.tabs').forEach(tabs => {
+    tabs.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab')) {
+        tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+      }
+    });
+  });
+
+  // ============ TOAST ============
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function saveTx() {
+    closeModal('newTxModal');
+    setTimeout(() => toast('Transacción guardada'), 200);
+  }
+
+  // ============ OCR SIMULATION ============
+  function simulateOCR() {
+    toast('Procesando imagen…');
+    setTimeout(() => openModal('ocrModal'), 1200);
+  }
+  function confirmOCR() {
+    closeModal('ocrModal');
+    setTimeout(() => {
+      toast('Factura registrada con 14 ítems');
+      setTimeout(() => openModal('superModal'), 600);
+    }, 200);
+  }
+
+  // ============ DRAG & DROP ============
+  ['ocrZone', 'csvZone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    ['dragover', 'dragenter'].forEach(ev => el.addEventListener(ev, (e) => { e.preventDefault(); el.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => el.addEventListener(ev, (e) => { e.preventDefault(); el.classList.remove('drag'); }));
+    el.addEventListener('drop', () => { if (id === 'ocrZone') simulateOCR(); else toast('CSV procesado · 28 movimientos'); });
+  });
+
+  // ============ CHARTS ============
+  const accentGreen = '#2d4a3e';
+  const warmOrange = '#c4621d';
+  const goldColor = '#b8923a';
+
+  // Cashflow
+  const cashCtx = document.getElementById('cashflowChart').getContext('2d');
+  const gradGreen = cashCtx.createLinearGradient(0, 0, 0, 240);
+  gradGreen.addColorStop(0, 'rgba(45, 74, 62, 0.18)'); gradGreen.addColorStop(1, 'rgba(45, 74, 62, 0)');
+  const gradOrange = cashCtx.createLinearGradient(0, 0, 0, 240);
+  gradOrange.addColorStop(0, 'rgba(196, 98, 29, 0.16)'); gradOrange.addColorStop(1, 'rgba(196, 98, 29, 0)');
+
+  new Chart(cashCtx, {
+    type: 'line',
+    data: {
+      labels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May'],
+      datasets: [
+        { label: 'Ingresos', data: [9200000, 10100000, 8900000, 11400000, 10300000, 11607932], borderColor: accentGreen, backgroundColor: gradGreen, borderWidth: 2, tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: accentGreen, pointBorderColor: '#fff', pointBorderWidth: 1.5 },
+        { label: 'Gastos', data: [5800000, 6200000, 5400000, 5900000, 5270000, 4842300], borderColor: warmOrange, backgroundColor: gradOrange, borderWidth: 2, tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: warmOrange, pointBorderColor: '#fff', pointBorderWidth: 1.5 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Geist', size: 11 }, color: '#6b6960', usePointStyle: true, padding: 14 } },
+        tooltip: { backgroundColor: '#1a1a17', titleFont: { family: 'Geist', size: 12 }, bodyFont: { family: 'JetBrains Mono', size: 11 }, padding: 10, cornerRadius: 6, callbacks: { label: (ctx) => `${ctx.dataset.label}: $${(ctx.parsed.y/1000000).toFixed(2)}M` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Geist', size: 11 }, color: '#9a978d' } },
+        y: { grid: { color: '#e8e6df' }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#9a978d', callback: (v) => '$' + (v/1000000).toFixed(1) + 'M' } }
+      }
+    }
+  });
+
+  // Category doughnut
+  new Chart(document.getElementById('categoryChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Supermercado', 'Comida fuera', 'Servicios', 'Deudas', 'Transporte', 'Otros'],
+      datasets: [{ data: [29, 9, 6, 5, 4, 47], backgroundColor: ['#2d4a3e', '#b8923a', '#5a4ea0', '#a83e2b', '#c4621d', '#9a978d'], borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1a17', padding: 10, cornerRadius: 6, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed}%` } } }
+    }
+  });
+
+  // Trend chart (categories page)
+  new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['Mar', 'Abr', 'May'],
+      datasets: [
+        { label: 'Supermercado', data: [1480000, 1360000, 1420300], backgroundColor: accentGreen, borderRadius: 4 },
+        { label: 'Comida fuera', data: [380000, 460000, 420000], backgroundColor: goldColor, borderRadius: 4 },
+        { label: 'Servicios', data: [310000, 310000, 310000], backgroundColor: '#5a4ea0', borderRadius: 4 },
+        { label: 'Transporte', data: [148000, 168000, 184000], backgroundColor: warmOrange, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Geist', size: 11 }, color: '#6b6960', usePointStyle: true, padding: 12 } },
+        tooltip: { backgroundColor: '#1a1a17', padding: 10, cornerRadius: 6, callbacks: { label: (ctx) => `${ctx.dataset.label}: $${(ctx.parsed.y/1000000).toFixed(2)}M` } }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Geist', size: 11 }, color: '#9a978d' } },
+        y: { stacked: true, grid: { color: '#e8e6df' }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#9a978d', callback: (v) => '$' + (v/1000000).toFixed(1) + 'M' } }
+      }
+    }
+  });
+
+  // Tithe history
+  new Chart(document.getElementById('titheChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr'],
+      datasets: [
+        { label: 'Diezmo', data: [85, 102, 88, 110, 95], backgroundColor: goldColor, borderRadius: 4 },
+        { label: 'Ofrendas', data: [42, 51, 44, 55, 47], backgroundColor: '#d4b974', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Geist', size: 11 }, color: '#6b6960', usePointStyle: true, padding: 12 } },
+        tooltip: { backgroundColor: '#1a1a17', padding: 10, cornerRadius: 6, callbacks: { label: (ctx) => `${ctx.dataset.label}: USD ${ctx.parsed.y}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Geist', size: 11 }, color: '#9a978d' } },
+        y: { grid: { color: '#e8e6df' }, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#9a978d', callback: (v) => 'USD ' + v } }
+      }
+    }
+  });
+</script>
+</body>
+</html>
