@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
-import { db } from '@/db/schema'
-import type { Category } from '@/types/domain'
+import type { Category, Transaction } from '@/types/domain'
 
 export interface Subscription {
   name: string
@@ -55,7 +55,7 @@ const ANT_KEYWORDS = [...DELIVERY_KEYWORDS, 'cafe', 'c café', 'juice', 'snack',
 const ANT_THRESHOLD_COP = 25_000
 
 function normalizeText(t: string): string {
-  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 export function useInsights(): InsightsData {
@@ -66,13 +66,26 @@ export function useInsights(): InsightsData {
   const prevMonthEnd = format(endOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
   const threeMonthsAgo = format(startOfMonth(subMonths(now, 3)), 'yyyy-MM-dd')
 
-  const transactions = useLiveQuery(
-    () => db.transactions.where('date').aboveOrEqual(threeMonthsAgo).toArray(),
-    [threeMonthsAgo],
-  )
+  const api = useApi()
 
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
-  const invoiceItems = useLiveQuery(() => db.invoiceItems.toArray()) ?? []
+  const { data: transactionsData } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<Transaction[]>('/transactions'),
+  })
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+
+  const { data: invoiceItemsData } = useQuery({
+    queryKey: ['invoice-items'],
+    queryFn: () => api.get<any[]>('/invoice-items'),
+  })
+
+  const transactions = transactionsData ? transactionsData.filter(tx => tx.date >= threeMonthsAgo) : undefined
+  const categories = categoriesData ?? []
+  const invoiceItems = invoiceItemsData ?? []
 
   const categoryMap = useMemo(() => {
     const m = new Map<number, Category>()

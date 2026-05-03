@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
+import type { TitheConfig } from '@/types/domain'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import {
   Shield,
   Heart,
@@ -20,8 +22,6 @@ import { Badge } from '@/components/common/Badge'
 import { toast } from 'sonner'
 import { useSettings } from '@/hooks/useSettings'
 import { calculateTitheForIncome } from '@/lib/tithe'
-import { db } from '@/db/schema'
-import type { TitheConfig } from '@/types/domain'
 
 export default function TithePage() {
   const { settings, setSetting } = useSettings()
@@ -32,11 +32,19 @@ export default function TithePage() {
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
   const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd')
 
-  const transactions = useLiveQuery(
-    () => db.transactions.orderBy('date').reverse().toArray(),
-    [],
-  )
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  const api = useApi()
+
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<any[]>('/transactions'),
+  })
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<any[]>('/categories'),
+  })
+
+  const categories = categoriesData ?? []
 
   const categoryMap = useMemo(() => {
     const m = new Map<number, typeof categories[number]>()

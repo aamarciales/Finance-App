@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/ui/button'
@@ -21,8 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { CategoryFormDialog } from '@/components/categories/CategoryFormDialog'
-import { db } from '@/db/schema'
-import { logChange } from '@/hooks/useAuditLog'
+import { useApi } from '@/lib/api'
 import type { CategoryFormValues } from '@/lib/validators'
 import type { Category } from '@/types/domain'
 
@@ -30,61 +29,64 @@ export default function CategoriesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editCategory, setEditCategory] = useState<Category | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  
+  const api = useApi()
+  const queryClient = useQueryClient()
+
+  const { data: categories = [], isLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
 
   const expenseCategories = categories.filter((c) => c.type === 'expense')
   const incomeCategories = categories.filter((c) => c.type === 'income')
 
+  const createMutation = useMutation({
+    mutationFn: async (values: CategoryFormValues) => {
+      await api.post('/categories', { ...values, isSystem: false })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      toast.success('Categoría creada')
+      closeForm()
+    }
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, values }: { id: number, values: CategoryFormValues }) => {
+      await api.put(`/categories/${id}`, values)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      toast.success('Categoría actualizada')
+      closeForm()
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/categories/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Categoría eliminada')
+      setDeleteTarget(null)
+    }
+  })
+
   async function handleCreate(values: CategoryFormValues) {
-    const id = await db.categories.add({
-      ...values,
-      isSystem: false,
-    }) as number
-    await logChange({
-      entityType: 'category',
-      entityId: id,
-      operation: 'create',
-      afterState: { ...values, isSystem: false },
-      description: `Nueva categoría: ${values.name}`,
-    })
+    createMutation.mutate(values)
   }
 
   async function handleEdit(values: CategoryFormValues) {
     if (!editCategory?.id) return
-    const beforeState = { ...editCategory }
-    await db.categories.update(editCategory.id, values)
-    await logChange({
-      entityType: 'category',
-      entityId: editCategory.id,
-      operation: 'update',
-      beforeState,
-      afterState: values,
-      description: `Editada categoría: ${values.name}`,
-    })
-    toast.success('Categoría actualizada')
-    setEditCategory(undefined)
+    updateMutation.mutate({ id: editCategory.id, values })
   }
 
   async function handleDelete() {
     if (!deleteTarget?.id) return
-    const beforeState = { ...deleteTarget }
-    const otros = categories.find((c) => c.name === 'Otros' && c.type === 'expense')
-    if (otros) {
-      await db.transactions
-        .where('categoryId')
-        .equals(deleteTarget.id)
-        .modify({ categoryId: otros.id! })
-    }
-    await logChange({
-      entityType: 'category',
-      entityId: deleteTarget.id,
-      operation: 'delete',
-      beforeState,
-      description: `Eliminada categoría: ${deleteTarget.name}`,
-    })
-    await db.categories.delete(deleteTarget.id)
-    toast.success('Categoría eliminada')
-    setDeleteTarget(null)
+    deleteMutation.mutate(deleteTarget.id)
   }
 
   function closeForm() {
@@ -104,20 +106,24 @@ export default function CategoriesPage() {
         }
       />
 
-      <div className="space-y-8">
-        <CategoryGroup
-          title="Gastos"
-          items={expenseCategories}
-          onEdit={setEditCategory}
-          onDelete={setDeleteTarget}
-        />
-        <CategoryGroup
-          title="Ingresos"
-          items={incomeCategories}
-          onEdit={setEditCategory}
-          onDelete={setDeleteTarget}
-        />
-      </div>
+      {isLoading ? (
+        <div className="py-10 text-center text-text-muted">Cargando…</div>
+      ) : (
+        <div className="space-y-8">
+          <CategoryGroup
+            title="Gastos"
+            items={expenseCategories}
+            onEdit={setEditCategory}
+            onDelete={setDeleteTarget}
+          />
+          <CategoryGroup
+            title="Ingresos"
+            items={incomeCategories}
+            onEdit={setEditCategory}
+            onDelete={setDeleteTarget}
+          />
+        </div>
+      )}
 
       <CategoryFormDialog
         open={formOpen || !!editCategory}
@@ -136,7 +142,9 @@ export default function CategoriesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

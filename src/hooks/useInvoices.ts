@@ -1,13 +1,12 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import { getEquivalentAmounts } from '@/lib/currency'
-import type { Invoice, InvoiceItem, Attachment, Category } from '@/types/domain'
+import type { Invoice, InvoiceItem, Category, Transaction } from '@/types/domain'
 
 export interface EnrichedInvoice extends Invoice {
   items: InvoiceItem[]
-  attachment?: Attachment
   transactionConcept?: string
   transactionCategoryId?: number
 }
@@ -23,63 +22,155 @@ export interface InvoiceFormData {
     unitPrice: number
     subCategory?: string
   }>
-  file?: File
-  removeAttachment?: boolean
   categoryId: number
 }
 
 export function useInvoices() {
-  const invoices = useLiveQuery(() => db.invoices.orderBy('date').reverse().toArray())
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  const api = useApi()
+  const queryClient = useQueryClient()
+
+  const { data: rawInvoices, isLoading: loadingInv } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => api.get<Invoice[]>('/invoices'),
+  })
+
+  const { data: rawItems, isLoading: loadingItems } = useQuery({
+    queryKey: ['invoiceItems'],
+    queryFn: () => api.get<InvoiceItem[]>('/invoice-items'),
+  })
+
+  const { data: categories, isLoading: loadingCats } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<Transaction[]>('/transactions'),
+  })
 
   const categoryMap = useMemo(() => {
     const m = new Map<number, Category>()
-    for (const c of categories) {
-      if (c.id != null) m.set(c.id, c)
+    if (categories) {
+      for (const c of categories) {
+        if (c.id != null) m.set(c.id, c)
+      }
     }
     return m
   }, [categories])
 
-  async function addInvoice(data: InvoiceFormData) {
+  const enrichedInvoices: EnrichedInvoice[] = useMemo(() => {
+    if (!rawInvoices || !rawItems) return []
+    
+    return rawInvoices.map((inv) => {
+      const items = rawItems.filter(i => i.invoiceId === inv.id)
+      const tx = transactions?.find(t => t.id === inv.transactionId)
+      
+      return {
+        ...inv,
+        items,
+        transactionConcept: tx?.concept,
+        transactionCategoryId: tx?.categoryId,
+      }
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [rawInvoices, rawItems, transactions])
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    queryClient.invalidateQueries({ queryKey: ['invoiceItems'] })
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+  }
+
+  const addInvoice = async (data: InvoiceFormData) => {
     const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
 
-    // Get TRM for the date
-    const trmRecord = await db.trmRecords.get(data.date)
-    const trm = trmRecord?.rate ?? 4087.30
+    // Using default TRM for now since TRM records are not migrated yet
+    const trm = 4087.30
     const rates = { trm, eurToUsd: 1.08 }
     const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
-    const now = new Date().toISOString()
 
-    await db.transaction('rw', [db.invoices, db.invoiceItems, db.attachments, db.transactions], async () => {
-      // Create invoice
-      const invoiceId = await db.invoices.add({
-        transactionId: 0,
-        merchant: data.merchant,
-        branch: data.branch,
-        date: data.date,
-        total,
-        currency: data.currency,
-        trm,
-        itemCount: data.items.length,
-        createdAt: now,
+    // 1. Create invoice
+    const inv = await api.post<Invoice>('/invoices', {
+      transactionId: 0,
+      merchant: data.merchant,
+      branch: data.branch,
+      date: data.date,
+      total,
+      currency: data.currency,
+      trm,
+      itemCount: data.items.length,
+    })
+
+    // 2. Create items
+    for (const item of data.items) {
+      await api.post('/invoice-items', {
+        invoiceId: inv.id,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantity * item.unitPrice,
+        subCategory: item.subCategory,
       })
+    }
 
-      // Create items
-      for (const item of data.items) {
-        await db.invoiceItems.add({
-          invoiceId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.quantity * item.unitPrice,
-          subCategory: item.subCategory,
-        })
-      }
+    // 3. Create transaction
+    const tx = await api.post<Transaction>('/transactions', {
+      date: data.date,
+      type: 'expense',
+      concept: `${data.merchant}${data.branch ? ` · ${data.branch}` : ''}`,
+      categoryId: data.categoryId,
+      amount: total,
+      currency: data.currency,
+      trm,
+      amountInBase,
+      amountInSecondary,
+      invoiceId: inv.id,
+    })
 
-      // Create transaction
-      const txId = await db.transactions.add({
+    // 4. Link invoice to transaction
+    await api.put(`/invoices/${inv.id}`, { transactionId: tx.id })
+
+    invalidateAll()
+    toast.success('Factura creada')
+  }
+
+  const updateInvoice = async (id: number, data: InvoiceFormData, existing: EnrichedInvoice) => {
+    const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    const trm = existing.trm ?? 4087.30
+    const rates = { trm, eurToUsd: 1.08 }
+    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
+
+    // Update invoice
+    await api.put(`/invoices/${id}`, {
+      merchant: data.merchant,
+      branch: data.branch,
+      date: data.date,
+      total,
+      currency: data.currency,
+      trm,
+      itemCount: data.items.length,
+    })
+
+    // Replace items (delete old, create new)
+    for (const item of existing.items) {
+      if (item.id) await api.delete(`/invoice-items/${item.id}`)
+    }
+    
+    for (const item of data.items) {
+      await api.post('/invoice-items', {
+        invoiceId: id,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantity * item.unitPrice,
+        subCategory: item.subCategory,
+      })
+    }
+
+    // Update transaction
+    if (existing.transactionId) {
+      await api.put(`/transactions/${existing.transactionId}`, {
         date: data.date,
-        type: 'expense',
         concept: `${data.merchant}${data.branch ? ` · ${data.branch}` : ''}`,
         categoryId: data.categoryId,
         amount: total,
@@ -87,124 +178,41 @@ export function useInvoices() {
         trm,
         amountInBase,
         amountInSecondary,
-        invoiceId,
-        createdAt: now,
-        updatedAt: now,
       })
+    }
 
-      // Link invoice to transaction
-      await db.invoices.update(invoiceId, { transactionId: txId })
-
-      // Save attachment if provided
-      if (data.file) {
-        const arrayBuffer = await data.file.arrayBuffer()
-        const blob = new Blob([arrayBuffer], { type: data.file.type })
-        await db.attachments.add({
-          invoiceId,
-          filename: data.file.name,
-          mimeType: data.file.type,
-          size: data.file.size,
-          type: data.file.type.startsWith('image/') ? 'image' : 'pdf',
-          blob,
-          createdAt: now,
-        })
-      }
-    })
-
-    toast.success('Factura creada')
-  }
-
-  async function updateInvoice(id: number, data: InvoiceFormData, existing: EnrichedInvoice) {
-    const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-    const trmRecord = await db.trmRecords.get(data.date)
-    const trm = trmRecord?.rate ?? existing.trm ?? 4087.30
-    const rates = { trm, eurToUsd: 1.08 }
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
-    const now = new Date().toISOString()
-
-    await db.transaction('rw', [db.invoices, db.invoiceItems, db.attachments, db.transactions], async () => {
-      await db.invoices.update(id, {
-        merchant: data.merchant,
-        branch: data.branch,
-        date: data.date,
-        total,
-        currency: data.currency,
-        trm,
-        itemCount: data.items.length,
-      })
-
-      // Replace items
-      await db.invoiceItems.where('invoiceId').equals(id).delete()
-      for (const item of data.items) {
-        await db.invoiceItems.add({
-          invoiceId: id,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.quantity * item.unitPrice,
-          subCategory: item.subCategory,
-        })
-      }
-
-      // Update linked transaction
-      if (existing.transactionId) {
-        await db.transactions.update(existing.transactionId, {
-          date: data.date,
-          concept: `${data.merchant}${data.branch ? ` · ${data.branch}` : ''}`,
-          categoryId: data.categoryId,
-          amount: total,
-          currency: data.currency,
-          trm,
-          amountInBase,
-          amountInSecondary,
-          updatedAt: now,
-        })
-      }
-
-      // Handle attachment changes
-      if (data.file) {
-        // New file: delete old, save new
-        await db.attachments.where('invoiceId').equals(id).delete()
-        const arrayBuffer = await data.file.arrayBuffer()
-        const blob = new Blob([arrayBuffer], { type: data.file.type })
-        await db.attachments.add({
-          invoiceId: id,
-          filename: data.file.name,
-          mimeType: data.file.type,
-          size: data.file.size,
-          type: data.file.type.startsWith('image/') ? 'image' : 'pdf',
-          blob,
-          createdAt: now,
-        })
-      } else if (data.removeAttachment) {
-        await db.attachments.where('invoiceId').equals(id).delete()
-      }
-    })
-
+    invalidateAll()
     toast.success('Factura actualizada')
   }
 
-  async function deleteInvoice(id: number) {
-    const inv = await db.invoices.get(id)
+  const deleteInvoice = async (id: number) => {
+    const inv = rawInvoices?.find(i => i.id === id)
     if (!inv) return
 
-    await db.transaction('rw', [db.invoices, db.invoiceItems, db.attachments, db.transactions], async () => {
-      await db.invoiceItems.where('invoiceId').equals(id).delete()
-      await db.attachments.where('invoiceId').equals(id).delete()
-      if (inv.transactionId) {
-        await db.transactions.delete(inv.transactionId)
-      }
-      await db.invoices.delete(id)
-    })
+    const items = rawItems?.filter(i => i.invoiceId === id) ?? []
+    
+    // Delete items
+    for (const item of items) {
+      if (item.id) await api.delete(`/invoice-items/${item.id}`)
+    }
 
+    // Delete transaction
+    if (inv.transactionId) {
+      await api.delete(`/transactions/${inv.transactionId}`)
+    }
+
+    // Delete invoice
+    await api.delete(`/invoices/${id}`)
+
+    invalidateAll()
     toast.success('Factura eliminada')
   }
 
   return {
-    invoices: invoices ?? [],
-    categories,
+    invoices: enrichedInvoices,
+    categories: categories ?? [],
     categoryMap,
-    loading: invoices === undefined,
+    loading: loadingInv || loadingItems || loadingCats,
     addInvoice,
     updateInvoice,
     deleteInvoice,

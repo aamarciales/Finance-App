@@ -1,6 +1,6 @@
 import Papa from 'papaparse'
 
-export type DetectedBank = 'bancolombia' | 'davivienda' | 'wise' | 'binance_p2p' | 'unknown'
+export type DetectedBank = 'bancolombia' | 'davivienda' | 'wise' | 'binance_p2p' | 'patrimonio_generic' | 'unknown'
 
 export interface ParsedTransaction {
   date: string
@@ -17,6 +17,11 @@ function normalizeHeader(h: string): string {
 export function detectBank(csv: string): DetectedBank {
   const lines = csv.split('\n').slice(0, 5)
   const text = lines.join('\n').toLowerCase()
+
+  // Patrimonio Generic Export/Import
+  if (text.includes('fecha') && text.includes('categoria') && text.includes('concepto') && text.includes('monto_original')) {
+    return 'patrimonio_generic'
+  }
 
   // Bancolombia: uses semicolons, specific Spanish headers
   if (text.includes('fecha') && text.includes('descripción') && text.includes('valor') && text.includes('saldo')) {
@@ -47,8 +52,35 @@ export function parseCSV(csv: string, bank: DetectedBank): ParsedTransaction[] {
     case 'davivienda': return parseDavivienda(csv)
     case 'wise': return parseWise(csv)
     case 'binance_p2p': return parseBinanceP2P(csv)
+    case 'patrimonio_generic': return parsePatrimonioGeneric(csv)
     default: return []
   }
+}
+
+function parsePatrimonioGeneric(csv: string): ParsedTransaction[] {
+  const result = Papa.parse<Record<string, string>>(csv, {
+    header: true,
+    skipEmptyLines: true,
+  })
+
+  return result.data
+    .filter(row => row['Fecha'])
+    .map(row => {
+      const date = row['Fecha']!.trim()
+      const concept = row['Concepto']?.trim() ?? ''
+      
+      const tipo = row['Tipo']?.trim().toLowerCase()
+      const rawAmount = parseFloat(row['Monto_Original'] ?? '0') || 0
+      const isExpense = tipo === 'gasto'
+      // If it's an expense, we represent it negatively, or positively based on logic,
+      // but the importer logic takes absolute values for amount usually, wait!
+      // In CSV importer, we usually pass positive amounts.
+      const amount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount)
+
+      const currency = (row['Moneda']?.trim()?.toUpperCase() ?? 'COP') as 'COP' | 'USD' | 'EUR'
+      return { date, concept, amount, currency, originalData: row }
+    })
+    .filter(tx => tx.concept && tx.amount !== 0)
 }
 
 function parseBancolombia(csv: string): ParsedTransaction[] {
@@ -160,5 +192,6 @@ export const BANK_LABELS: Record<DetectedBank, string> = {
   davivienda: 'Davivienda',
   wise: 'Wise',
   binance_p2p: 'Binance P2P',
+  patrimonio_generic: 'Patrimonio Genérico',
   unknown: 'Desconocido',
 }

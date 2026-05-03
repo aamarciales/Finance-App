@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import {
   Landmark,
   Calculator,
@@ -20,7 +21,6 @@ import {
   getUVT,
   type SimpleTaxResult,
 } from '@/lib/tax-co'
-import { db } from '@/db/schema'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -33,10 +33,14 @@ function formatCopFull(amount: number): string {
 }
 
 export default function TaxesPage() {
-  const transactions = useLiveQuery(
-    () => db.transactions.toArray(),
-    [],
-  )
+  const api = useApi()
+
+  const { data: transactionsData, isLoading } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<any[]>('/transactions'),
+  })
+
+  const transactions = transactionsData ?? []
 
   const yearStart = `${CURRENT_YEAR}-01-01`
   const yearEnd = `${CURRENT_YEAR}-12-31`
@@ -54,7 +58,7 @@ export default function TaxesPage() {
   const provision = calculateProvision(annualIncomeCop)
   const calendar = getPaymentCalendar(CURRENT_YEAR)
 
-  const loading = transactions === undefined
+  const loading = isLoading
 
   return (
     <>

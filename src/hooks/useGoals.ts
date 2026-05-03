@@ -1,7 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { db } from '@/db/schema'
-import type { Currency } from '@/types/domain'
+import { useApi } from '@/lib/api'
+import type { Currency, Goal } from '@/types/domain'
 
 export interface GoalFormData {
   name: string
@@ -16,44 +16,73 @@ export interface GoalFormData {
 }
 
 export function useGoals() {
-  const goals = useLiveQuery(() => db.goals.toArray())
+  const api = useApi()
+  const queryClient = useQueryClient()
 
-  async function addGoal(data: GoalFormData) {
-    await db.goals.add({
-      ...data,
-      createdAt: new Date().toISOString(),
-    })
-    toast.success('Meta creada')
+  const { data: goals, isLoading: loadingGoals } = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => api.get<Goal[]>('/goals'),
+  })
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['goals'] })
   }
 
-  async function updateGoal(id: number, data: GoalFormData) {
-    await db.goals.update(id, data)
-    toast.success('Meta actualizada')
-  }
-
-  async function deleteGoal(id: number) {
-    await db.goals.delete(id)
-    toast.success('Meta eliminada')
-  }
-
-  async function contributeToGoal(id: number, amount: number) {
-    const goal = await db.goals.get(id)
-    if (!goal) return
-    const newAmount = goal.currentAmount + amount
-    await db.goals.update(id, { currentAmount: newAmount })
-    if (newAmount >= goal.targetAmount) {
-      toast.success(`¡Meta "${goal.name}" completada!`)
-    } else {
-      toast.success('Abono registrado')
+  const { mutateAsync: addGoalMutate } = useMutation({
+    mutationFn: async (data: GoalFormData) => {
+      await api.post('/goals', data)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Meta creada')
     }
-  }
+  })
+
+  const { mutateAsync: updateGoalMutate } = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: GoalFormData }) => {
+      await api.put(`/goals/${id}`, data)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Meta actualizada')
+    }
+  })
+
+  const { mutateAsync: deleteGoalMutate } = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/goals/${id}`)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Meta eliminada')
+    }
+  })
+
+  const { mutateAsync: contributeToGoalMutate } = useMutation({
+    mutationFn: async ({ id, amount }: { id: number; amount: number }) => {
+      const goal = goals?.find(g => g.id === id)
+      if (!goal) return
+      const newAmount = goal.currentAmount + amount
+      await api.put(`/goals/${id}`, { currentAmount: newAmount })
+      return { newAmount, goalName: goal.name, targetAmount: goal.targetAmount }
+    },
+    onSuccess: (result) => {
+      if (!result) return
+      invalidateAll()
+      if (result.newAmount >= result.targetAmount) {
+        toast.success(`¡Meta "${result.goalName}" completada!`)
+      } else {
+        toast.success('Abono registrado')
+      }
+    }
+  })
 
   return {
     goals: goals ?? [],
-    loading: goals === undefined,
-    addGoal,
-    updateGoal,
-    deleteGoal,
-    contributeToGoal,
+    loading: loadingGoals,
+    addGoal: async (data: GoalFormData) => addGoalMutate(data),
+    updateGoal: async (id: number, data: GoalFormData) => updateGoalMutate({ id, data }),
+    deleteGoal: async (id: number) => deleteGoalMutate(id),
+    contributeToGoal: async (id: number, amount: number) => contributeToGoalMutate({ id, amount }),
   }
 }

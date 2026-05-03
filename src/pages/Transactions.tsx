@@ -22,7 +22,7 @@ import {
 import { useTransactions, type TabFilter, type EnrichedTransaction } from '@/hooks/useTransactions'
 import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
-import { logChange } from '@/hooks/useAuditLog'
+
 import { resolveInternalType, type TxFormValues } from '@/lib/validators'
 import type { Transaction } from '@/types/domain'
 
@@ -57,7 +57,7 @@ export default function TransactionsPage() {
     async (values: TxFormValues) => {
       const cat = categories.find((c) => c.id === values.categoryId)
       const internalType = resolveInternalType(cat?.name ?? '', values.type)
-      const txId = await addTransaction({
+      await addTransaction({
         date: values.date,
         type: internalType,
         concept: values.concept,
@@ -70,13 +70,6 @@ export default function TransactionsPage() {
         debtId: values.debtId || undefined,
         capitalAmount: values.capitalAmount,
         interestAmount: values.interestAmount,
-      }) as number
-      await logChange({
-        entityType: 'transaction',
-        entityId: txId,
-        operation: 'create',
-        afterState: { ...values, type: internalType },
-        description: `Nueva transacción: ${values.concept}`,
       })
       toast.success('Transacción creada')
     },
@@ -88,7 +81,6 @@ export default function TransactionsPage() {
       if (!editTx?.id) return
       const cat = categories.find((c) => c.id === values.categoryId)
       const internalType = resolveInternalType(cat?.name ?? '', values.type)
-      const beforeState = { ...editTx }
       await updateTransaction(editTx.id, {
         date: values.date,
         type: internalType,
@@ -103,14 +95,6 @@ export default function TransactionsPage() {
         capitalAmount: values.capitalAmount,
         interestAmount: values.interestAmount,
       })
-      await logChange({
-        entityType: 'transaction',
-        entityId: editTx.id,
-        operation: 'update',
-        beforeState,
-        afterState: { ...values, type: internalType },
-        description: `Editada: ${values.concept}`,
-      })
       toast.success('Transacción actualizada')
       setEditTx(undefined)
     },
@@ -119,13 +103,6 @@ export default function TransactionsPage() {
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget?.id) return
-    await logChange({
-      entityType: 'transaction',
-      entityId: deleteTarget.id,
-      operation: 'delete',
-      beforeState: { ...deleteTarget },
-      description: `Eliminada: ${deleteTarget.concept}`,
-    })
     await deleteTransaction(deleteTarget.id)
     toast.success('Transacción eliminada')
     setDeleteTarget(null)

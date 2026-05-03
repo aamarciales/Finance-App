@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import { getEquivalentAmounts } from '@/lib/currency'
-import type { Category, Transaction } from '@/types/domain'
+import type { Category, Transaction, Debt } from '@/types/domain'
 
 export type TabFilter = 'all' | 'income' | 'expense' | 'recurring'
 
@@ -19,17 +19,33 @@ export interface EnrichedTransaction extends Transaction {
   category: Category
 }
 
-/** Whether a transaction counts toward income/expense KPIs. Transfers are excluded. */
 export function isKpiTransaction(tx: Transaction): boolean {
   return tx.type !== 'transfer'
 }
 
 export function useTransactions(filters: TxFilters = {}, rates: { trm: number; eurToUsd: number }) {
   const { tab, periodStart, periodEnd, categoryId, search } = filters
+  const api = useApi()
+  const queryClient = useQueryClient()
 
-  const transactions = useLiveQuery(async () => {
-    const all = await db.transactions.orderBy('date').reverse().toArray()
-    return all.filter((tx) => {
+  const { data: rawTransactions, isLoading: loadingTxs } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<Transaction[]>('/transactions'),
+  })
+
+  const { data: categories, isLoading: loadingCats } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+
+  const { data: debts } = useQuery({
+    queryKey: ['debts'],
+    queryFn: () => api.get<Debt[]>('/debts'),
+  })
+
+  const filteredTransactions = useMemo(() => {
+    if (!rawTransactions) return []
+    return rawTransactions.filter((tx) => {
       if (tab === 'income' && tx.type !== 'income') return false
       if (tab === 'expense' && tx.type !== 'expense' && tx.type !== 'debt_payment') return false
       if (tab === 'recurring' && !tx.isRecurring) return false
@@ -39,58 +55,56 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
       if (search && !tx.concept.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [tab, periodStart, periodEnd, categoryId, search])
-
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  }, [rawTransactions, tab, periodStart, periodEnd, categoryId, search])
 
   const categoryMap = useMemo(() => {
     const m = new Map<number, Category>()
-    for (const c of categories) {
-      if (c.id != null) m.set(c.id, c)
+    if (categories) {
+      for (const c of categories) {
+        if (c.id != null) m.set(c.id, c)
+      }
     }
     return m
   }, [categories])
 
   const enriched: EnrichedTransaction[] = useMemo(() => {
-    if (!transactions) return []
-    return transactions.map((tx) => ({
+    return filteredTransactions.map((tx) => ({
       ...tx,
       category: categoryMap.get(tx.categoryId)!,
     })).filter((tx) => tx.category)
-  }, [transactions, categoryMap])
+  }, [filteredTransactions, categoryMap])
 
-  const addTx = useMemo(() => async (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'amountInBase' | 'amountInSecondary'>) => {
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, data.currency, rates)
-    const now = new Date().toISOString()
+  // Mutations
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['debts'] })
+  }
 
-    if (data.type === 'debt_payment' && data.debtId) {
-      await db.transaction('rw', [db.transactions, db.debts], async () => {
-        const txId = await db.transactions.add({ ...data, amountInBase, amountInSecondary, createdAt: now, updatedAt: now })
+  const { mutateAsync: addTxMutate } = useMutation({
+    mutationFn: async (data: any) => {
+      // Create transaction
+      const tx = await api.post<Transaction>('/transactions', data)
 
-        const debt = await db.debts.get(data.debtId!)
+      // Debt logic
+      if (data.type === 'debt_payment' && data.debtId && debts) {
+        const debt = debts.find(d => d.id === data.debtId)
         if (debt) {
           const capital = data.capitalAmount ?? data.amount
           const newBalance = Math.max(0, debt.currentBalance - capital)
-          const updates: Partial<typeof debt> = {
+          await api.put(`/debts/${debt.id}`, {
             currentBalance: newBalance,
             paidInstallments: debt.paidInstallments + 1,
-          }
-          if (newBalance <= 0) {
-            updates.isPaid = true
-          }
-          await db.debts.update(data.debtId!, updates)
-
-          if (newBalance <= 0) {
-            toast.success(`Has saldado "${debt.name}"`)
-          }
+            isPaid: newBalance <= 0
+          })
+          if (newBalance <= 0) toast.success(`Has saldado "${debt.name}"`)
         }
 
-        // If interest was specified, create a separate expense tx
+        // Interest logic -> create another expense tx
         if (data.interestAmount && data.interestAmount > 0) {
-          const interestCategory = await db.categories.filter((c) => c.name === 'Intereses bancarios').first()
+          const interestCategory = categories?.find(c => c.name === 'Intereses bancarios')
           if (interestCategory?.id) {
             const { amountInBase: ib, amountInSecondary: is2 } = getEquivalentAmounts(data.interestAmount, data.currency, rates)
-            await db.transactions.add({
+            await api.post('/transactions', {
               date: data.date,
               type: 'expense',
               concept: `Intereses · ${data.concept}`,
@@ -101,105 +115,105 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
               amountInBase: ib,
               amountInSecondary: is2,
               debtId: data.debtId,
-              createdAt: now,
-              updatedAt: now,
             })
           }
         }
-
-        return txId
-      })
-    } else {
-      return db.transactions.add({ ...data, amountInBase, amountInSecondary, createdAt: now, updatedAt: now })
-    }
-  }, [rates])
-
-  const updateTx = useMemo(() => async (id: number, data: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
-    const update: Partial<Transaction> = { ...data, updatedAt: new Date().toISOString() }
-
-    // Handle debt payment reversal + reapplication
-    if (data.type === 'debt_payment' || (data.debtId !== undefined)) {
-      const oldTx = await db.transactions.get(id)
-      if (oldTx?.type === 'debt_payment' && oldTx.debtId) {
-        await db.transaction('rw', [db.transactions, db.debts], async () => {
-          // Reverse old delta
-          const oldDebt = await db.debts.get(oldTx.debtId!)
-          if (oldDebt) {
-            const oldCapital = oldTx.capitalAmount ?? oldTx.amount
-            await db.debts.update(oldTx.debtId!, {
-              currentBalance: oldDebt.currentBalance + oldCapital,
-              paidInstallments: Math.max(0, oldDebt.paidInstallments - 1),
-              isPaid: false,
-            })
-          }
-
-          // Apply new tx
-          if (data.amount !== undefined || data.currency !== undefined) {
-            const amount = data.amount ?? oldTx.amount
-            const currency = data.currency ?? oldTx.currency
-            const equiv = getEquivalentAmounts(amount, currency, rates)
-            Object.assign(update, { amountInBase: equiv.amountInBase, amountInSecondary: equiv.amountInSecondary })
-          }
-          await db.transactions.update(id, update)
-
-          // Apply new delta
-          const newDebtId = data.debtId ?? oldTx.debtId
-          if (newDebtId) {
-            const newDebt = await db.debts.get(newDebtId)
-            if (newDebt) {
-              const newCapital = data.capitalAmount ?? data.amount ?? oldTx.amount
-              const newBalance = Math.max(0, newDebt.currentBalance - newCapital)
-              const updates: Partial<typeof newDebt> = {
-                currentBalance: newBalance,
-                paidInstallments: newDebt.paidInstallments + 1,
-              }
-              if (newBalance <= 0) updates.isPaid = true
-              await db.debts.update(newDebtId, updates)
-              if (newBalance <= 0) toast.success(`Has saldado "${newDebt.name}"`)
-            }
-          }
-        })
-        return
       }
-    }
+      return tx
+    },
+    onSuccess: invalidateAll
+  })
 
-    if (data.amount !== undefined || data.currency !== undefined) {
-      const tx = await db.transactions.get(id)
-      const amount = data.amount ?? tx!.amount
-      const currency = data.currency ?? tx!.currency
-      const equiv = getEquivalentAmounts(amount, currency, rates)
-      return db.transactions.update(id, { ...update, amountInBase: equiv.amountInBase, amountInSecondary: equiv.amountInSecondary })
-    }
-    return db.transactions.update(id, update)
-  }, [rates])
-
-  const deleteTx = useMemo(() => async (id: number) => {
-    const tx = await db.transactions.get(id)
-    if (tx?.type === 'debt_payment' && tx.debtId) {
-      await db.transaction('rw', [db.transactions, db.debts], async () => {
-        await db.transactions.delete(id)
-        const debt = await db.debts.get(tx.debtId!)
-        if (debt) {
-          const capital = tx.capitalAmount ?? tx.amount
-          await db.debts.update(tx.debtId!, {
-            currentBalance: debt.currentBalance + capital,
-            paidInstallments: Math.max(0, debt.paidInstallments - 1),
-            isPaid: false,
+  const { mutateAsync: updateTxMutate } = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const oldTx = rawTransactions?.find(t => t.id === id)
+      
+      // Debt reversal logic
+      if ((data.type === 'debt_payment' || data.debtId !== undefined) && oldTx?.type === 'debt_payment' && oldTx.debtId && debts) {
+        const oldDebt = debts.find(d => d.id === oldTx.debtId)
+        if (oldDebt) {
+          const oldCapital = oldTx.capitalAmount ?? oldTx.amount
+          await api.put(`/debts/${oldDebt.id}`, {
+            currentBalance: oldDebt.currentBalance + oldCapital,
+            paidInstallments: Math.max(0, oldDebt.paidInstallments - 1),
+            isPaid: false
           })
         }
-      })
-    } else {
-      await db.transactions.delete(id)
+
+        // Re-apply new delta
+        const newDebtId = data.debtId ?? oldTx.debtId
+        if (newDebtId) {
+          // Wait to fetch updated debt if it's the same, or just use calculation
+          const targetDebt = newDebtId === oldTx.debtId && oldDebt 
+             ? { ...oldDebt, currentBalance: oldDebt.currentBalance + (oldTx.capitalAmount ?? oldTx.amount), paidInstallments: Math.max(0, oldDebt.paidInstallments - 1) } 
+             : debts.find(d => d.id === newDebtId)
+
+          if (targetDebt) {
+            const newCapital = data.capitalAmount ?? data.amount ?? oldTx.amount
+            const newBalance = Math.max(0, targetDebt.currentBalance - newCapital)
+            await api.put(`/debts/${newDebtId}`, {
+              currentBalance: newBalance,
+              paidInstallments: targetDebt.paidInstallments + 1,
+              isPaid: newBalance <= 0
+            })
+            if (newBalance <= 0) toast.success(`Has saldado "${targetDebt.name}"`)
+          }
+        }
+      }
+
+      await api.put(`/transactions/${id}`, data)
+    },
+    onSuccess: invalidateAll
+  })
+
+  const { mutateAsync: deleteTxMutate } = useMutation({
+    mutationFn: async (id: number) => {
+      const tx = rawTransactions?.find(t => t.id === id)
+      if (tx?.type === 'debt_payment' && tx.debtId && debts) {
+        const debt = debts.find(d => d.id === tx.debtId)
+        if (debt) {
+          const capital = tx.capitalAmount ?? tx.amount
+          await api.put(`/debts/${debt.id}`, {
+            currentBalance: debt.currentBalance + capital,
+            paidInstallments: Math.max(0, debt.paidInstallments - 1),
+            isPaid: false
+          })
+        }
+      }
+      await api.delete(`/transactions/${id}`)
+    },
+    onSuccess: invalidateAll
+  })
+
+  const addTransaction = async (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'amountInBase' | 'amountInSecondary'>) => {
+    const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, data.currency, rates)
+    const tx = await addTxMutate({ ...data, amountInBase, amountInSecondary })
+    return tx.id
+  }
+
+  const updateTransaction = async (id: number, data: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
+    const update = { ...data }
+    if (data.amount !== undefined || data.currency !== undefined) {
+      const tx = rawTransactions?.find(t => t.id === id)
+      const amount = data.amount ?? tx?.amount ?? 0
+      const currency = data.currency ?? tx?.currency ?? 'COP'
+      const equiv = getEquivalentAmounts(amount, currency, rates)
+      Object.assign(update, { amountInBase: equiv.amountInBase, amountInSecondary: equiv.amountInSecondary })
     }
-  }, [])
+    await updateTxMutate({ id, data: update })
+  }
+
+  const deleteTransaction = async (id: number) => {
+    await deleteTxMutate(id)
+  }
 
   return {
     transactions: enriched,
-    categories,
-    loading: transactions === undefined,
-    addTransaction: addTx,
-    updateTransaction: updateTx,
-    deleteTransaction: deleteTx,
+    categories: categories ?? [],
+    loading: loadingTxs || loadingCats,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
   }
 }
 

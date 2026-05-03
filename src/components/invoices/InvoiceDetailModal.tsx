@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Trash2, ZoomIn, Pencil } from 'lucide-react'
+import { Trash2, Pencil } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +8,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Money } from '@/components/common/Money'
-import { Lightbox } from '@/components/common/Lightbox'
 import { formatMoney } from '@/lib/format'
 import type { EnrichedInvoice } from '@/hooks/useInvoices'
 
@@ -22,21 +20,12 @@ interface InvoiceDetailModalProps {
 }
 
 export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDelete }: InvoiceDetailModalProps) {
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
-
   const dateLabel = invoice.date
     ? (() => {
         const d = parseISO(invoice.date)
         return isNaN(d.getTime()) ? '—' : format(d, "dd MMMM yyyy", { locale: es })
       })()
     : '—'
-
-  function handleShowAttachment() {
-    if (invoice.attachment?.blob) {
-      const url = URL.createObjectURL(invoice.attachment.blob)
-      setLightboxSrc(url)
-    }
-  }
 
   return (
     <>
@@ -115,34 +104,11 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
                     </tfoot>
                   </table>
                 </div>
-
-                {/* Attachment preview — below table */}
-                {invoice.attachment?.blob && (
-                  <div>
-                    <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Ticket</h4>
-                    <button
-                      type="button"
-                      onClick={handleShowAttachment}
-                      className="group relative inline-block overflow-hidden rounded-md border border-border"
-                    >
-                      <img
-                        src={URL.createObjectURL(invoice.attachment.blob)}
-                        alt="Ticket"
-                        className="max-h-64 object-contain"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
-                        <ZoomIn className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-100" />
-                      </div>
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </>
   )
 }

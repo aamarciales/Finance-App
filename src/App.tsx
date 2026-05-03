@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useAuth } from '@clerk/clerk-react'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/routes'
-import { ensureSeed } from '@/db/seed'
 
 import { ClerkProvider, SignedIn, SignedOut, SignIn } from '@clerk/clerk-react'
 
@@ -11,19 +10,10 @@ if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Publishable Key")
 }
 
-function App() {
-  const [seeded, setSeeded] = useState(false)
+function AppContent() {
+  const { isLoaded } = useAuth()
 
-  useEffect(() => {
-    ensureSeed()
-      .catch((err) => {
-        console.error('seed failed', err)
-      })
-      .finally(() => setSeeded(true))
-  }, [])
-
-  if (!seeded) {
-    /* Pantalla mínima mientras se inicializa Dexie + seed. <100ms en práctica. */
+  if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg text-text-faint">
         <span className="font-serif italic">Cargando…</span>
@@ -32,7 +22,7 @@ function App() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <>
       <SignedIn>
         <RouterProvider router={router} />
       </SignedIn>
@@ -45,8 +35,14 @@ function App() {
           <SignIn routing="hash" />
         </div>
       </SignedOut>
-    </ClerkProvider>
+    </>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+      <AppContent />
+    </ClerkProvider>
+  )
+}

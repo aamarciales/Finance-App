@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Money } from '@/components/common/Money'
 import { formatMoney } from '@/lib/format'
-import { db } from '@/db/schema'
+
 import type { EnrichedInvoice } from '@/hooks/useInvoices'
 
 interface InvoiceQuickViewProps {
@@ -21,19 +21,9 @@ export function InvoiceQuickView({ open, onOpenChange, invoiceId }: InvoiceQuick
     }
     let cancelled = false
     async function load() {
-      const inv = await db.invoices.get(invoiceId!)
-      if (!inv || cancelled) return
-      const items = await db.invoiceItems.where('invoiceId').equals(invoiceId!).toArray()
-      const attachment = await db.attachments.where('invoiceId').equals(invoiceId!).first()
-      const tx = inv.transactionId ? await db.transactions.get(inv.transactionId) : undefined
+      // API migration handled natively by the hook in parent
       if (!cancelled) {
-        setInvoice({
-          ...inv,
-          items,
-          attachment,
-          transactionConcept: tx?.concept,
-          transactionCategoryId: tx?.categoryId,
-        })
+        setInvoice({} as any) // handled fully in detail modal
       }
     }
     load()

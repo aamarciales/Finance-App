@@ -1,8 +1,8 @@
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import { getEquivalentAmounts } from '@/lib/currency'
-import type { Currency, DebtType } from '@/types/domain'
+import type { Currency, DebtType, Debt, Category } from '@/types/domain'
 
 export interface DebtFormData {
   name: string
@@ -27,37 +27,63 @@ export interface DebtPaymentData {
 }
 
 export function useDebts(rates: { trm: number; eurToUsd: number }) {
-  const debts = useLiveQuery(() => db.debts.toArray())
+  const api = useApi()
+  const queryClient = useQueryClient()
 
-  async function addDebt(data: DebtFormData) {
-    await db.debts.add({
-      ...data,
-      createdAt: new Date().toISOString(),
-    })
-    toast.success('Deuda registrada')
+  const { data: debts, isLoading: loadingDebts } = useQuery({
+    queryKey: ['debts'],
+    queryFn: () => api.get<Debt[]>('/debts'),
+  })
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['debts'] })
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
   }
 
-  async function updateDebt(id: number, data: Partial<DebtFormData>) {
-    await db.debts.update(id, data)
-    toast.success('Deuda actualizada')
-  }
+  const { mutateAsync: addDebtMutate } = useMutation({
+    mutationFn: async (data: DebtFormData) => {
+      await api.post('/debts', data)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Deuda registrada')
+    }
+  })
 
-  async function deleteDebt(id: number) {
-    await db.debts.delete(id)
-    toast.success('Deuda eliminada')
-  }
+  const { mutateAsync: updateDebtMutate } = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<DebtFormData> }) => {
+      await api.put(`/debts/${id}`, data)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Deuda actualizada')
+    }
+  })
 
-  async function registerPayment(id: number, data: DebtPaymentData) {
-    const debt = await db.debts.get(id)
-    if (!debt) return
+  const { mutateAsync: deleteDebtMutate } = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/debts/${id}`)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Deuda eliminada')
+    }
+  })
 
-    const now = new Date().toISOString()
+  const { mutateAsync: registerPaymentMutate } = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: DebtPaymentData }) => {
+      const debt = debts?.find(d => d.id === id)
+      if (!debt) return
 
-    await db.transaction('rw', [db.debts, db.transactions], async () => {
       const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, debt.currency, rates)
-      const debtCategory = await db.categories.filter(c => c.name === 'Deuda').first()
+      const debtCategory = categories?.find(c => c.name === 'Deuda')
 
-      await db.transactions.add({
+      await api.post('/transactions', {
         date: data.date,
         type: 'debt_payment',
         concept: `Cuota · ${debt.name}`,
@@ -70,32 +96,37 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
         debtId: id,
         capitalAmount: data.capitalAmount,
         interestAmount: data.interestAmount,
-        createdAt: now,
-        updatedAt: now,
       })
 
       const newBalance = Math.max(0, debt.currentBalance - data.capitalAmount)
-      const updates: Partial<import('@/types/domain').Debt> = {
+      const updates: Partial<Debt> = {
         currentBalance: newBalance,
         paidInstallments: debt.paidInstallments + 1,
+        isPaid: newBalance <= 0
       }
-      if (newBalance <= 0) updates.isPaid = true
-      await db.debts.update(id, updates)
-
-      if (newBalance <= 0) {
-        toast.success(`¡Has saldado "${debt.name}"!`)
+      await api.put(`/debts/${id}`, updates)
+      
+      return { debtName: debt.name, newBalance }
+    },
+    onSuccess: (result) => {
+      if (!result) return
+      invalidateAll()
+      if (result.newBalance <= 0) {
+        toast.success(`¡Has saldado "${result.debtName}"!`)
       } else {
         toast.success('Pago registrado')
       }
-    })
-  }
+    }
+  })
 
   return {
     debts: debts ?? [],
-    loading: debts === undefined,
-    addDebt,
-    updateDebt,
-    deleteDebt,
-    registerPayment,
+    loading: loadingDebts,
+    addDebt: async (data: DebtFormData) => addDebtMutate(data),
+    updateDebt: async (id: number, data: Partial<DebtFormData>) => updateDebtMutate({ id, data }),
+    deleteDebt: async (id: number) => deleteDebtMutate(id),
+    registerPayment: async (id: number, data: DebtPaymentData) => {
+      await registerPaymentMutate({ id, data })
+    },
   }
 }

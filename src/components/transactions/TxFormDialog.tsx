@@ -10,7 +10,8 @@ import {
   X,
   FileText,
 } from 'lucide-react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   txFormSchema,
@@ -42,7 +43,7 @@ import {
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { db } from '@/db/schema'
+
 
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -107,10 +108,12 @@ export function TxFormDialog({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const activeDebts = useLiveQuery(
-    () => db.debts.filter((d) => d.currentBalance > 0).toArray(),
-    [],
-  ) ?? ([] as Debt[])
+  const api = useApi()
+  const { data: debtsData } = useQuery({
+    queryKey: ['debts'],
+    queryFn: () => api.get<Debt[]>('/debts'),
+  })
+  const activeDebts = debtsData?.filter(d => d.currentBalance > 0) ?? []
 
   const defaults = useMemo(() => buildDefaults(editTx, rates), [editTx, rates])
 
@@ -156,12 +159,6 @@ export function TxFormDialog({
   const handleFormSubmit = useCallback(
     async (values: TxFormValues) => {
       await onSubmit(values)
-      if (pendingFiles.length > 0) {
-        const txId = editTx?.id
-        if (txId) {
-          await saveAttachments(txId, pendingFiles)
-        }
-      }
       setPendingFiles([])
       onOpenChange(false)
     },
@@ -543,20 +540,5 @@ export function TxFormDialog({
       </DialogContent>
     </Dialog>
   )
-}
 
-async function saveAttachments(txId: number, files: PendingFile[]) {
-  for (const pf of files) {
-    const arrayBuffer = await pf.file.arrayBuffer()
-    const blob = new Blob([arrayBuffer], { type: pf.file.type })
-    await db.attachments.add({
-      transactionId: txId,
-      filename: pf.file.name,
-      mimeType: pf.file.type,
-      size: pf.file.size,
-      type: pf.file.type === 'application/pdf' ? 'pdf' : 'image',
-      blob,
-      createdAt: new Date().toISOString(),
-    })
-  }
 }

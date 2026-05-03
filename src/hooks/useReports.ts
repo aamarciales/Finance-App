@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/db/schema'
-import type { Category } from '@/types/domain'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
+import type { Category, Transaction } from '@/types/domain'
 
 export type PeriodType = 'month' | 'quarter' | 'semester' | 'year'
 
@@ -34,8 +34,17 @@ function getSemester(month: number): number {
 }
 
 export function useReports(periodType: PeriodType): ReportsData {
-  const transactions = useLiveQuery(() => db.transactions.toArray())
-  const categories = useLiveQuery(() => db.categories.toArray())
+  const api = useApi()
+
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<Transaction[]>('/transactions'),
+  })
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
 
   return useMemo(() => {
     if (!transactions || !categories) {

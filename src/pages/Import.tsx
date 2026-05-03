@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Loader2, ScanLine, FileSpreadsheet } from 'lucide-react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,7 @@ import { getEquivalentAmounts } from '@/lib/currency'
 import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
 import { useInvoices, type InvoiceFormData } from '@/hooks/useInvoices'
-import { db } from '@/db/schema'
+
 import type { Category } from '@/types/domain'
 
 export default function ImportPage() {
@@ -22,7 +23,14 @@ export default function ImportPage() {
   const { eurToUsd } = useForex()
   const rates = useMemo(() => ({ trm, eurToUsd }), [trm, eurToUsd])
   const { addInvoice } = useInvoices()
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  const api = useApi()
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+  
+  const categories = categoriesData ?? []
 
   // OCR state
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -93,13 +101,12 @@ export default function ImportPage() {
   }
 
   async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number }>) {
-    const now = new Date().toISOString()
     const categoryMap = new Map<number, Category>()
     for (const c of categories) {
       if (c.id != null) categoryMap.set(c.id, c)
     }
 
-    await db.transaction('rw', db.transactions, async () => {
+    try {
       for (const row of rows) {
         const cat = categoryMap.get(row.categoryId)
         let resolvedType: 'income' | 'expense' | 'debt_payment' | 'transfer' = 'expense'
@@ -109,7 +116,7 @@ export default function ImportPage() {
         const txTrm = rates.trm
         const { amountInBase, amountInSecondary } = getEquivalentAmounts(row.amount, row.currency, rates)
 
-        await db.transactions.add({
+        await api.post('/transactions', {
           date: row.date,
           type: resolvedType,
           concept: row.concept,
@@ -119,13 +126,13 @@ export default function ImportPage() {
           trm: txTrm,
           amountInBase,
           amountInSecondary,
-          createdAt: now,
-          updatedAt: now,
         })
       }
-    })
+      toast.success(`Importadas ${rows.length} transacciones`)
+    } catch {
+      toast.error('Ocurrió un error guardando las transacciones')
+    }
 
-    toast.success(`Importadas ${rows.length} transacciones`)
     clearCsv()
   }
 

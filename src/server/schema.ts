@@ -87,3 +87,16 @@ export const settings = sqliteTable('settings', {
   userId: text('user_id').notNull(),
   value: text('value', { mode: 'json' }),
 })
+
+export const goals = sqliteTable('goals', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  targetAmount: real('target_amount').notNull(),
+  currentAmount: real('current_amount').default(0).notNull(),
+  deadline: text('deadline'),
+  currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
+  color: text('color').notNull(),
+  icon: text('icon').notNull(),
+  createdAt: text('created_at').notNull(),
+})

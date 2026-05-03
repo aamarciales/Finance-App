@@ -22,13 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import { getEquivalentAmounts } from '@/lib/currency'
 import { calculateTitheForIncome } from '@/lib/tithe'
 import { useSettings } from '@/hooks/useSettings'
-import { logChange } from '@/hooks/useAuditLog'
+
 import { CURRENCIES } from '@/lib/validators'
-import type { Category, Currency, Transaction } from '@/types/domain'
+import type { Category, Currency } from '@/types/domain'
 
 const PLATFORMS = ['Wise', 'PayPal', 'Transferencia bancaria', 'Binance', 'Otro'] as const
 
@@ -153,44 +153,36 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
     return txs
   }, [step1, originFees, intermediateFees, conversion, amountAfterFees, titheInfo, incomeCategories])
 
+  const api = useApi()
+
   async function handleConfirm() {
     const groupId = crypto.randomUUID()
-    const now = new Date().toISOString()
-    const trmToUse = rates.trm
 
-    await db.transaction('rw', [db.transactions], async () => {
+    try {
       for (const tx of pendingTxs) {
         if (!tx.checked) continue
         const cat = categories.find((c) => c.name === tx.categoryName)
         if (!cat?.id) continue
         const { amountInBase, amountInSecondary } = getEquivalentAmounts(tx.amount, tx.currency as Currency, rates)
-        const txId = await db.transactions.add({
+        await api.post('/transactions', {
           date: step1.date,
-          type: tx.type as Transaction['type'],
+          type: tx.type,
           concept: tx.label.replace(/[+\-]\w+\s[\d.]+\s{2}/, '').trim(),
           categoryId: cat.id,
           amount: tx.amount,
-          currency: tx.currency as Currency,
-          trm: trmToUse,
+          currency: tx.currency,
+          trm: rates.trm,
           amountInBase,
           amountInSecondary,
           transferGroupId: groupId,
-          createdAt: now,
-          updatedAt: now,
-        })
-        await logChange({
-          entityType: 'transaction',
-          entityId: txId as number,
-          operation: 'create',
-          afterState: { groupId, concept: tx.label },
-          description: `Pago internacional: ${tx.label}`,
         })
       }
-    })
-
-    toast.success(`Pago internacional registrado con ${pendingTxs.filter(t => t.checked).length} movimientos`)
-    onOpenChange(false)
-    setStep(1)
+      toast.success(`Pago internacional registrado con ${pendingTxs.filter(t => t.checked).length} movimientos`)
+      onOpenChange(false)
+      setStep(1)
+    } catch (e) {
+      toast.error('Ocurrió un error guardando las transacciones')
+    }
   }
 
   const STEP_TITLES = [

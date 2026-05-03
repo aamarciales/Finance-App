@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, X, Upload } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -52,20 +52,12 @@ interface InvoiceFormDialogProps {
     date: string
     currency: 'COP' | 'USD' | 'EUR'
     items: Array<{ name: string; quantity: number; unitPrice: number; subCategory?: string }>
-    file?: File
-    removeAttachment?: boolean
     categoryId: number
   }) => Promise<void>
   editInvoice?: EnrichedInvoice
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-
 export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, editInvoice }: InvoiceFormDialogProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [filePreview, setFilePreview] = useState<string | null>(null)
-  const [removeAttachment, setRemoveAttachment] = useState(false)
 
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const isEditing = !!editInvoice
@@ -92,7 +84,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   })
 
   useEffect(() => {
-    if (editInvoice) {
+    if (isEditing && editInvoice) {
       reset({
         merchant: editInvoice.merchant,
         branch: editInvoice.branch ?? '',
@@ -108,14 +100,6 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             }))
           : [{ name: '', quantity: 1, unitPrice: 0 }],
       })
-      // Show existing attachment preview
-      if (editInvoice.attachment?.blob) {
-        setFilePreview(URL.createObjectURL(editInvoice.attachment.blob))
-      } else {
-        setFilePreview(null)
-      }
-      setFile(null)
-      setRemoveAttachment(false)
     } else {
       reset({
         merchant: '',
@@ -125,9 +109,6 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
         categoryId: 0,
         items: [{ name: '', quantity: 1, unitPrice: 0 }],
       })
-      setFile(null)
-      setFilePreview(null)
-      setRemoveAttachment(false)
     }
   }, [editInvoice, open, reset])
 
@@ -136,35 +117,11 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0)
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    if (!ACCEPTED_TYPES.includes(f.type)) return
-    if (f.size > MAX_FILE_SIZE) return
-    setFile(f)
-    setRemoveAttachment(false)
-    if (filePreview && isEditing) URL.revokeObjectURL(filePreview)
-    const url = URL.createObjectURL(f)
-    setFilePreview(url)
-  }
-
-  function clearFile() {
-    if (filePreview) URL.revokeObjectURL(filePreview)
-    setFile(null)
-    setFilePreview(null)
-    if (isEditing && editInvoice?.attachment) {
-      setRemoveAttachment(true)
-    }
-  }
-
   async function handleFormSubmit(values: InvoiceFormValues) {
     await onSubmit({
       ...values,
-      file: file ?? undefined,
-      removeAttachment: removeAttachment || undefined,
     })
     reset()
-    clearFile()
     onOpenChange(false)
   }
 
@@ -288,34 +245,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             <span className="font-mono font-medium">{currency} {total.toLocaleString('es-CO', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
           </div>
 
-          {/* File upload / existing image */}
-          <div className="grid gap-1.5">
-            <Label>Imagen del ticket</Label>
-            {filePreview ? (
-              <div className="relative">
-                <img src={filePreview} alt="Preview" className="h-32 rounded-md border border-border object-cover" />
-                <div className="absolute right-1 top-1 flex gap-1">
-                  <label className="cursor-pointer rounded-md bg-surface/80 p-1 hover:bg-surface">
-                    <Upload className="h-3.5 w-3.5" />
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={clearFile}
-                    className="rounded-md bg-surface/80 p-1 hover:bg-surface"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <label className="flex h-24 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border text-[12px] text-text-muted transition-colors hover:border-brand hover:text-brand">
-                <Upload className="h-4 w-4" />
-                Adjuntar imagen
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
-              </label>
-            )}
-          </div>
+
 
           <DialogFooter className="gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

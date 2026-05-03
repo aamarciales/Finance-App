@@ -22,13 +22,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/hooks/useSettings'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import type { Currency, OcrProvider } from '@/types/domain'
 
 export default function SettingsPage() {
   const { settings: rawSettings, loading, setSetting } = useSettings()
   const [confirmClear, setConfirmClear] = useState(false)
+  const api = useApi()
+  const queryClient = useQueryClient()
 
   const settings = rawSettings!
 
@@ -42,14 +45,17 @@ export default function SettingsPage() {
   }
 
   async function handleExport() {
-    const data: Record<string, unknown[]> = {}
-    data.transactions = await db.transactions.toArray()
-    data.invoices = await db.invoices.toArray()
-    data.invoiceItems = await db.invoiceItems.toArray()
-    data.categories = await db.categories.toArray()
-    data.goals = await db.goals.toArray()
-    data.debts = await db.debts.toArray()
-    data.settings = await db.settings.toArray()
+    const data: Record<string, unknown> = {}
+    const endpoints = ['transactions', 'categories', 'invoices', 'invoice-items', 'goals', 'debts', 'settings', 'tithe-payments'] as const
+    const labels = ['transactions', 'invoices', 'invoiceItems', 'categories', 'goals', 'debts', 'settings', 'tithePayments'] as const
+
+    for (let i = 0; i < endpoints.length; i++) {
+      try {
+        data[labels[i]] = await api.get(`/${endpoints[i]}`)
+      } catch {
+        data[labels[i]] = []
+      }
+    }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -62,13 +68,23 @@ export default function SettingsPage() {
   }
 
   async function handleClear() {
-    await db.transaction('rw', db.tables, async () => {
-      for (const table of db.tables) {
-        await table.clear()
+    const endpoints = ['transactions', 'categories', 'invoices', 'invoice-items', 'goals', 'debts', 'tithe-payments', 'settings']
+    for (const ep of endpoints) {
+      try {
+        // Fetch all and delete each one
+        const items: any[] = await api.get(`/${ep}`)
+        for (const item of items) {
+          if (item.id != null) {
+            await api.delete(`/${ep}/${item.id}`)
+          }
+        }
+      } catch {
+        // skip
       }
-    })
+    }
+    await queryClient.invalidateQueries()
     setConfirmClear(false)
-    toast.success('Base de datos limpiada. Recarga para reiniciar.')
+    toast.success('Todos los datos eliminados.')
   }
 
   function updateTitheCategory(catId: number, field: 'tithe' | 'offering', value: number) {
@@ -246,7 +262,7 @@ export default function SettingsPage() {
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
             <h3 className="text-[15px] font-medium">Datos & Privacidad</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Tus datos se almacenan localmente en tu navegador (IndexedDB). No se envían a ningún servidor.</p>
+            <p className="mt-1 text-[12.5px] text-text-muted">Tus datos están almacenados de forma segura en la nube y sincronizados entre dispositivos.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="gap-1.5" onClick={handleExport}>

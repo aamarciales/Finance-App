@@ -21,7 +21,7 @@ import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog'
 import { InvoiceDetailModal } from '@/components/invoices/InvoiceDetailModal'
 import { useInvoices, type EnrichedInvoice } from '@/hooks/useInvoices'
 import type { Invoice } from '@/types/domain'
-import { db } from '@/db/schema'
+
 
 export default function InvoicesPage() {
   const { invoices, categories, loading, addInvoice, updateInvoice, deleteInvoice } = useInvoices()
@@ -33,14 +33,7 @@ export default function InvoicesPage() {
   async function handleSelect(id: number) {
     const inv = invoices.find(i => i.id === id)
     if (!inv) return
-    const items = await db.invoiceItems.where('invoiceId').equals(id).toArray()
-    const attachment = await db.attachments.where('invoiceId').equals(id).first()
-    let transactionCategoryId: number | undefined
-    if (inv.transactionId) {
-      const tx = await db.transactions.get(inv.transactionId)
-      transactionCategoryId = tx?.categoryId
-    }
-    setDetailData({ ...inv, items, attachment, transactionCategoryId })
+    setDetailData(inv)
   }
 
   async function handleDelete() {

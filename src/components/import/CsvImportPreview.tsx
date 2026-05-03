@@ -43,8 +43,15 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
 
   const [rows, setRows] = useState<CsvRow[]>(() =>
     transactions.map(tx => {
+      // First try explicit category from CSV, then fallback to concept heuristic
+      const explicitCat = tx.originalData['Categoria']?.trim()?.toLowerCase()
       const suggested = suggestCategory(tx.concept)
-      const catId = suggested ? categoryMap.get(suggested.toLowerCase()) : undefined
+      let catId: number | undefined
+      if (explicitCat && categoryMap.has(explicitCat)) {
+        catId = categoryMap.get(explicitCat)
+      } else if (suggested) {
+        catId = categoryMap.get(suggested.toLowerCase())
+      }
       return {
         ...tx,
         selected: true,
