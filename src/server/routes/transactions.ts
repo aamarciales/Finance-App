@@ -33,6 +33,7 @@ transactionsRouter.post('/', async (c) => {
     ...body,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }).returning()
   
   return c.json(result[0])
@@ -49,6 +50,7 @@ transactionsRouter.put('/:id', async (c) => {
   
   const result = await db.update(schema.transactions).set({
     ...body,
+    updatedAt: new Date().toISOString(),
   }).where(
     and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId))
   ).returning()
