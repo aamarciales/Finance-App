@@ -1,3 +1,4 @@
+import { UserButton } from '@clerk/clerk-react'
 import { MobileNav } from './MobileNav'
 
 /**
@@ -12,7 +13,10 @@ export function TopBar() {
           Patrimonio
         </span>
       </div>
-      <MobileNav />
+      <div className="flex items-center gap-3">
+        <UserButton />
+        <MobileNav />
+      </div>
     </header>
   )
 }

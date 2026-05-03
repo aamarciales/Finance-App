@@ -54,15 +54,20 @@ export function Sidebar() {
   )
 }
 
+import { UserButton } from '@clerk/clerk-react'
+
 function Brand() {
   return (
-    <div className="mb-8 flex items-baseline gap-2 px-2">
-      <span className="font-serif text-[22px] font-medium italic tracking-[-0.01em]">
-        Patrimonio
-      </span>
-      <span className="text-[11px] uppercase tracking-[0.08em] text-text-faint">
-        v0.1
-      </span>
+    <div className="mb-8 flex items-center justify-between px-2">
+      <div className="flex items-baseline gap-2">
+        <span className="font-serif text-[22px] font-medium italic tracking-[-0.01em]">
+          Patrimonio
+        </span>
+        <span className="text-[11px] uppercase tracking-[0.08em] text-text-faint">
+          v0.1
+        </span>
+      </div>
+      <UserButton />
     </div>
   )
 }
