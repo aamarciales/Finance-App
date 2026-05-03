@@ -1,7 +1,61 @@
+import { useMemo } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  Landmark,
+  Calculator,
+  ShieldCheck,
+  ShieldX,
+  CalendarDays,
+  PiggyBank,
+  TrendingUp,
+  AlertTriangle,
+} from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { EmptyState } from '@/components/common/EmptyState'
+import { Badge } from '@/components/common/Badge'
+import {
+  calculateTaxObligation,
+  calculateSimpleTax,
+  calculateProvision,
+  getPaymentCalendar,
+  getUVT,
+  type SimpleTaxResult,
+} from '@/lib/tax-co'
+import { db } from '@/db/schema'
+
+const CURRENT_YEAR = new Date().getFullYear()
+
+function formatCop(amount: number): string {
+  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)}`
+}
+
+function formatCopFull(amount: number): string {
+  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} COP`
+}
 
 export default function TaxesPage() {
+  const transactions = useLiveQuery(
+    () => db.transactions.toArray(),
+    [],
+  )
+
+  const yearStart = `${CURRENT_YEAR}-01-01`
+  const yearEnd = `${CURRENT_YEAR}-12-31`
+
+  const annualIncomeCop = useMemo(() => {
+    if (!transactions) return 0
+    return transactions
+      .filter(tx => tx.type === 'income' && tx.date >= yearStart && tx.date <= yearEnd)
+      .reduce((sum, tx) => sum + (tx.amountInSecondary || 0), 0)
+  }, [transactions, yearStart, yearEnd])
+
+  const uvt = getUVT(CURRENT_YEAR)
+  const obligation = calculateTaxObligation(annualIncomeCop, CURRENT_YEAR)
+  const simpleTax = calculateSimpleTax(annualIncomeCop, CURRENT_YEAR)
+  const provision = calculateProvision(annualIncomeCop)
+  const calendar = getPaymentCalendar(CURRENT_YEAR)
+
+  const loading = transactions === undefined
+
   return (
     <>
       <PageHeader
@@ -12,10 +66,299 @@ export default function TaxesPage() {
         }
         subtitle="Seguimiento de obligaciones tributarias DIAN"
       />
-      <EmptyState
-        title="Configura tu perfil tributario"
-        description="Sección DIAN completa llega en Fase 7."
-      />
+
+      {loading ? (
+        <div className="py-10 text-center text-text-muted">Cargando…</div>
+      ) : (
+        <div className="space-y-6">
+          {/* Row 1: UVT + Annual Income + Obligation */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoCard
+              icon={Landmark}
+              iconTone="brand"
+              title={`UVT ${CURRENT_YEAR}`}
+              value={formatCop(uvt)}
+              subtitle="Unidad de Valor Tributario"
+            />
+            <InfoCard
+              icon={TrendingUp}
+              iconTone="brand"
+              title={`Ingresos brutos ${CURRENT_YEAR}`}
+              value={formatCopFull(annualIncomeCop)}
+              subtitle={`Ingresos tipo "income" del año · ${(annualIncomeCop / uvt).toFixed(1)} UVT`}
+            />
+            <ObligationCard obligation={obligation} income={annualIncomeCop} />
+          </div>
+
+          {/* Row 2: Régimen Simple */}
+          <SimpleTaxSection result={simpleTax} income={annualIncomeCop} uvt={uvt} />
+
+          {/* Row 3: Provision + Calendar */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Provision */}
+            <div className="rounded-[10px] border border-border bg-surface p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <PiggyBank className="h-4 w-4 text-gold" strokeWidth={1.8} />
+                <h3 className="text-[13px] font-medium">Provisión sugerida</h3>
+              </div>
+              <p className="mb-3 text-[12px] text-text-muted">
+                Reserva mensual recomendada al 2% de tus ingresos brutos anuales.
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-text-muted">Provisión anual</span>
+                  <span className="font-mono font-medium">{formatCopFull(provision)}</span>
+                </div>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-text-muted">Provisión mensual</span>
+                  <span className="font-mono font-medium">{formatCopFull(Math.round(provision / 12))}</span>
+                </div>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-text-muted">Provisión bimensual</span>
+                  <span className="font-mono font-medium">{formatCopFull(Math.round(provision / 6))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Calendar */}
+            <div className="rounded-[10px] border border-border bg-surface p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-info" strokeWidth={1.8} />
+                <h3 className="text-[13px] font-medium">Calendario bimensual {CURRENT_YEAR}</h3>
+              </div>
+              <div className="space-y-2">
+                {calendar.map((period, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-md bg-surface-2/40 px-3 py-2 text-[13px]"
+                  >
+                    <span className="font-medium">{period.label}</span>
+                    <span className="text-text-muted">{period.months}</span>
+                    <span className="text-text-muted">Vence: {period.dueMonth}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* DIAN Thresholds Reference */}
+          <div className="rounded-[10px] border border-border bg-surface p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Calculator className="h-4 w-4 text-text-muted" strokeWidth={1.8} />
+              <h3 className="text-[13px] font-medium">Topes DIAN · Referencia</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <ThresholdCard
+                label="Obligación de declarar renta"
+                uvt={1400}
+                cop={obligation.declareThresholdCop}
+                exceeded={obligation.mustDeclare}
+              />
+              <ThresholdCard
+                label="Obligación de facturar"
+                uvt={3500}
+                cop={obligation.invoiceThresholdCop}
+                exceeded={obligation.mustInvoice}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  )
+}
+
+function InfoCard({
+  icon: Icon,
+  iconTone,
+  title,
+  value,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
+  iconTone: 'brand' | 'warm' | 'gold' | 'danger' | 'info'
+  title: string
+  value: string
+  subtitle: string
+}) {
+  const toneClass: Record<string, string> = {
+    brand: 'text-brand',
+    warm: 'text-warm',
+    gold: 'text-gold',
+    danger: 'text-danger-strong',
+    info: 'text-info',
+  }
+
+  return (
+    <div className="rounded-[10px] border border-border bg-surface p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[12px] text-text-muted">{title}</span>
+        <Icon className={toneClass[iconTone]} strokeWidth={1.8} />
+      </div>
+      <div className="font-mono text-[20px] font-medium">{value}</div>
+      <div className="mt-1 text-[11px] text-text-muted">{subtitle}</div>
+    </div>
+  )
+}
+
+function ObligationCard({
+  obligation,
+  income,
+}: {
+  obligation: ReturnType<typeof calculateTaxObligation>
+  income: number
+}) {
+  if (income === 0) {
+    return (
+      <div className="rounded-[10px] border border-border bg-surface p-5">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[12px] text-text-muted">Obligación tributaria</span>
+          <AlertTriangle className="h-4 w-4 text-text-muted" strokeWidth={1.8} />
+        </div>
+        <div className="text-[14px] font-medium text-text-muted">
+          Sin ingresos registrados
+        </div>
+        <div className="mt-1 text-[11px] text-text-muted">
+          Registra ingresos para calcular tu obligación
+        </div>
+      </div>
+    )
+  }
+
+  const none = !obligation.mustDeclare && !obligation.mustInvoice
+
+  return (
+    <div className="rounded-[10px] border border-border bg-surface p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[12px] text-text-muted">Obligación tributaria</span>
+        {none ? (
+          <ShieldCheck className="h-4 w-4 text-brand" strokeWidth={1.8} />
+        ) : (
+          <ShieldX className="h-4 w-4 text-warm" strokeWidth={1.8} />
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <ObligationRow label="Declarar renta" active={obligation.mustDeclare} />
+        <ObligationRow label="Facturar" active={obligation.mustInvoice} />
+      </div>
+      {none && (
+        <div className="mt-2 text-[11px] text-brand">
+          Tus ingresos están por debajo de los topes DIAN
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ObligationRow({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-[13px]">
+      <Badge tone={active ? 'warm' : 'green'}>
+        {active ? 'Obligado' : 'No obligado'}
+      </Badge>
+      <span className="text-text-muted">{label}</span>
+    </div>
+  )
+}
+
+function SimpleTaxSection({
+  result,
+  income,
+  uvt,
+}: {
+  result: SimpleTaxResult
+  income: number
+  uvt: number
+}) {
+  if (income === 0) {
+    return null
+  }
+
+  const incomeUvt = income / uvt
+  const maxBracketUvt = 5000
+
+  return (
+    <div className="rounded-[10px] border border-border bg-surface p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calculator className="h-4 w-4 text-brand" strokeWidth={1.8} />
+          <h3 className="text-[13px] font-medium">Régimen Simple de Tributación</h3>
+        </div>
+        <div className="text-right">
+          <div className="text-[11px] text-text-muted">Impuesto estimado</div>
+          <div className="font-mono text-[16px] font-medium">{formatCopFull(result.totalTaxCop)}</div>
+        </div>
+      </div>
+
+      {/* Effective rate */}
+      <div className="mb-4 rounded-md bg-surface-2/40 px-3 py-2">
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="text-text-muted">Tasa efectiva</span>
+          <span className="font-mono font-medium">{(result.effectiveRate * 100).toFixed(2)}%</span>
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[12px]">
+          <span className="text-text-muted">Ingreso en UVT</span>
+          <span className="font-mono">{incomeUvt.toFixed(1)} UVT</span>
+        </div>
+      </div>
+
+      {/* Bracket breakdown */}
+      <div className="space-y-3">
+        {result.taxByBracket.map((bracket, i) => {
+          const widthPct = Math.min(100, (bracket.taxableUvt / maxBracketUvt) * 100)
+          const bracketColors = [
+            'var(--brand)',
+            'var(--brand)',
+            'var(--warm)',
+            'var(--danger)',
+          ]
+          const color = bracketColors[i] ?? 'var(--warm)'
+
+          return (
+            <div key={i}>
+              <div className="mb-1 flex items-center justify-between text-[12px]">
+                <span className="text-text-muted">
+                  {bracket.from.toLocaleString()} – {bracket.to === Infinity ? '∞' : bracket.to.toLocaleString()} UVT
+                  <span className="ml-1.5 text-text-faint">({(bracket.rate * 100).toFixed(1)}%)</span>
+                </span>
+                <span className="font-mono">{formatCop(bracket.taxCop)}</span>
+              </div>
+              <div className="h-2 rounded-full bg-surface-2">
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{ width: `${Math.max(widthPct, 2)}%`, backgroundColor: color }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ThresholdCard({
+  label,
+  uvt,
+  cop,
+  exceeded,
+}: {
+  label: string
+  uvt: number
+  cop: number
+  exceeded: boolean
+}) {
+  return (
+    <div className="rounded-md bg-surface-2/40 px-4 py-3">
+      <div className="mb-1 flex items-center gap-2">
+        <Badge tone={exceeded ? 'danger' : 'green'}>
+          {exceeded ? 'Supera el tope' : 'Debajo del tope'}
+        </Badge>
+      </div>
+      <div className="text-[13px] font-medium">{label}</div>
+      <div className="mt-1 space-y-0.5 text-[12px] text-text-muted">
+        <div>Tope: {uvt.toLocaleString()} UVT = {formatCopFull(cop)}</div>
+      </div>
+    </div>
   )
 }

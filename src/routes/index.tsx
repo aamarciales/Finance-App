@@ -9,7 +9,9 @@ import TithePage from '@/pages/Tithe'
 import GoalsPage from '@/pages/Goals'
 import DebtsPage from '@/pages/Debts'
 import TaxesPage from '@/pages/Taxes'
+import InsightsPage from '@/pages/Insights'
 import SettingsPage from '@/pages/Settings'
+import AuditLogPage from '@/pages/AuditLog'
 
 export const router = createBrowserRouter([
   {
@@ -28,7 +30,9 @@ export const router = createBrowserRouter([
       { path: 'goals', element: <GoalsPage /> },
       { path: 'debts', element: <DebtsPage /> },
       { path: 'taxes', element: <TaxesPage /> },
+      { path: 'insights', element: <InsightsPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'historial', element: <AuditLogPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

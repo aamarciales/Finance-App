@@ -1,9 +1,11 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  AuditLogEntry,
   Attachment,
   Category,
   Debt,
   ExchangeOperation,
+  ForexRate,
   Goal,
   Invoice,
   InvoiceItem,
@@ -23,11 +25,14 @@ export class PatrimonioDB extends Dexie {
   debts!: Table<Debt, number>
   tithePayments!: Table<TithePayment, number>
   trmRecords!: Table<TRMRecord, string>
+  forexRates!: Table<ForexRate, number>
+  auditLog!: Table<AuditLogEntry, number>
   exchangeOps!: Table<ExchangeOperation, number>
   settings!: Table<Setting, string>
 
   constructor() {
     super('PatrimonioDB')
+
     this.version(1).stores({
       transactions:
         '++id, date, type, categoryId, currency, invoiceId, [date+type]',
@@ -41,6 +46,16 @@ export class PatrimonioDB extends Dexie {
       trmRecords: 'date',
       exchangeOps: '++id, date',
       settings: 'key',
+    })
+
+    this.version(2).stores({
+      forexRates: '++id, &[pair+date], pair, date',
+      transactions: '++id, date, type, categoryId, currency, invoiceId, debtId, [date+type]',
+    })
+
+    this.version(3).stores({
+      transactions: '++id, date, type, categoryId, currency, invoiceId, debtId, transferGroupId, [date+type]',
+      auditLog: '++id, timestamp, entityType, entityId, operation',
     })
   }
 }

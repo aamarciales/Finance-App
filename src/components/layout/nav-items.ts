@@ -2,10 +2,12 @@ import {
   Activity,
   CreditCard,
   FileText,
+  History,
   LineChart,
   type LucideIcon,
   Receipt,
   ScrollText,
+  Search,
   Settings,
   Shield,
   Target,
@@ -37,7 +39,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Análisis',
-    items: [{ to: '/categories', label: 'Categorías', icon: LineChart }],
+    items: [
+      { to: '/categories', label: 'Categorías', icon: LineChart },
+      { to: '/insights', label: 'Análisis', icon: Search },
+    ],
   },
   {
     label: 'Compromisos',
@@ -50,6 +55,9 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Configuración',
-    items: [{ to: '/settings', label: 'Ajustes', icon: Settings }],
+    items: [
+      { to: '/historial', label: 'Historial', icon: History },
+      { to: '/settings', label: 'Ajustes', icon: Settings },
+    ],
   },
 ]

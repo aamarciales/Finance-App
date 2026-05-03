@@ -1,12 +1,10 @@
-export type Currency = 'USD' | 'COP'
+export type Currency = 'USD' | 'COP' | 'EUR'
 
 export type TxType =
   | 'expense'
-  | 'income_freelance'
-  | 'income_salary'
+  | 'income'
+  | 'debt_payment'
   | 'transfer'
-  | 'tithe_payment'
-  | 'offering_payment'
 
 export interface Transaction {
   id?: number
@@ -24,6 +22,10 @@ export interface Transaction {
   attachmentIds?: number[]
   isRecurring?: boolean
   recurringId?: number
+  debtId?: number
+  capitalAmount?: number
+  interestAmount?: number
+  transferGroupId?: string
   createdAt: string
   updatedAt: string
 }
@@ -113,6 +115,7 @@ export interface Debt {
   totalInstallments: number
   paidInstallments: number
   nextPaymentDate: string
+  isPaid?: boolean
   notes?: string
   createdAt: string
 }
@@ -136,6 +139,30 @@ export interface TRMRecord {
   fetchedAt: string
 }
 
+export interface ForexRate {
+  id?: number
+  pair: string        // e.g. 'EUR-USD'
+  date: string        // ISO date
+  rate: number
+  source: 'frankfurter' | 'manual' | 'wise'
+  fetchedAt: string
+}
+
+export type AuditEntityType = 'transaction' | 'category' | 'debt' | 'goal' | 'tithe_payment'
+export type AuditOperation = 'create' | 'update' | 'delete' | 'revert'
+
+export interface AuditLogEntry {
+  id?: number
+  timestamp: string
+  entityType: AuditEntityType
+  entityId: number
+  operation: AuditOperation
+  beforeState?: object
+  afterState?: object
+  description: string
+  isReverted: boolean
+}
+
 export interface ExchangeOperation {
   id?: number
   date: string
@@ -154,12 +181,15 @@ export interface Setting<V = unknown> {
   value: V
 }
 
-/* Tipos de los `settings` esperados (key/value en la tabla `settings`) */
+export interface TitheCategoryConfig {
+  tithe: number
+  offering: number
+}
+
 export interface TitheConfig {
-  freelanceTithe: number
-  freelanceOffering: number
-  salaryTithe: number
-  salaryOffering: number
+  tithePercentByIncomeCategory: Record<number, TitheCategoryConfig>
+  defaultTithe: number
+  defaultOffering: number
   destination: string
 }
 
@@ -182,4 +212,7 @@ export interface AppSettings {
   ocrProvider: OcrProvider
   autoCategorize: boolean
   monthlyTaxProvisionRate: number
+  availableCapitalAmount?: number
+  availableCapitalCurrency?: Currency
+  titheCarryoverUsd?: number
 }

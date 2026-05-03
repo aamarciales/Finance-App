@@ -1,17 +1,209 @@
+import { useState, useMemo } from 'react'
+import { Loader2, ScanLine, FileSpreadsheet } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { EmptyState } from '@/components/common/EmptyState'
+import { Button } from '@/components/ui/button'
+import { ImageDropzone } from '@/components/import/ImageDropzone'
+import { CsvDropzone } from '@/components/import/CsvDropzone'
+import { OcrPreviewDialog } from '@/components/import/OcrPreviewDialog'
+import { CsvImportPreview } from '@/components/import/CsvImportPreview'
+import { processReceiptOCR, type OcrResult } from '@/lib/ocr'
+import { detectBank, parseCSV, type ParsedTransaction, type DetectedBank } from '@/lib/csv-parser'
+import { getEquivalentAmounts } from '@/lib/currency'
+import { useTRM } from '@/hooks/useTRM'
+import { useForex } from '@/hooks/useForex'
+import { useInvoices, type InvoiceFormData } from '@/hooks/useInvoices'
+import { db } from '@/db/schema'
+import type { Category } from '@/types/domain'
 
 export default function ImportPage() {
+  const { rate: trm } = useTRM()
+  const { eurToUsd } = useForex()
+  const rates = useMemo(() => ({ trm, eurToUsd }), [trm, eurToUsd])
+  const { addInvoice } = useInvoices()
+  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+
+  // OCR state
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null)
+
+  // CSV state
+  const [csvFileName, setCsvFileName] = useState<string | null>(null)
+  const [csvParsed, setCsvParsed] = useState<ParsedTransaction[] | null>(null)
+  const [detectedBank, setDetectedBank] = useState<DetectedBank>('unknown')
+
+  // --- OCR handlers ---
+
+  function handleImageAccepted(file: File) {
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setOcrResult(null)
+  }
+
+  function clearImage() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview(null)
+    setOcrResult(null)
+  }
+
+  async function handleProcessOCR() {
+    if (!imageFile) return
+    setProcessing(true)
+    try {
+      const result = await processReceiptOCR(imageFile)
+      setOcrResult(result)
+    } catch {
+      toast.error('Error al procesar la imagen')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  async function handleSaveInvoice(data: InvoiceFormData) {
+    await addInvoice(data)
+    clearImage()
+  }
+
+  // --- CSV handlers ---
+
+  function handleCsvAccepted(text: string, filename: string) {
+    setCsvFileName(filename)
+    const bank = detectBank(text)
+    setDetectedBank(bank)
+    if (bank === 'unknown') {
+      toast.error('No se pudo detectar el banco. Verifica el formato del CSV.')
+      return
+    }
+    const parsed = parseCSV(text, bank)
+    if (parsed.length === 0) {
+      toast.error('No se encontraron transacciones en el archivo.')
+      return
+    }
+    setCsvParsed(parsed)
+  }
+
+  function clearCsv() {
+    setCsvFileName(null)
+    setCsvParsed(null)
+    setDetectedBank('unknown')
+  }
+
+  async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number }>) {
+    const now = new Date().toISOString()
+    const categoryMap = new Map<number, Category>()
+    for (const c of categories) {
+      if (c.id != null) categoryMap.set(c.id, c)
+    }
+
+    await db.transaction('rw', db.transactions, async () => {
+      for (const row of rows) {
+        const cat = categoryMap.get(row.categoryId)
+        let resolvedType: 'income' | 'expense' | 'debt_payment' | 'transfer' = 'expense'
+        if (cat?.name === 'Deuda') resolvedType = 'debt_payment'
+        else if (cat?.name === 'Transferencias') resolvedType = 'transfer'
+        else if (cat?.type === 'income' && row.amount > 0) resolvedType = 'income'
+        const txTrm = rates.trm
+        const { amountInBase, amountInSecondary } = getEquivalentAmounts(row.amount, row.currency, rates)
+
+        await db.transactions.add({
+          date: row.date,
+          type: resolvedType,
+          concept: row.concept,
+          categoryId: row.categoryId,
+          amount: row.amount,
+          currency: row.currency,
+          trm: txTrm,
+          amountInBase,
+          amountInSecondary,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+    })
+
+    toast.success(`Importadas ${rows.length} transacciones`)
+    clearCsv()
+  }
+
   return (
     <>
       <PageHeader
         title="Importar"
-        subtitle="Sube fotos de facturas, archivos CSV o PDFs"
+        subtitle="Sube fotos de facturas o extractos bancarios CSV"
       />
-      <EmptyState
-        title="Importación en construcción"
-        description="OCR + parsers CSV se conectan en Fase 6."
-      />
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* Section 1: OCR */}
+        <section className="rounded-[10px] border border-border bg-surface p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <ScanLine className="h-5 w-5 text-text-muted" />
+            <h2 className="font-serif text-lg">Escanear ticket o factura</h2>
+          </div>
+
+          <ImageDropzone
+            onFileAccepted={handleImageAccepted}
+            preview={imagePreview}
+            onClear={clearImage}
+          />
+
+          {imageFile && !ocrResult && (
+            <Button
+              onClick={handleProcessOCR}
+              disabled={processing}
+              className="mt-4 w-full gap-2"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analizando…
+                </>
+              ) : (
+                'Procesar con OCR'
+              )}
+            </Button>
+          )}
+        </section>
+
+        {/* Section 2: CSV */}
+        <section className="rounded-[10px] border border-border bg-surface p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-text-muted" />
+            <h2 className="font-serif text-lg">Importar extracto bancario</h2>
+          </div>
+
+          {!csvParsed ? (
+            <CsvDropzone
+              onFileAccepted={handleCsvAccepted}
+              fileName={csvFileName}
+              onClear={clearCsv}
+            />
+          ) : (
+            <CsvImportPreview
+              transactions={csvParsed}
+              bank={detectedBank}
+              categories={categories}
+              onImport={handleImportCsv}
+              onClose={clearCsv}
+            />
+          )}
+        </section>
+      </div>
+
+      {/* OCR Preview Dialog */}
+      {ocrResult && imageFile && (
+        <OcrPreviewDialog
+          open={!!ocrResult}
+          onOpenChange={(open) => { if (!open) setOcrResult(null) }}
+          result={ocrResult}
+          imageBlob={imageFile}
+          categories={categories}
+          onSave={handleSaveInvoice}
+        />
+      )}
     </>
   )
 }

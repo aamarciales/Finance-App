@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
@@ -7,15 +8,18 @@ import { NAV_SECTIONS } from './nav-items'
 import { TRMFooter } from './TRMFooter'
 
 /**
- * Drawer mobile (<768px). Slide-in desde la izquierda con framer-motion
- * según especificación del README:
- *  - overlay oscuro 0.4
- *  - transición 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)
- *  - tocar overlay o item cierra
- *  - touch targets ≥44px
+ * Drawer mobile (<768px). Renderizado vía portal en document.body para
+ * evitar cualquier interferencia del layout padre.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = '' }
+    }
+  }, [open])
 
   return (
     <>
@@ -28,26 +32,27 @@ export function MobileNav() {
         <Menu className="h-5 w-5" strokeWidth={1.8} />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              key="mobile-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setOpen(false)}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden"
-            />
-            <motion.aside
-              key="mobile-drawer"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col overflow-y-auto bg-surface-2 px-5 py-5 md:hidden"
-            >
+      {createPortal(
+        <AnimatePresence>
+          {open && (
+            <>
+              <motion.div
+                key="mobile-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setOpen(false)}
+                className="fixed inset-0 z-40 bg-[rgba(20,20,17,0.4)] backdrop-blur-sm md:hidden"
+              />
+              <motion.aside
+                key="mobile-drawer"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+                className="fixed bottom-0 left-0 top-0 z-50 flex w-[280px] flex-col overflow-y-auto bg-surface-2 px-5 py-5 md:hidden"
+              >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-baseline gap-2 px-2">
                   <span className="font-serif text-[22px] font-medium italic tracking-[-0.01em]">
@@ -111,7 +116,9 @@ export function MobileNav() {
             </motion.aside>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </>
   )
 }

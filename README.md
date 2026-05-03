@@ -1,6 +1,6 @@
 # Patrimonio · App de finanzas personales
 
-> Aplicación web de finanzas personales **multi-moneda (USD/COP)** con OCR de facturas, seguimiento de diezmos y ofrendas, metas de ahorro, deudas, e impuestos colombianos. Diseñada para freelancers que cobran en USD viviendo en Colombia.
+> Aplicación web de finanzas personales **multi-moneda (USD/COP/EUR)** con OCR de facturas, seguimiento de diezmos y ofrendas, metas de ahorro, deudas, e impuestos colombianos. Diseñada para freelancers que cobran en USD viviendo en Colombia.
 
 ---
 
@@ -260,11 +260,11 @@ import Dexie, { Table } from 'dexie';
 export interface Transaction {
   id?: number;                          // auto-increment
   date: string;                         // ISO 8601
-  type: 'expense' | 'income_freelance' | 'income_salary' | 'transfer' | 'tithe_payment' | 'offering_payment';
+  type: 'expense' | 'income' | 'debt_payment' | 'transfer';
   concept: string;
   categoryId: number;                   // FK
-  amount: number;                       // monto en moneda original (en cents para precisión)
-  currency: 'COP' | 'USD';
+  amount: number;                       // monto en moneda original
+  currency: 'COP' | 'USD' | 'EUR';
   trm: number;                          // TRM del día (COP por USD)
   amountInBase: number;                 // siempre en USD (moneda base configurada)
   amountInSecondary: number;            // siempre en COP
@@ -273,6 +273,10 @@ export interface Transaction {
   attachmentIds?: number[];             // FK → Attachment
   isRecurring?: boolean;
   recurringId?: number;
+  debtId?: number;                      // FK → Debt (solo cuando type = 'debt_payment')
+  capitalAmount?: number;               // capital pagado (debt_payment)
+  interestAmount?: number;              // intereses incluidos (debt_payment)
+  transferGroupId?: string;             // UUID para agrupar txs de un wizard
   createdAt: string;
   updatedAt: string;
 }
@@ -376,6 +380,15 @@ export interface TRMRecord {
   fetchedAt: string;
 }
 
+export interface ForexRate {
+  id?: number;
+  pair: string;                         // e.g. 'EUR-USD'
+  date: string;                         // ISO date
+  rate: number;
+  source: 'frankfurter' | 'manual' | 'wise';
+  fetchedAt: string;
+}
+
 export interface ExchangeOperation {
   id?: number;
   date: string;
@@ -397,7 +410,7 @@ export interface Setting {
 // settings keys esperados:
 // - 'baseCurrency' → 'USD' | 'COP'
 // - 'secondaryCurrency'
-// - 'titheConfig' → { freelanceTithe: 10, freelanceOffering: 10, salaryTithe: 10, salaryOffering: 5, destination: '...' }
+// - 'titheConfig' → { tithePercentByIncomeCategory: { [categoryId]: { tithe: 10, offering: 10 } }, defaultTithe: 10, defaultOffering: 0, destination: '...' }
 // - 'taxProfile' → { residentStatus: 'resident', regime: 'simple', activityCode: '...', isVATResponsible: false, validatedByAccountant: false }
 // - 'ocrProvider' → 'claude' | 'tesseract' | 'off'
 // - 'autoCategorize' → boolean
@@ -413,6 +426,7 @@ export class PatrimonioDB extends Dexie {
   debts!: Table<Debt, number>;
   tithePayments!: Table<TithePayment, number>;
   trmRecords!: Table<TRMRecord, string>;
+  forexRates!: Table<ForexRate, number>;
   exchangeOps!: Table<ExchangeOperation, number>;
   settings!: Table<Setting, string>;
 
@@ -430,6 +444,10 @@ export class PatrimonioDB extends Dexie {
       trmRecords: 'date',
       exchangeOps: '++id, date',
       settings: 'key',
+    });
+    this.version(2).stores({
+      forexRates: '++id, &[pair+date], pair, date',
+      transactions: '++id, date, type, categoryId, currency, invoiceId, debtId, [date+type]',
     });
   }
 }
@@ -566,14 +584,23 @@ Usa **dinero.js v2** o **decimal.js** para evitar errores de coma flotante. **NU
 ```typescript
 export function convertAmount(
   amount: number,
-  fromCurrency: 'USD' | 'COP',
-  toCurrency: 'USD' | 'COP',
-  trm: number
+  fromCurrency: 'USD' | 'COP' | 'EUR',
+  toCurrency: 'USD' | 'COP' | 'EUR',
+  rates: { trm: number; eurToUsd: number }
 ): number {
   if (fromCurrency === toCurrency) return amount;
-  if (fromCurrency === 'USD' && toCurrency === 'COP') return amount * trm;
-  if (fromCurrency === 'COP' && toCurrency === 'USD') return amount / trm;
-  throw new Error('Invalid currency pair');
+  // Convert to USD first, then to target
+  const toUsd = (amt: number, cur: string) => {
+    if (cur === 'USD') return amt;
+    if (cur === 'COP') return amt / rates.trm;
+    if (cur === 'EUR') return amt * rates.eurToUsd;
+    return amt;
+  };
+  const usd = toUsd(amount, fromCurrency);
+  if (toCurrency === 'USD') return usd;
+  if (toCurrency === 'COP') return usd * rates.trm;
+  if (toCurrency === 'EUR') return usd / rates.eurToUsd;
+  return usd;
 }
 
 // Tasa efectiva ponderada del mes
@@ -591,38 +618,27 @@ export function calculateEffectiveRate(operations: ExchangeOperation[]): number 
 
 ```typescript
 import { db } from '@/db/schema';
+import type { AppSettings } from '@/types/domain';
 
-interface TitheConfig {
-  freelanceTithe: number;      // %
-  freelanceOffering: number;
-  salaryTithe: number;
-  salaryOffering: number;
+interface TitheResult {
+  tithe: number;
+  offering: number;
+  total: number;
+  pctTotal: number;
 }
 
 export function calculateTitheForIncome(
   incomeAmount: number,
-  incomeType: 'income_freelance' | 'income_salary',
-  config: TitheConfig
-): { tithe: number; offering: number; total: number; pctTotal: number } {
-  if (incomeType === 'income_freelance') {
-    const tithe = incomeAmount * (config.freelanceTithe / 100);
-    const offering = incomeAmount * (config.freelanceOffering / 100);
-    return {
-      tithe,
-      offering,
-      total: tithe + offering,
-      pctTotal: config.freelanceTithe + config.freelanceOffering,
-    };
-  } else {
-    const tithe = incomeAmount * (config.salaryTithe / 100);
-    const offering = incomeAmount * (config.salaryOffering / 100);
-    return {
-      tithe,
-      offering,
-      total: tithe + offering,
-      pctTotal: config.salaryTithe + config.salaryOffering,
-    };
-  }
+  categoryId: number,
+  settings: AppSettings
+): TitheResult {
+  const config = settings.titheConfig;
+  const categoryConfig = config.tithePercentByIncomeCategory[categoryId];
+  const tithePct = categoryConfig?.tithe ?? config.defaultTithe;
+  const offeringPct = categoryConfig?.offering ?? config.defaultOffering;
+  const tithe = incomeAmount * (tithePct / 100);
+  const offering = incomeAmount * (offeringPct / 100);
+  return { tithe, offering, total: tithe + offering, pctTotal: tithePct + offeringPct };
 }
 
 // Pendiente de devolver = lo apartado por todos los ingresos del mes − lo ya devuelto

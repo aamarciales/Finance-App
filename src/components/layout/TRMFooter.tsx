@@ -2,24 +2,18 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { formatTRM } from '@/lib/format'
-
-/**
- * Footer del sidebar con TRM del día.
- *
- * Fase 1: TRM hardcodeada (placeholder visual). En Fase 3 se conecta a
- * `useTRM` que consulta Banco de la República y cachea en Dexie.
- * Decisión: dejar el componente listo para recibir props reales más adelante.
- */
-const PLACEHOLDER_TRM = 4087.3
-const PLACEHOLDER_DELTA_PCT = 0.42
+import { useTRM } from '@/hooks/useTRM'
+import { useForex } from '@/hooks/useForex'
 
 interface TRMFooterProps {
   className?: string
 }
 
 export function TRMFooter({ className }: TRMFooterProps) {
+  const { rate, source, loading } = useTRM()
+  const { eurToUsd } = useForex()
   const today = format(new Date(), "d MMM", { locale: es })
-  const delta = PLACEHOLDER_DELTA_PCT
+  const isOffline = source === 'manual'
 
   return (
     <div
@@ -31,10 +25,14 @@ export function TRMFooter({ className }: TRMFooterProps) {
       <div className="mb-1 text-[10.5px] uppercase tracking-[0.08em] text-text-faint">
         TRM hoy · {today}
       </div>
-      <div className="font-mono text-[14px]">{formatTRM(PLACEHOLDER_TRM)} COP</div>
-      <div className="font-mono text-[11px] text-brand">
-        {delta >= 0 ? '↗' : '↘'} {delta >= 0 ? '+' : ''}
-        {delta.toFixed(2)}% vs ayer
+      <div className={cn('font-mono text-[14px]', isOffline && 'text-text-muted')}>
+        {loading ? 'Cargando…' : `${formatTRM(rate)} COP`}
+        {isOffline && !loading && (
+          <span className="ml-1 text-[11px] text-text-faint">(offline)</span>
+        )}
+      </div>
+      <div className="font-mono text-[11px] text-text-muted">
+        EUR/USD: {eurToUsd.toFixed(2)}
       </div>
     </div>
   )
