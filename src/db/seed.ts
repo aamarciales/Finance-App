@@ -1,6 +1,5 @@
 import { db } from './schema'
 import type { AppSettings, Category } from '@/types/domain'
-import { importRealData } from './import-real-data'
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 1, name: 'Supermercado', color: '#2d4a3e', icon: 'shopping-cart', type: 'expense', isSystem: true },
@@ -38,7 +37,7 @@ const DEFAULT_CATEGORIES: Category[] = [
 const DEFAULT_SETTINGS: AppSettings = {
   baseCurrency: 'USD',
   secondaryCurrency: 'COP',
-  displayName: 'Andrés',
+  displayName: 'Usuario',
   titheConfig: {
     tithePercentByIncomeCategory: {
       13: { tithe: 10, offering: 10 },
@@ -59,14 +58,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   ocrProvider: 'claude',
   autoCategorize: true,
   monthlyTaxProvisionRate: 0.02,
-  availableCapitalAmount: 154936.68,
+  availableCapitalAmount: 0,
   availableCapitalCurrency: 'COP',
-  titheCarryoverUsd: 300,
+  titheCarryoverUsd: 0,
   titheStartDate: '2026-05-03',
 }
 
 const SEED_FLAG_KEY = '__seedVersion'
-const SEED_VERSION = 10
+const SEED_VERSION = 11
 
 export async function ensureSeed(): Promise<void> {
   const existing = await db.settings.get(SEED_FLAG_KEY)
@@ -88,8 +87,8 @@ export async function ensureSeed(): Promise<void> {
         db.trmRecords,
         db.forexRates,
         db.auditLog,
-        db.attachments,
         db.tithePayments,
+        db.attachments,
         db.exchangeOps,
       ],
       async () => {
@@ -112,8 +111,6 @@ export async function ensureSeed(): Promise<void> {
         for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
           await db.settings.put({ key, value })
         }
-
-        await importRealData()
 
         await db.settings.put({ key: SEED_FLAG_KEY, value: SEED_VERSION })
       },
