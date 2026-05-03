@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
-import { db } from '@/db/schema'
+import { useApi } from '@/lib/api'
 import { calculateTitheForIncome } from '@/lib/tithe'
 import { useSettings } from '@/hooks/useSettings'
 import type { Category, Transaction } from '@/types/domain'
@@ -67,12 +67,20 @@ export function useDashboard(): DashboardData {
   const prevMonthStart = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
   const prevMonthEnd = format(endOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
 
-  const transactions = useLiveQuery(
-    () => db.transactions.orderBy('date').reverse().toArray(),
-    [],
-  )
+  const api = useApi()
 
-  const categories = useLiveQuery(() => db.categories.toArray()) ?? []
+  const { data: transactionsData } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<Transaction[]>('/transactions'),
+  })
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
+
+  const transactions = transactionsData ?? null
+  const categories = categoriesData ?? []
 
   const categoryMap = useMemo(() => {
     const m = new Map<number, Category>()

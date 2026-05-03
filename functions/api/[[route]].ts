@@ -3,14 +3,11 @@ import { handle } from 'hono/cloudflare-pages'
 import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from '../../src/server/schema'
+import type { AppEnv } from '../../src/server/types'
+import { settingsRouter } from '../../src/server/routes/settings'
+import { categoriesRouter } from '../../src/server/routes/categories'
 
-type Bindings = {
-  DB: D1Database
-  CLERK_PUBLISHABLE_KEY: string
-  CLERK_SECRET_KEY: string
-}
-
-const app = new Hono<{ Bindings: Bindings }>().basePath('/api')
+const app = new Hono<AppEnv>().basePath('/api')
 
 // Middleware de autenticación de Clerk
 app.use('*', async (c, next) => {
@@ -21,7 +18,11 @@ app.use('*', async (c, next) => {
   return authMiddleware(c, next)
 })
 
-// Rutas de ejemplo (Transactions)
+// Montar sub-rutas
+app.route('/settings', settingsRouter)
+app.route('/categories', categoriesRouter)
+
+// Rutas directas (temporalmente hasta moverlas a su router)
 app.get('/transactions', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
@@ -34,8 +35,5 @@ app.get('/transactions', async (c) => {
 
   return c.json(txs)
 })
-
-// Iremos añadiendo el resto de rutas (POST, PUT, DELETE) para Invoices, Categorías, etc.
-// durante la Fase 4 de Refactorización.
 
 export const onRequest = handle(app)
