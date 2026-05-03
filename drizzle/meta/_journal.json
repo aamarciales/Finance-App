@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1777843108466,
+      "tag": "0000_slim_ma_gnuci",
+      "breakpoints": true
+    }
+  ]
+}

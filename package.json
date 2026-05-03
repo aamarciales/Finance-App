@@ -12,8 +12,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@clerk/backend": "^3.4.4",
     "@clerk/clerk-react": "^5.61.6",
     "@fontsource-variable/geist": "^5.2.8",
+    "@hono/clerk-auth": "^3.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.100.8",
     "class-variance-authority": "^0.7.1",
@@ -22,7 +24,9 @@
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
     "dinero.js": "^2.0.2",
+    "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.38.0",
+    "hono": "^4.12.16",
     "lucide-react": "^1.14.0",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
@@ -49,6 +53,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/ui": "^4.1.5",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -58,6 +63,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wrangler": "^4.87.0"
   }
 }
