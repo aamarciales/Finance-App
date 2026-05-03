@@ -13,6 +13,7 @@ import { ExpensesByCategory } from '@/components/charts/ExpensesByCategory'
 import { MonthlyTrend } from '@/components/charts/MonthlyTrend'
 import { useDashboard, type EnrichedTransaction } from '@/hooks/useDashboard'
 import { useSettings } from '@/hooks/useSettings'
+import { useUser } from '@clerk/clerk-react'
 import type { BadgeTone } from '@/components/common/Badge'
 
 const CATEGORY_TONE_MAP: Record<string, BadgeTone> = {
@@ -29,6 +30,7 @@ const CATEGORY_TONE_MAP: Record<string, BadgeTone> = {
 export default function DashboardPage() {
   const { settings } = useSettings()
   const data = useDashboard()
+  const { user } = useUser()
 
   const now = new Date()
   const hour = now.getHours()
@@ -36,7 +38,9 @@ export default function DashboardPage() {
     hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
   const monthLabel = format(now, "LLLL yyyy", { locale: es })
   const month = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)
-  const name = settings?.displayName ?? 'tú'
+  
+  // Prioriza el nombre de Clerk (Google), luego el de Dexie, luego genérico
+  const name = user?.firstName || settings?.displayName || 'Usuario'
 
   function formatCop(amount: number): string {
     return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} COP`
