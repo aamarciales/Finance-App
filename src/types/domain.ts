@@ -215,4 +215,5 @@ export interface AppSettings {
   availableCapitalAmount?: number
   availableCapitalCurrency?: Currency
   titheCarryoverUsd?: number
+  titheStartDate?: string
 }

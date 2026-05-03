@@ -10,6 +10,7 @@ import GoalsPage from '@/pages/Goals'
 import DebtsPage from '@/pages/Debts'
 import TaxesPage from '@/pages/Taxes'
 import InsightsPage from '@/pages/Insights'
+import ReportsPage from '@/pages/Reports'
 import SettingsPage from '@/pages/Settings'
 import AuditLogPage from '@/pages/AuditLog'
 
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'debts', element: <DebtsPage /> },
       { path: 'taxes', element: <TaxesPage /> },
       { path: 'insights', element: <InsightsPage /> },
+      { path: 'reports', element: <ReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'historial', element: <AuditLogPage /> },
       { path: '*', element: <Navigate to="/" replace /> },

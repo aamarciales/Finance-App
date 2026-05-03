@@ -1,114 +1,224 @@
 import { db } from './schema'
 import { getEquivalentAmounts } from '@/lib/currency'
-import type { Currency, TxType } from '@/types/domain'
+import type { TxType } from '@/types/domain'
+import Papa from 'papaparse'
+import csvText from '@/data/finanzas-abril-mayo-2026.csv?raw'
 
 const EUR_RATE = 1.08
 
-interface HardcodedTx {
-  date: string
-  type: TxType
-  concept: string
-  categoryId: number
-  amount: number
-  currency: Currency
-  trm: number
-  debtId?: number
-}
-
-const TXS: HardcodedTx[] = [
-  // ── INGRESOS ──────────────────────────────────────────
-  { date: '2026-04-09', type: 'income', concept: 'Adelanto BRIX Agency', categoryId: 27, amount: 100, currency: 'USD', trm: 3619 },
-  { date: '2026-04-13', type: 'income', concept: 'Pago Eventive Global · Parte 1', categoryId: 13, amount: 250, currency: 'USD', trm: 3514.27 },
-  { date: '2026-04-14', type: 'income', concept: 'Pago Eventive Global · Parte 2', categoryId: 13, amount: 250, currency: 'USD', trm: 3556.99 },
-  { date: '2026-04-15', type: 'income', concept: 'Sueldo quincenal BRIX Agency', categoryId: 14, amount: 400, currency: 'USD', trm: 3576.50 },
-  { date: '2026-04-28', type: 'income', concept: 'Pago adicional Eventive Global', categoryId: 13, amount: 100, currency: 'USD', trm: 3576.79 },
-  { date: '2026-04-28', type: 'income', concept: 'Pago deuda Jhonatan', categoryId: 28, amount: 20000, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-29', type: 'income', concept: 'Ingreso de Horacio', categoryId: 15, amount: 35262, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-30', type: 'income', concept: 'Sueldo quincenal BRIX Agency', categoryId: 14, amount: 500, currency: 'USD', trm: 3624.02 },
-  { date: '2026-05-01', type: 'income', concept: 'Pago adicional Eventive Global', categoryId: 13, amount: 100, currency: 'USD', trm: 3625.49 },
-
-  // ── SUSCRIPCIONES ─────────────────────────────────────
-  { date: '2026-04-15', type: 'expense', concept: 'Suscripción Claude.AI', categoryId: 19, amount: 20, currency: 'USD', trm: 3576.50 },
-  { date: '2026-04-18', type: 'expense', concept: 'Suscripción Spotify', categoryId: 19, amount: 18500, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-23', type: 'expense', concept: 'Suscripción 1Password', categoryId: 19, amount: 7.99, currency: 'USD', trm: 3576.50 },
-  { date: '2026-04-29', type: 'expense', concept: 'Suscripción HBO Max', categoryId: 19, amount: 12000, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-30', type: 'expense', concept: 'Suscripción Microsoft OneDrive', categoryId: 19, amount: 45999, currency: 'COP', trm: 3624.02 },
-  { date: '2026-05-01', type: 'expense', concept: 'Suscripción Toggl', categoryId: 19, amount: 36375.10, currency: 'COP', trm: 3625.49 },
-  { date: '2026-05-01', type: 'expense', concept: 'Suscripción Google Workspace', categoryId: 19, amount: 34884, currency: 'COP', trm: 3625.49 },
-  { date: '2026-05-02', type: 'expense', concept: 'Cargo adicional Google Workspace', categoryId: 19, amount: 2258, currency: 'COP', trm: 3625.49 },
-
-  // ── DEUDAS ────────────────────────────────────────────
-  { date: '2026-04-15', type: 'debt_payment', concept: 'Pago parcial deuda Tío Bairon', categoryId: 10, amount: 225, currency: 'USD', trm: 3576.50, debtId: 1 },
-  { date: '2026-04-17', type: 'expense', concept: 'Préstamo a Jhonatan', categoryId: 25, amount: 20000, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-28', type: 'debt_payment', concept: 'Cuota teléfono Motorola Edge Fusion', categoryId: 21, amount: 131000, currency: 'COP', trm: 3576.79, debtId: 2 },
-  { date: '2026-04-28', type: 'expense', concept: 'Dinero perdido en la calle', categoryId: 26, amount: 30000, currency: 'COP', trm: 3576.79 },
-
-  // ── VIVIENDA ──────────────────────────────────────────
-  { date: '2026-05-01', type: 'expense', concept: 'Pago alquiler casa', categoryId: 23, amount: 1000000, currency: 'COP', trm: 3625.49 },
-
-  // ── TRANSFERENCIA ─────────────────────────────────────
-  { date: '2026-05-01', type: 'expense', concept: 'Transferencia a papá', categoryId: 16, amount: 12000, currency: 'COP', trm: 3625.49 },
-
-  // ── IGLESIA (YA DEVUELTO) ─────────────────────────────
-  { date: '2026-05-02', type: 'expense', concept: 'Diezmo Iglesia Adventista', categoryId: 8, amount: 252614, currency: 'COP', trm: 3625.49 },
-  { date: '2026-05-02', type: 'expense', concept: 'Ofrenda Iglesia Adventista', categoryId: 9, amount: 162395, currency: 'COP', trm: 3625.49 },
-
-  // ── MASCOTAS ──────────────────────────────────────────
-  { date: '2026-04-06', type: 'expense', concept: 'Alim. Sec. Mirringo gato 500g', categoryId: 20, amount: 6250, currency: 'COP', trm: 3619 },
-
-  // ── MERCADO ───────────────────────────────────────────
-  { date: '2026-04-06', type: 'expense', concept: 'Maiz Pira MXM 500g', categoryId: 24, amount: 2000, currency: 'COP', trm: 3619 },
-  { date: '2026-04-12', type: 'expense', concept: 'Azucar MXM Blanca 1000g', categoryId: 24, amount: 3950, currency: 'COP', trm: 3514.27 },
-  { date: '2026-04-13', type: 'expense', concept: 'Compra Mas x Menos · 19 ítems', categoryId: 24, amount: 159600, currency: 'COP', trm: 3514.27 },
-  { date: '2026-04-15', type: 'expense', concept: 'Compra Mas x Menos · 24 ítems', categoryId: 24, amount: 198354.80, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-18', type: 'expense', concept: 'Compra Mas x Menos · 5 ítems', categoryId: 24, amount: 34580, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-20', type: 'expense', concept: 'Compra Mas x Menos · 6 ítems', categoryId: 24, amount: 59350, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-23', type: 'expense', concept: 'Compra Mas x Menos · Cereal + Leche', categoryId: 24, amount: 22000, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-24', type: 'expense', concept: 'Compra D1', categoryId: 24, amount: 1350, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-26', type: 'expense', concept: 'Gaseosa Coca-Cola 1500ml', categoryId: 24, amount: 6800, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-27', type: 'expense', concept: 'Adaptador de corriente', categoryId: 7, amount: 3500, currency: 'COP', trm: 3576.50 },
-  { date: '2026-04-28', type: 'expense', concept: 'Mercado general', categoryId: 24, amount: 46430, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-28', type: 'expense', concept: 'Compra queso', categoryId: 24, amount: 18000, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-28', type: 'expense', concept: 'Compra pan', categoryId: 24, amount: 8000, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-28', type: 'expense', concept: 'Compra obleas', categoryId: 24, amount: 42600, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-29', type: 'expense', concept: 'Compra Mas x Menos · Hartón + Carne', categoryId: 24, amount: 44208.30, currency: 'COP', trm: 3576.79 },
-  { date: '2026-04-30', type: 'expense', concept: 'Compra aguacate', categoryId: 24, amount: 5000, currency: 'COP', trm: 3624.02 },
-  { date: '2026-04-30', type: 'expense', concept: 'Compra tomates', categoryId: 24, amount: 8550, currency: 'COP', trm: 3624.02 },
-  { date: '2026-04-30', type: 'expense', concept: 'Gaseosa Coca-Cola 2500ml', categoryId: 24, amount: 8800, currency: 'COP', trm: 3624.02 },
-  { date: '2026-05-01', type: 'expense', concept: 'Compra Mas x Menos · 20 ítems', categoryId: 24, amount: 176676, currency: 'COP', trm: 3625.49 },
-]
-
 export async function importRealData(): Promise<void> {
-  console.log('[import] Starting hardcoded data import...')
+  console.log('[import] Starting CSV data import...')
 
   // Debts: [0]=Tío Bairon, [1]=Motorola, [2]=Nu Bank
   const debtIds = await createDebts()
   console.log(`[import] Created ${debtIds.length} debts`)
 
-  // Resolve debtId references (1→debtIds[0], 2→debtIds[1], etc.)
-  let txCount = 0
-  for (const tx of TXS) {
-    const debtId = tx.debtId != null ? debtIds[tx.debtId - 1] : undefined
-    const rates = { trm: tx.trm, eurToUsd: EUR_RATE }
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(tx.amount, tx.currency, rates)
+  // Get categories to map by name
+  const categories = await db.categories.toArray()
+  const getCategoryId = (name: string): number => {
+    let cat = categories.find(c => c.name.toLowerCase() === name.toLowerCase())
+    if (cat && cat.id) return cat.id
+    // fallbacks
+    if (name.toLowerCase() === 'religiosa') cat = categories.find(c => c.name === 'Iglesia')
+    if (name.toLowerCase() === 'telefonia') cat = categories.find(c => c.name === 'Teléfono')
+    if (name.toLowerCase() === 'tarjeta credito') cat = categories.find(c => c.name === 'Deuda')
+    if (name.toLowerCase() === 'limpieza') cat = categories.find(c => c.name === 'Hogar')
+    if (name.toLowerCase() === 'higiene personal') cat = categories.find(c => c.name === 'Salud')
+    if (cat && cat.id) return cat.id
+    
+    // fallback to "Otros"
+    const otros = categories.find(c => c.name === 'Otros')
+    return otros?.id ?? 12
+  }
 
+  // Parse CSV
+  const result = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    delimiter: ';',
+    skipEmptyLines: true,
+  })
+
+  let txCount = 0
+  let isSummary = false
+
+  const invoiceGroups = new Map<string, any>()
+  const standaloneTxs: any[] = []
+
+  for (const row of result.data) {
+    if (Object.values(row).some(v => v && v.includes('RESUMEN'))) {
+      isSummary = true
+      continue
+    }
+    if (isSummary) continue
+
+    const rawDate = (row['Fecha'] || '').trim()
+    // only parse rows that have a proper date (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+      continue
+    }
+
+    const typeStr = (row['Tipo'] || '').trim().toLowerCase()
+    let categoryName = (row['Categoria'] || '').trim()
+    const subCategory = (row['Subcategoria'] || '').trim()
+    
+    // Si la subcategoría es diezmo u ofrenda, usarla como categoría principal
+    if (subCategory.toLowerCase() === 'diezmo' || subCategory.toLowerCase() === 'diezmos') {
+      categoryName = 'Diezmo'
+    } else if (subCategory.toLowerCase() === 'ofrenda' || subCategory.toLowerCase() === 'ofrendas') {
+      categoryName = 'Ofrendas'
+    }
+    
+    let txType: TxType = 'expense'
+    if (typeStr === 'ingreso') txType = 'income'
+    if (typeStr === 'deuda' || typeStr.includes('tarjeta credito')) txType = 'debt_payment'
+    if (categoryName.toLowerCase() === 'transferencia' || typeStr.includes('nequi')) txType = 'transfer'
+
+    const concept = (row['Concepto'] || '').trim() || (row['Descripcion'] || '').trim()
+    const amount = parseFloat((row['Monto_Original'] || '').replace(/,/g, '')) || 0
+    if (amount === 0 && !concept) continue // Skip empty amounts
+
+    const currencyStr = (row['Moneda'] || 'COP').trim().toUpperCase()
+    const currency = (currencyStr === 'USD' || currencyStr === 'EUR') ? currencyStr : 'COP'
+    
+    let trm = parseFloat((row['Tasa_Cambio_USD_COP'] || '').replace(/,/g, ''))
+    if (isNaN(trm) || trm === 0) {
+      trm = 3600 // Default fallback si no hay TRM explicita
+    }
+
+    let debtId: number | undefined
+    if (txType === 'debt_payment') {
+      const acreedor = (row['Acreedor'] || row['Proveedor_Pagador'] || row['Concepto'] || '').toLowerCase()
+      if (acreedor.includes('bairon')) debtId = debtIds[0]
+      else if (acreedor.includes('motorola')) debtId = debtIds[1]
+      else if (acreedor.includes('nu') || acreedor.includes('bancolombia') || typeStr.includes('tarjeta credito')) debtId = debtIds[2]
+    }
+
+    const rates = { trm, eurToUsd: EUR_RATE }
+    const { amountInBase, amountInSecondary } = getEquivalentAmounts(amount, currency, rates)
+
+    const invoiceNum = (row['Numero_Factura'] || '').trim()
+    const isPurchase = concept.toLowerCase().includes('compra supermercado')
+    const hasInvoiceNumber = invoiceNum !== ''
+
+    if (hasInvoiceNumber || isPurchase) {
+      const key = hasInvoiceNumber ? invoiceNum : `auto_${rawDate}_${categoryName}`
+      const merchant = (row['Proveedor_Pagador'] || row['Concepto'] || 'Desconocido').split(' - ')[0]
+
+      if (!invoiceGroups.has(key)) {
+        invoiceGroups.set(key, {
+          date: rawDate,
+          merchant,
+          categoryName,
+          txType,
+          currency,
+          trm,
+          debtId,
+          items: [],
+          totalAmount: 0,
+          totalAmountCop: 0,
+          concept: `Compra en ${merchant}`,
+        })
+      }
+
+      const group = invoiceGroups.get(key)
+      // Extract specific item name if it has " - "
+      const itemNameParts = concept.split(' - ')
+      const itemName = itemNameParts.length > 1 ? itemNameParts[1] : concept
+      
+      group.items.push({
+        name: itemName,
+        quantity: 1,
+        unitPrice: amount,
+        totalPrice: amount,
+        subCategory: (row['Subcategoria'] || '').trim() || categoryName,
+      })
+      group.totalAmount += amount
+      group.totalAmountCop += amountInSecondary
+    } else {
+      standaloneTxs.push({
+        date: rawDate,
+        type: txType,
+        concept,
+        categoryName,
+        amount,
+        currency,
+        trm,
+        amountInBase,
+        amountInSecondary,
+        debtId,
+      })
+    }
+  }
+
+  // Insert grouped invoices
+  for (const [, group] of invoiceGroups.entries()) {
+    const categoryId = getCategoryId(group.categoryName)
+    const rates = { trm: group.trm, eurToUsd: EUR_RATE }
+    const { amountInBase, amountInSecondary } = getEquivalentAmounts(group.totalAmount, group.currency, rates)
+
+    const txId = await db.transactions.add({
+      date: group.date,
+      type: group.txType,
+      concept: group.concept,
+      categoryId,
+      amount: group.totalAmount,
+      currency: group.currency,
+      trm: group.trm,
+      amountInBase,
+      amountInSecondary,
+      debtId: group.debtId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }) as number
+
+    const invoiceId = await db.invoices.add({
+      transactionId: txId,
+      date: group.date,
+      merchant: group.merchant,
+      total: group.totalAmount,
+      currency: group.currency,
+      trm: group.trm,
+      itemCount: group.items.length,
+      createdAt: new Date().toISOString(),
+    }) as number
+
+    await db.transactions.update(txId, { invoiceId })
+
+    for (const item of group.items) {
+      await db.invoiceItems.add({
+        invoiceId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        subCategory: item.subCategory,
+      })
+    }
+
+    txCount++
+  }
+
+  // Insert standalone transactions
+  for (const tx of standaloneTxs) {
+    const categoryId = getCategoryId(tx.categoryName)
     await db.transactions.add({
       date: tx.date,
       type: tx.type,
       concept: tx.concept,
-      categoryId: tx.categoryId,
+      categoryId,
       amount: tx.amount,
       currency: tx.currency,
       trm: tx.trm,
-      amountInBase,
-      amountInSecondary,
-      debtId,
+      amountInBase: tx.amountInBase,
+      amountInSecondary: tx.amountInSecondary,
+      debtId: tx.debtId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
     txCount++
   }
-  console.log(`[import] Created ${txCount} transactions`)
+  
+  console.log(`[import] Created ${txCount} transactions from CSV`)
 
   // Goals
   await db.goals.bulkAdd([
@@ -212,3 +322,4 @@ async function createDebts(): Promise<number[]> {
   }
   return ids
 }
+

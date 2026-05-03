@@ -42,6 +42,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/categories', label: 'Categorías', icon: LineChart },
       { to: '/insights', label: 'Análisis', icon: Search },
+      { to: '/reports', label: 'Reportes', icon: FileText },
     ],
   },
   {

@@ -66,6 +66,7 @@ export default function TithePage() {
   let totalCalculatedOffering = 0
   const categoryBreakdown = new Map<number, { income: number; tithe: number; offering: number }>()
 
+  // breakdown for the current month
   for (const tx of incomeTxs) {
     const result = calculateTitheForIncome(tx.amountInBase, tx.categoryId, settings ?? undefined)
     totalCalculatedTithe += result.tithe
@@ -78,9 +79,26 @@ export default function TithePage() {
     categoryBreakdown.set(tx.categoryId, existing)
   }
 
+  // Global pending calculation
+  let totalHistoricalTitheCalculated = 0
+  let totalHistoricalTithePaid = 0
+  if (settings && transactions) {
+    const startDate = settings.titheStartDate || '1970-01-01'
+    const kpiTxs = transactions.filter(tx => tx.type !== 'transfer' && tx.date >= startDate)
+    
+    for (const tx of kpiTxs.filter(tx => tx.type === 'income')) {
+      const result = calculateTitheForIncome(tx.amountInBase, tx.categoryId, settings)
+      totalHistoricalTitheCalculated += result.tithe + result.offering
+    }
+    const titheCatIds = new Set(categories.filter(c => c.name === 'Diezmo' || c.name === 'Ofrendas').map(c => c.id))
+    for (const tx of kpiTxs.filter(tx => tx.categoryId != null && titheCatIds.has(tx.categoryId))) {
+      totalHistoricalTithePaid += tx.amountInBase
+    }
+  }
+
   const totalCommitted = totalCalculatedTithe + totalCalculatedOffering
   const totalReturned = titheOfferingTxs.reduce((s, tx) => s + tx.amountInBase, 0)
-  const pending = Math.max(0, totalCommitted - totalReturned)
+  const pending = Math.max(0, (settings?.titheCarryoverUsd ?? 0) + totalHistoricalTitheCalculated - totalHistoricalTithePaid)
 
   const titheConfig = settings?.titheConfig
 

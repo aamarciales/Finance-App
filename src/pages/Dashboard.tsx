@@ -63,7 +63,7 @@ export default function DashboardPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           <KpiCard
-            label="Balance total"
+            label="Flujo de caja neto"
             amount={data.totalBalance}
             currency="USD"
             secondary={formatCop(data.totalBalanceCop)}

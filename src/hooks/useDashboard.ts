@@ -112,12 +112,37 @@ export function useDashboard(): DashboardData {
     const monthIncomeCop = monthTxs.filter(tx => tx.type === 'income').reduce((s, tx) => s + tx.amountInSecondary, 0)
     const monthExpensesCop = monthTxs.filter(tx => tx.type === 'expense' || tx.type === 'debt_payment').reduce((s, tx) => s + tx.amountInSecondary, 0)
 
-    // Tithe — use carryover from settings as the authoritative pending amount
-    const tithePending = settings?.titheCarryoverUsd ?? 0
+    // Tithe — global calculation
+    let totalHistoricalTitheCalculated = 0
+    let totalHistoricalTithePaid = 0
+
+    if (settings) {
+      const startDate = settings.titheStartDate || '1970-01-01'
+      const titheTxs = kpiTxs.filter(tx => tx.date >= startDate)
+
+      // All income since startDate
+      const allHistoricalIncomeTxs = titheTxs.filter(tx => tx.type === 'income')
+      for (const tx of allHistoricalIncomeTxs) {
+        const result = calculateTitheForIncome(tx.amountInBase, tx.categoryId, settings)
+        totalHistoricalTitheCalculated += result.tithe + result.offering
+      }
+
+      // All tithe payments since startDate
+      const titheCategories = new Set(
+        categories.filter(c => c.name === 'Diezmo' || c.name === 'Ofrendas').map(c => c.id)
+      )
+      const allHistoricalTithePayments = titheTxs.filter(tx => tx.categoryId != null && titheCategories.has(tx.categoryId))
+      for (const tx of allHistoricalTithePayments) {
+        totalHistoricalTithePaid += tx.amountInBase
+      }
+    }
+
+    const tithePending = Math.max(0, (settings?.titheCarryoverUsd ?? 0) + totalHistoricalTitheCalculated - totalHistoricalTithePaid)
+
     const titheBreakdown: TitheBreakdown = { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: 0 }
     if (settings) {
       // Informational breakdown by category (for the TitheCard)
-      const allIncomeTxs = kpiTxs.filter(tx => tx.type === 'income')
+      const allIncomeTxs = monthTxs.filter(tx => tx.type === 'income')
       const titheByCategory = new Map<number, { income: number; tithe: number; offering: number; tithePct: number; offeringPct: number }>()
 
       for (const tx of allIncomeTxs) {
