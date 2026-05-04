@@ -17,7 +17,7 @@ const app = new Hono<AppEnv>().basePath('/api')
 app.use('*', async (c, next) => {
   const authMiddleware = clerkMiddleware({
     secretKey: c.env.CLERK_SECRET_KEY,
-    publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    publishableKey: c.env.CLERK_PUBLISHABLE_KEY || c.env.VITE_CLERK_PUBLISHABLE_KEY,
   })
   return authMiddleware(c, next)
 })
