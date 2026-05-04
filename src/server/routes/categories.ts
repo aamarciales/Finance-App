@@ -31,6 +31,8 @@ categoriesRouter.post('/', async (c) => {
   const result = await db.insert(schema.categories).values({
     ...body,
     userId: auth.userId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }).returning()
   
   return c.json(result[0])

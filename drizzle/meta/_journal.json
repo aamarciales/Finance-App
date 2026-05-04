@@ -8,6 +8,13 @@
       "when": 1777843108466,
       "tag": "0000_slim_ma_gnuci",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777853724362,
+      "tag": "0001_handy_black_cat",
+      "breakpoints": true
     }
   ]
 }
