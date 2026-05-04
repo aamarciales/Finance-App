@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -26,7 +28,7 @@ interface CsvImportPreviewProps {
   transactions: ParsedTransaction[]
   bank: DetectedBank
   categories: Category[]
-  onImport: (rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number }>) => Promise<void>
+  onImport: (rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) => Promise<void>
   onClose: () => void
 }
 
@@ -41,17 +43,38 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
     return m
   }, [categories])
 
+  const newCategoryNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const tx of transactions) {
+      const explicitCat = tx.originalData?.['Categoria']?.trim()
+      if (explicitCat && !categoryMap.has(explicitCat.toLowerCase())) {
+        names.add(explicitCat)
+      }
+    }
+    return Array.from(names)
+  }, [transactions, categoryMap])
+
+  const tempCategoryMap = useMemo(() => {
+    const m = new Map<string, number>()
+    newCategoryNames.forEach((name, i) => m.set(name.toLowerCase(), -1 - i))
+    return m
+  }, [newCategoryNames])
+
   const [rows, setRows] = useState<CsvRow[]>(() =>
     transactions.map(tx => {
-      // First try explicit category from CSV, then fallback to concept heuristic
-      const explicitCat = tx.originalData['Categoria']?.trim()?.toLowerCase()
+      const explicitCat = tx.originalData?.['Categoria']?.trim()?.toLowerCase()
       const suggested = suggestCategory(tx.concept)
       let catId: number | undefined
-      if (explicitCat && categoryMap.has(explicitCat)) {
-        catId = categoryMap.get(explicitCat)
-      } else if (suggested) {
+
+      if (explicitCat) {
+        if (categoryMap.has(explicitCat)) catId = categoryMap.get(explicitCat)
+        else if (tempCategoryMap.has(explicitCat)) catId = tempCategoryMap.get(explicitCat)
+      }
+
+      if (catId === undefined && suggested) {
         catId = categoryMap.get(suggested.toLowerCase())
       }
+
       return {
         ...tx,
         selected: true,
@@ -80,13 +103,21 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
   async function handleImport() {
     setImporting(true)
     try {
-      await onImport(selectedRows.map(r => ({
-        date: r.date,
-        concept: r.concept,
-        amount: Math.abs(r.amount),
-        currency: r.currency,
-        categoryId: r.categoryId,
-      })))
+      await onImport(selectedRows.map(r => {
+        let newCategoryName: string | undefined
+        if (r.categoryId < 0) {
+          const index = -1 - r.categoryId
+          newCategoryName = newCategoryNames[index]
+        }
+        return {
+          date: r.date,
+          concept: r.concept,
+          amount: Math.abs(r.amount),
+          currency: r.currency,
+          categoryId: r.categoryId,
+          newCategoryName,
+        }
+      }))
       onClose()
     } finally {
       setImporting(false)
@@ -153,9 +184,20 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map(c => (
-                          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                        ))}
+                        <SelectGroup>
+                          <SelectLabel>Categorías existentes</SelectLabel>
+                          {categories.map(c => (
+                            <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        {newCategoryNames.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Nuevas a crear</SelectLabel>
+                            {newCategoryNames.map((name, i) => (
+                              <SelectItem key={-1 - i} value={String(-1 - i)}>Crear: {name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
                   </td>

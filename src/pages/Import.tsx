@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Loader2, ScanLine, FileSpreadsheet } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -24,6 +24,7 @@ export default function ImportPage() {
   const rates = useMemo(() => ({ trm, eurToUsd }), [trm, eurToUsd])
   const { addInvoice } = useInvoices()
   const api = useApi()
+  const queryClient = useQueryClient()
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -100,19 +101,62 @@ export default function ImportPage() {
     setDetectedBank('unknown')
   }
 
-  async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number }>) {
+  async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) {
+    const createdCategories = new Map<number, number>() // tempId -> realId
+    const uniqueNewCats = new Map<number, { name: string, isIncome: boolean }>()
+    
+    // Identificar categorías nuevas a crear y si son de ingresos o gastos
+    for (const row of rows) {
+      if (row.newCategoryName && !uniqueNewCats.has(row.categoryId)) {
+        // En tu CSV, un adelanto o ingreso puede venir como un monto positivo antes del Math.abs en preview,
+        // pero en CsvImportPreview hacemos Math.abs. Necesitamos basarnos en la data original o asumir gastos.
+        // Como todos los rows ya tienen Math.abs(row.amount), asumiremos "expense" por defecto para CsvParser 
+        // a menos que sea obvio (ej. 'Adelanto', 'Salario').
+        const isIncome = row.newCategoryName.toLowerCase().includes('ingreso') || 
+                         row.newCategoryName.toLowerCase().includes('salario') ||
+                         row.newCategoryName.toLowerCase().includes('adelanto')
+        uniqueNewCats.set(row.categoryId, { name: row.newCategoryName, isIncome })
+      }
+    }
+
+    try {
+      // Crear las nuevas categorías
+      for (const [tempId, cat] of uniqueNewCats.entries()) {
+        const newCat = await api.post<Category>('/categories', {
+          name: cat.name,
+          color: '#3498DB', // Azul por defecto para nuevas
+          icon: 'Tags',
+          type: cat.isIncome ? 'income' : 'expense'
+        })
+        createdCategories.set(tempId, newCat.id!)
+      }
+      
+      if (uniqueNewCats.size > 0) {
+        await queryClient.invalidateQueries({ queryKey: ['categories'] })
+        toast.success(`Se crearon ${uniqueNewCats.size} nuevas categorías`)
+      }
+    } catch {
+      toast.error('Error creando las nuevas categorías')
+      return
+    }
+
     const categoryMap = new Map<number, Category>()
-    for (const c of categories) {
+    // Reconstruir el mapa con las categorías recién creadas incluidas
+    const currentCategories = await api.get<Category[]>('/categories')
+    for (const c of currentCategories) {
       if (c.id != null) categoryMap.set(c.id, c)
     }
 
     try {
       for (const row of rows) {
-        const cat = categoryMap.get(row.categoryId)
+        const realCategoryId = row.newCategoryName ? createdCategories.get(row.categoryId)! : row.categoryId
+        const cat = categoryMap.get(realCategoryId)
+        
         let resolvedType: 'income' | 'expense' | 'debt_payment' | 'transfer' = 'expense'
         if (cat?.name === 'Deuda') resolvedType = 'debt_payment'
         else if (cat?.name === 'Transferencias') resolvedType = 'transfer'
-        else if (cat?.type === 'income' && row.amount > 0) resolvedType = 'income'
+        else if (cat?.type === 'income') resolvedType = 'income'
+        
         const txTrm = rates.trm
         const { amountInBase, amountInSecondary } = getEquivalentAmounts(row.amount, row.currency, rates)
 
@@ -120,7 +164,7 @@ export default function ImportPage() {
           date: row.date,
           type: resolvedType,
           concept: row.concept,
-          categoryId: row.categoryId,
+          categoryId: realCategoryId,
           amount: row.amount,
           currency: row.currency,
           trm: txTrm,
