@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/common/Badge'
 import { Money } from '@/components/common/Money'
 import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from '@/components/ui/select'
 import { suggestCategory } from '@/lib/auto-categorize'
 import type { ParsedTransaction, DetectedBank } from '@/lib/csv-parser'
@@ -43,6 +45,8 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
     return m
   }, [categories])
 
+  const [manualNewCategories, setManualNewCategories] = useState<string[]>([])
+
   const newCategoryNames = useMemo(() => {
     const names = new Set<string>()
     for (const tx of transactions) {
@@ -51,8 +55,9 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
         names.add(explicitCat)
       }
     }
+    manualNewCategories.forEach(c => names.add(c))
     return Array.from(names)
-  }, [transactions, categoryMap])
+  }, [transactions, categoryMap, manualNewCategories])
 
   const tempCategoryMap = useMemo(() => {
     const m = new Map<string, number>()
@@ -97,6 +102,34 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
   }
 
   function setCategory(index: number, catId: string) {
+    if (catId === 'CREATE_NEW') {
+      const name = window.prompt('Nombre de la nueva categoría:')
+      if (name && name.trim()) {
+        const cleanName = name.trim()
+        
+        setManualNewCategories(prev => {
+          if (!prev.includes(cleanName)) return [...prev, cleanName]
+          return prev
+        })
+        
+        // Calcular el ID temporal que tendrá
+        const names = new Set<string>()
+        for (const tx of transactions) {
+          const explicitCat = tx.originalData?.['Categoria']?.trim()
+          if (explicitCat && !categoryMap.has(explicitCat.toLowerCase())) names.add(explicitCat)
+        }
+        manualNewCategories.forEach(c => names.add(c))
+        names.add(cleanName)
+        
+        const allCatsArray = Array.from(names)
+        const catIndex = allCatsArray.findIndex(c => c.toLowerCase() === cleanName.toLowerCase())
+        
+        if (catIndex !== -1) {
+          setRows(prev => prev.map((r, i) => i === index ? { ...r, categoryId: -1 - catIndex } : r))
+        }
+      }
+      return
+    }
     setRows(prev => prev.map((r, i) => i === index ? { ...r, categoryId: Number(catId) } : r))
   }
 
@@ -198,6 +231,11 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
                             ))}
                           </SelectGroup>
                         )}
+                        <SelectSeparator />
+                        <SelectItem value="CREATE_NEW" className="font-medium text-brand">
+                          <Plus className="mr-2 inline h-3 w-3" />
+                          Crear nueva categoría...
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </td>
