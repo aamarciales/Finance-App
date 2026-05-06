@@ -1,6 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
-import type { AppSettings } from '@/types/domain'
+import type { AppSettings, TitheConfig, TaxProfile } from '@/types/domain'
+
+const DEFAULT_TITHE_CONFIG: TitheConfig = {
+  tithePercentByIncomeCategory: {},
+  defaultTithe: 10,
+  defaultOffering: 0,
+  destination: 'Iglesia local',
+}
+
+const DEFAULT_TAX_PROFILE: TaxProfile = {
+  residentStatus: 'resident',
+  regime: 'none',
+  activityCode: '',
+  isVATResponsible: false,
+  validatedByAccountant: false,
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  baseCurrency: 'USD',
+  secondaryCurrency: 'COP',
+  displayName: 'Usuario',
+  titheConfig: DEFAULT_TITHE_CONFIG,
+  taxProfile: DEFAULT_TAX_PROFILE,
+  ocrProvider: 'off',
+  autoCategorize: true,
+  monthlyTaxProvisionRate: 0.02,
+}
 
 export function useSettings() {
   const api = useApi()
@@ -10,9 +36,22 @@ export function useSettings() {
     queryKey: ['settings'],
     queryFn: async (): Promise<AppSettings> => {
       const all: any[] = await api.get('/settings')
-      return Object.fromEntries(
+      const fromApi = Object.fromEntries(
         all.filter((s) => !s.key.startsWith('__')).map((s) => [s.key, s.value]),
-      ) as unknown as AppSettings
+      ) as Partial<AppSettings>
+
+      return {
+        ...DEFAULT_SETTINGS,
+        ...fromApi,
+        titheConfig: {
+          ...DEFAULT_TITHE_CONFIG,
+          ...(fromApi.titheConfig ?? {}),
+        },
+        taxProfile: {
+          ...DEFAULT_TAX_PROFILE,
+          ...(fromApi.taxProfile ?? {}),
+        },
+      }
     },
   })
 
