@@ -38,67 +38,73 @@ adminRouter.post('/wipe-my-data', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
 
-  const db = drizzle(c.env.DB, { schema })
-  const userId = auth.userId
+  try {
+    const db = drizzle(c.env.DB, { schema })
+    const userId = auth.userId
 
-  const userInvoiceIds = db
-    .select({ id: schema.invoices.id })
-    .from(schema.invoices)
-    .where(eq(schema.invoices.userId, userId))
+    const userInvoiceIds = db
+      .select({ id: schema.invoices.id })
+      .from(schema.invoices)
+      .where(eq(schema.invoices.userId, userId))
 
-  const deletedInvoiceItems = await db
-    .delete(schema.invoiceItems)
-    .where(inArray(schema.invoiceItems.invoiceId, userInvoiceIds))
-    .returning({ id: schema.invoiceItems.id })
+    const deletedInvoiceItems = await db
+      .delete(schema.invoiceItems)
+      .where(inArray(schema.invoiceItems.invoiceId, userInvoiceIds))
+      .returning({ id: schema.invoiceItems.id })
 
-  const deletedTithePayments = await db
-    .delete(schema.tithePayments)
-    .where(eq(schema.tithePayments.userId, userId))
-    .returning({ id: schema.tithePayments.id })
+    const deletedTithePayments = await db
+      .delete(schema.tithePayments)
+      .where(eq(schema.tithePayments.userId, userId))
+      .returning({ id: schema.tithePayments.id })
 
-  const deletedTransactions = await db
-    .delete(schema.transactions)
-    .where(eq(schema.transactions.userId, userId))
-    .returning({ id: schema.transactions.id })
+    const deletedTransactions = await db
+      .delete(schema.transactions)
+      .where(eq(schema.transactions.userId, userId))
+      .returning({ id: schema.transactions.id })
 
-  const deletedInvoices = await db
-    .delete(schema.invoices)
-    .where(eq(schema.invoices.userId, userId))
-    .returning({ id: schema.invoices.id })
+    const deletedInvoices = await db
+      .delete(schema.invoices)
+      .where(eq(schema.invoices.userId, userId))
+      .returning({ id: schema.invoices.id })
 
-  const deletedDebts = await db
-    .delete(schema.debts)
-    .where(eq(schema.debts.userId, userId))
-    .returning({ id: schema.debts.id })
+    const deletedDebts = await db
+      .delete(schema.debts)
+      .where(eq(schema.debts.userId, userId))
+      .returning({ id: schema.debts.id })
 
-  const deletedGoals = await db
-    .delete(schema.goals)
-    .where(eq(schema.goals.userId, userId))
-    .returning({ id: schema.goals.id })
+    const deletedGoals = await db
+      .delete(schema.goals)
+      .where(eq(schema.goals.userId, userId))
+      .returning({ id: schema.goals.id })
 
-  const deletedCategories = await db
-    .delete(schema.categories)
-    .where(eq(schema.categories.userId, userId))
-    .returning({ id: schema.categories.id })
+    const deletedCategories = await db
+      .delete(schema.categories)
+      .where(eq(schema.categories.userId, userId))
+      .returning({ id: schema.categories.id })
 
-  const deletedSettings = await db
-    .delete(schema.settings)
-    .where(eq(schema.settings.userId, userId))
-    .returning({ key: schema.settings.key })
+    const deletedSettings = await db
+      .delete(schema.settings)
+      .where(eq(schema.settings.userId, userId))
+      .returning({ key: schema.settings.key })
 
-  return c.json({
-    success: true,
-    deletedCounts: {
-      invoiceItems: deletedInvoiceItems.length,
-      tithePayments: deletedTithePayments.length,
-      transactions: deletedTransactions.length,
-      invoices: deletedInvoices.length,
-      debts: deletedDebts.length,
-      goals: deletedGoals.length,
-      categories: deletedCategories.length,
-      settings: deletedSettings.length,
-    },
-  })
+    return c.json({
+      success: true,
+      deletedCounts: {
+        invoiceItems: deletedInvoiceItems.length,
+        tithePayments: deletedTithePayments.length,
+        transactions: deletedTransactions.length,
+        invoices: deletedInvoices.length,
+        debts: deletedDebts.length,
+        goals: deletedGoals.length,
+        categories: deletedCategories.length,
+        settings: deletedSettings.length,
+      },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Admin endpoint failed:', message)
+    return c.json({ error: 'Operation failed', detail: message }, 500)
+  }
 })
 
 // POST /api/admin/seed-system-categories
@@ -106,25 +112,31 @@ adminRouter.post('/seed-system-categories', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
 
-  const db = drizzle(c.env.DB, { schema })
-  const userId = auth.userId
+  try {
+    const db = drizzle(c.env.DB, { schema })
+    const userId = auth.userId
 
-  const existing = await db
-    .select({ id: schema.categories.id })
-    .from(schema.categories)
-    .where(and(eq(schema.categories.userId, userId), eq(schema.categories.isSystem, true)))
+    const existing = await db
+      .select({ id: schema.categories.id })
+      .from(schema.categories)
+      .where(and(eq(schema.categories.userId, userId), eq(schema.categories.isSystem, true)))
 
-  if (existing.length > 0) {
-    return c.json({ success: true, skipped: true, count: existing.length })
+    if (existing.length > 0) {
+      return c.json({ success: true, skipped: true, count: existing.length })
+    }
+
+    for (const cat of SYSTEM_CATEGORIES) {
+      await db.insert(schema.categories).values({
+        ...cat,
+        userId,
+        isSystem: true,
+      })
+    }
+
+    return c.json({ success: true, inserted: SYSTEM_CATEGORIES.length })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Admin endpoint failed:', message)
+    return c.json({ error: 'Operation failed', detail: message }, 500)
   }
-
-  await db.insert(schema.categories).values(
-    SYSTEM_CATEGORIES.map((cat) => ({
-      ...cat,
-      userId,
-      isSystem: true,
-    }))
-  )
-
-  return c.json({ success: true, inserted: SYSTEM_CATEGORIES.length })
 })
