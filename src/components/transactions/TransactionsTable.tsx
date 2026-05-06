@@ -144,6 +144,9 @@ function TxRow({
 
   const CategoryIcon = ICON_MAP[tx.category.icon]
 
+  const equivalentAmount = tx.currency === 'USD' ? tx.amountInSecondary : tx.amountInBase
+  const equivalentCurrency = tx.currency === 'USD' ? 'COP' : 'USD'
+
   return (
     <tr className="group border-b border-border/50 transition-colors hover:bg-surface-2/60">
       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-text-muted">
@@ -181,8 +184,8 @@ function TxRow({
       </td>
       <td className="whitespace-nowrap px-4 py-2.5 text-right">
         <Money
-          amount={isIncome ? tx.amountInSecondary : -tx.amountInSecondary}
-          currency={tx.currency === 'COP' ? 'USD' : 'COP'}
+          amount={isIncome ? equivalentAmount : -equivalentAmount}
+          currency={equivalentCurrency}
           variant="tabular"
           className="text-text-faint"
         />
