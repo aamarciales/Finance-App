@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select'
 import { suggestCategory } from '@/lib/auto-categorize'
 import type { ParsedTransaction, DetectedBank } from '@/lib/csv-parser'
-import { BANK_LABELS } from '@/lib/csv-parser'
+import { BANK_LABELS, normalizeForMatch, prettifyCategoryName } from '@/lib/csv-parser'
 import type { Category } from '@/types/domain'
 
 interface CsvRow extends ParsedTransaction {
@@ -30,7 +30,7 @@ interface CsvImportPreviewProps {
   transactions: ParsedTransaction[]
   bank: DetectedBank
   categories: Category[]
-  onImport: (rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) => Promise<void>
+  onImport: (rows: Array<{ date: string; concept: string; amount: number; originalAmount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) => Promise<void>
   onClose: () => void
 }
 
@@ -40,7 +40,7 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
   const categoryMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const c of categories) {
-      m.set(c.name.toLowerCase(), c.id!)
+      m.set(normalizeForMatch(c.name), c.id!)
     }
     return m
   }, [categories])
@@ -50,9 +50,16 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
   const newCategoryNames = useMemo(() => {
     const names = new Set<string>()
     for (const tx of transactions) {
-      const explicitCat = tx.originalData?.['Categoria']?.trim()
-      if (explicitCat && !categoryMap.has(explicitCat.toLowerCase())) {
-        names.add(explicitCat)
+      const explicitCat = (
+        tx.originalData?.['Categoría'] ??
+        tx.originalData?.['Categoria'] ??
+        ''
+      ).trim()
+      if (
+        explicitCat &&
+        !categoryMap.has(normalizeForMatch(explicitCat))
+      ) {
+        names.add(prettifyCategoryName(explicitCat))
       }
     }
     manualNewCategories.forEach(c => names.add(c))
@@ -61,23 +68,31 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
 
   const tempCategoryMap = useMemo(() => {
     const m = new Map<string, number>()
-    newCategoryNames.forEach((name, i) => m.set(name.toLowerCase(), -1 - i))
+    newCategoryNames.forEach((name, i) => m.set(normalizeForMatch(name), -1 - i))
     return m
   }, [newCategoryNames])
 
   const [rows, setRows] = useState<CsvRow[]>(() =>
     transactions.map(tx => {
-      const explicitCat = tx.originalData?.['Categoria']?.trim()?.toLowerCase()
+      const explicitCatRaw = (
+        tx.originalData?.['Categoría'] ??
+        tx.originalData?.['Categoria'] ??
+        ''
+      ).trim()
+      const explicitCat = explicitCatRaw ? normalizeForMatch(explicitCatRaw) : ''
       const suggested = suggestCategory(tx.concept)
       let catId: number | undefined
 
       if (explicitCat) {
-        if (categoryMap.has(explicitCat)) catId = categoryMap.get(explicitCat)
-        else if (tempCategoryMap.has(explicitCat)) catId = tempCategoryMap.get(explicitCat)
+        if (categoryMap.has(explicitCat)) {
+          catId = categoryMap.get(explicitCat)
+        } else if (tempCategoryMap.has(explicitCat)) {
+          catId = tempCategoryMap.get(explicitCat)
+        }
       }
 
       if (catId === undefined && suggested) {
-        catId = categoryMap.get(suggested.toLowerCase())
+        catId = categoryMap.get(normalizeForMatch(suggested))
       }
 
       return {
@@ -115,14 +130,20 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
         // Calcular el ID temporal que tendrá
         const names = new Set<string>()
         for (const tx of transactions) {
-          const explicitCat = tx.originalData?.['Categoria']?.trim()
-          if (explicitCat && !categoryMap.has(explicitCat.toLowerCase())) names.add(explicitCat)
+          const explicitCat = (
+            tx.originalData?.['Categoría'] ??
+            tx.originalData?.['Categoria'] ??
+            ''
+          ).trim()
+          if (explicitCat && !categoryMap.has(normalizeForMatch(explicitCat))) {
+            names.add(prettifyCategoryName(explicitCat))
+          }
         }
         manualNewCategories.forEach(c => names.add(c))
         names.add(cleanName)
-        
+
         const allCatsArray = Array.from(names)
-        const catIndex = allCatsArray.findIndex(c => c.toLowerCase() === cleanName.toLowerCase())
+        const catIndex = allCatsArray.findIndex(c => normalizeForMatch(c) === normalizeForMatch(cleanName))
         
         if (catIndex !== -1) {
           setRows(prev => prev.map((r, i) => i === index ? { ...r, categoryId: -1 - catIndex } : r))
@@ -145,6 +166,7 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
         return {
           date: r.date,
           concept: r.concept,
+          originalAmount: r.amount, // preserve sign for downstream income detection
           amount: Math.abs(r.amount),
           currency: r.currency,
           categoryId: r.categoryId,

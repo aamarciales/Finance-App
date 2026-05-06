@@ -1,5 +1,26 @@
 import Papa from 'papaparse'
 
+/** Normalize a category name for matching: lowercase, strip accents,
+ *  underscores → spaces, collapse whitespace. */
+export function normalizeForMatch(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // strip accents
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Convert snake_case to "Title Case-ish" preserving Spanish look:
+ *  "Otros_ingresos_freelance" → "Otros ingresos freelance"
+ *  Keeps the first letter capitalized but lowercases the rest. */
+export function prettifyCategoryName(s: string): string {
+  const cleaned = s.trim().replace(/_/g, ' ').replace(/\s+/g, ' ')
+  if (!cleaned) return cleaned
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase()
+}
+
 export type DetectedBank = 'bancolombia' | 'davivienda' | 'wise' | 'binance_p2p' | 'patrimonio_generic' | 'unknown'
 
 export interface ParsedTransaction {
@@ -18,8 +39,22 @@ export function detectBank(csv: string): DetectedBank {
   const lines = csv.split('\n').slice(0, 5)
   const text = lines.join('\n').toLowerCase()
 
-  // Patrimonio Generic Export/Import
-  if (text.includes('fecha') && text.includes('categoria') && text.includes('concepto') && text.includes('monto_original')) {
+  // Patrimonio Generic Export/Import - matches user's CSV format:
+  // Fecha,Concepto,Categoría,Tipo,Moneda,Monto[,Notas]
+  // We accept the column "Monto" (with or without "_Original" suffix)
+  // and tolerate "Categoría" with or without accent (handled by
+  // toLowerCase + accent strip via NFD).
+  const normalized = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  if (
+    normalized.includes('fecha') &&
+    normalized.includes('concepto') &&
+    normalized.includes('categoria') &&
+    normalized.includes('tipo') &&
+    normalized.includes('moneda') &&
+    normalized.includes('monto')
+  ) {
     return 'patrimonio_generic'
   }
 
@@ -63,21 +98,30 @@ function parsePatrimonioGeneric(csv: string): ParsedTransaction[] {
     skipEmptyLines: true,
   })
 
+  // Allowed type values from the CSV's "Tipo" column.
+  // Income: positive amount.
+  // Everything else: expense semantically (will be normalized as
+  // negative); the actual "transaction type" (debt_payment, transfer)
+  // is computed downstream in handleImportCsv based on the resolved
+  // category, so we only need the +/- sign here.
+  const incomeTypes = new Set(['ingreso'])
+
   return result.data
     .filter(row => row['Fecha'])
     .map(row => {
       const date = row['Fecha']!.trim()
-      const concept = row['Concepto']?.trim() ?? ''
-      
-      const tipo = row['Tipo']?.trim().toLowerCase()
-      const rawAmount = parseFloat(row['Monto_Original'] ?? '0') || 0
-      const isExpense = tipo === 'gasto'
-      // If it's an expense, we represent it negatively, or positively based on logic,
-      // but the importer logic takes absolute values for amount usually, wait!
-      // In CSV importer, we usually pass positive amounts.
-      const amount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount)
-
-      const currency = (row['Moneda']?.trim()?.toUpperCase() ?? 'COP') as 'COP' | 'USD' | 'EUR'
+      const concept = (row['Concepto'] ?? '').trim()
+      const tipo = (row['Tipo'] ?? '').trim().toLowerCase()
+      // Read "Monto" column. Fall back to "Monto_Original" for
+      // backward compatibility with old exports.
+      const rawAmount = parseFloat(
+        row['Monto'] ?? row['Monto_Original'] ?? '0'
+      ) || 0
+      const isIncome = incomeTypes.has(tipo)
+      const amount = isIncome
+        ? Math.abs(rawAmount)
+        : -Math.abs(rawAmount)
+      const currency = ((row['Moneda'] ?? 'COP').trim().toUpperCase()) as 'COP' | 'USD' | 'EUR'
       return { date, concept, amount, currency, originalData: row }
     })
     .filter(tx => tx.concept && tx.amount !== 0)

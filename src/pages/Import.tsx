@@ -18,6 +18,17 @@ import { useInvoices, type InvoiceFormData } from '@/hooks/useInvoices'
 
 import type { Category } from '@/types/domain'
 
+const NEW_CATEGORY_PALETTE = [
+  { color: '#06B6D4', icon: 'tag' },
+  { color: '#A855F7', icon: 'sparkles' },
+  { color: '#F43F5E', icon: 'flame' },
+  { color: '#84CC16', icon: 'leaf' },
+  { color: '#FB923C', icon: 'zap' },
+  { color: '#EAB308', icon: 'star' },
+  { color: '#0891B2', icon: 'package' },
+  { color: '#D946EF', icon: 'wand-2' },
+]
+
 export default function ImportPage() {
   const { rate: trm } = useTRM()
   const { eurToUsd } = useForex()
@@ -101,36 +112,51 @@ export default function ImportPage() {
     setDetectedBank('unknown')
   }
 
-  async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) {
+  async function handleImportCsv(rows: Array<{ date: string; concept: string; amount: number; originalAmount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; newCategoryName?: string }>) {
     const createdCategories = new Map<number, number>() // tempId -> realId
     const uniqueNewCats = new Map<number, { name: string, isIncome: boolean }>()
-    
+
     // Identificar categorías nuevas a crear y si son de ingresos o gastos
     for (const row of rows) {
       if (row.newCategoryName && !uniqueNewCats.has(row.categoryId)) {
-        // En tu CSV, un adelanto o ingreso puede venir como un monto positivo antes del Math.abs en preview,
-        // pero en CsvImportPreview hacemos Math.abs. Necesitamos basarnos en la data original o asumir gastos.
-        // Como todos los rows ya tienen Math.abs(row.amount), asumiremos "expense" por defecto para CsvParser 
-        // a menos que sea obvio (ej. 'Adelanto', 'Salario').
-        const isIncome = row.newCategoryName.toLowerCase().includes('ingreso') || 
-                         row.newCategoryName.toLowerCase().includes('salario') ||
-                         row.newCategoryName.toLowerCase().includes('adelanto')
+        // Determine if the new category is income or expense by looking at
+        // the CSV row that introduced it. Fallback to name-based heuristic.
+        let isIncome = false
+        for (const r of rows) {
+          if (r.newCategoryName === row.newCategoryName) {
+            if (r.originalAmount > 0) { isIncome = true; break }
+            break
+          }
+        }
+        // Name-based safety net: words clearly indicating income
+        if (!isIncome) {
+          const lower = row.newCategoryName.toLowerCase()
+          if (
+            lower.includes('ingreso') ||
+            lower.includes('salario') ||
+            lower.includes('adelanto') ||
+            lower.includes('inversion')
+          ) isIncome = true
+        }
         uniqueNewCats.set(row.categoryId, { name: row.newCategoryName, isIncome })
       }
     }
 
     try {
-      // Crear las nuevas categorías
+      // Crear las nuevas categorías con paleta cíclica
+      let paletteIndex = 0
       for (const [tempId, cat] of uniqueNewCats.entries()) {
+        const styling = NEW_CATEGORY_PALETTE[paletteIndex % NEW_CATEGORY_PALETTE.length]!
+        paletteIndex++
         const newCat = await api.post<Category>('/categories', {
           name: cat.name,
-          color: '#3498DB', // Azul por defecto para nuevas
-          icon: 'Tags',
+          color: styling.color,
+          icon: styling.icon,
           type: cat.isIncome ? 'income' : 'expense'
         })
         createdCategories.set(tempId, newCat.id!)
       }
-      
+
       if (uniqueNewCats.size > 0) {
         await queryClient.invalidateQueries({ queryKey: ['categories'] })
         toast.success(`Se crearon ${uniqueNewCats.size} nuevas categorías`)
