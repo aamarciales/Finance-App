@@ -68,23 +68,15 @@ export default function SettingsPage() {
   }
 
   async function handleClear() {
-    const endpoints = ['transactions', 'categories', 'invoices', 'invoice-items', 'goals', 'debts', 'tithe-payments', 'settings']
-    for (const ep of endpoints) {
-      try {
-        // Fetch all and delete each one
-        const items: any[] = await api.get(`/${ep}`)
-        for (const item of items) {
-          if (item.id != null) {
-            await api.delete(`/${ep}/${item.id}`)
-          }
-        }
-      } catch {
-        // skip
-      }
+    try {
+      await api.post('/admin/wipe-my-data', {})
+      await api.post('/admin/seed-system-categories', {})
+      await queryClient.invalidateQueries()
+      setConfirmClear(false)
+      toast.success('Datos eliminados y categorías sistema restauradas')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al borrar los datos')
     }
-    await queryClient.invalidateQueries()
-    setConfirmClear(false)
-    toast.success('Todos los datos eliminados.')
   }
 
   function updateTitheCategory(catId: number, field: 'tithe' | 'offering', value: number) {
