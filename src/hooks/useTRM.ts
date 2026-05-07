@@ -11,7 +11,9 @@ async function fetchTRM() {
     const res = await fetch(TRM_API)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    const rate = data?.[0]?.valor ?? FALLBACK_TRM
+    const rawValor = data?.[0]?.valor
+    const parsed = typeof rawValor === 'string' ? parseFloat(rawValor) : rawValor
+    const rate = typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : FALLBACK_TRM
     return { 
       rate, 
       date: today, 

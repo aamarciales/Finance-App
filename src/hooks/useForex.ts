@@ -11,7 +11,9 @@ async function fetchEurUsd() {
     const res = await fetch(FRANKFURTER_URL)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    const rate = data.rates?.USD ?? FALLBACK_EUR_USD
+    const rawRate = data.rates?.USD
+    const parsed = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate
+    const rate = typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : FALLBACK_EUR_USD
     
     return { rate, date: today, source: 'frankfurter' as const, fetchedAt: new Date().toISOString() }
   } catch {
