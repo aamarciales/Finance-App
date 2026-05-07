@@ -65,11 +65,11 @@ export default function TransactionsPage() {
         amount: values.amount,
         currency: values.currency,
         trm: values.trm,
-        notes: values.notes || undefined,
-        isRecurring: values.isRecurring || undefined,
-        debtId: values.debtId || undefined,
-        capitalAmount: values.capitalAmount,
-        interestAmount: values.interestAmount,
+        notes: values.notes ?? undefined,
+        isRecurring: values.isRecurring ?? undefined,
+        debtId: values.debtId ?? undefined,
+        capitalAmount: values.capitalAmount ?? undefined,
+        interestAmount: values.interestAmount ?? undefined,
       })
       toast.success('Transacción creada')
     },
@@ -89,11 +89,11 @@ export default function TransactionsPage() {
         amount: values.amount,
         currency: values.currency,
         trm: values.trm,
-        notes: values.notes || undefined,
-        isRecurring: values.isRecurring || undefined,
-        debtId: values.debtId || undefined,
-        capitalAmount: values.capitalAmount,
-        interestAmount: values.interestAmount,
+        notes: values.notes ?? undefined,
+        isRecurring: values.isRecurring ?? undefined,
+        debtId: values.debtId ?? undefined,
+        capitalAmount: values.capitalAmount ?? undefined,
+        interestAmount: values.interestAmount ?? undefined,
       })
       toast.success('Transacción actualizada')
       setEditTx(undefined)
