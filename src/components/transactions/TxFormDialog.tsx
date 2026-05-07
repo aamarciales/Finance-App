@@ -69,13 +69,16 @@ function toVisibleType(txType: Transaction['type']): 'expense' | 'income' {
 
 function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }): TxFormValues {
   if (editTx) {
+    const safeCurrency = (CURRENCIES as readonly string[]).includes(editTx.currency)
+      ? (editTx.currency as TxFormValues['currency'])
+      : 'COP'
     return {
       type: toVisibleType(editTx.type),
       date: editTx.date,
       concept: editTx.concept,
       categoryId: editTx.categoryId,
       amount: editTx.amount,
-      currency: editTx.currency,
+      currency: safeCurrency,
       trm: editTx.trm,
       notes: editTx.notes ?? '',
       isRecurring: editTx.isRecurring ?? false,
@@ -315,6 +318,9 @@ export function TxFormDialog({
                   </Select>
                 )}
               />
+              {errors.currency && (
+                <p className="text-[12px] text-danger-strong">{errors.currency.message}</p>
+              )}
             </div>
           </div>
 
@@ -523,6 +529,12 @@ export function TxFormDialog({
               </div>
             )}
           </div>
+
+          {Object.keys(errors).length > 0 && (
+            <p className="text-[12px] text-danger-strong">
+              Hay campos con errores. Revisa el formulario.
+            </p>
+          )}
 
           <DialogFooter className="gap-2 pt-2">
             <Button
