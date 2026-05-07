@@ -255,3 +255,47 @@ consultar (con su justificación) y qué quedó explícitamente pendiente.
 - Prettier: Fase 8.
 
 ---
+
+## 2026-05-07 · Fase de estabilización (sesión 3)
+
+Sesión enfocada en cerrar Bug A. **Cerrado oficialmente.** App ahora puede editar cualquier transacción sin fallos silenciosos.
+
+### Bug A — Modal "Editar transacción" no guarda ✅
+
+Resolución más laberíntica de lo esperado, en 3 commits sucesivos:
+
+1. **Commit `4f71347`** — `fix(tx-form): sanitize invalid currency on edit + show validation errors`
+   - Sanitizar `editTx.currency` con fallback a `'COP'` si no está en `CURRENCIES`.
+   - Renderizar `errors.currency` debajo del Select de moneda (antes era silencioso).
+   - Agregar catch-all "Hay campos con errores" sobre el botón Guardar (defense in depth).
+   - **Esto solo no resolvió el bug**: aunque la moneda PEN era el síntoma reportado, no era la causa raíz.
+
+2. **Commit `1c0c311`** — `fix(tx-form): allow null for optional fields returned by D1 (debtId, notes, capitalAmount, interestAmount, isRecurring)`
+   - Diagnóstico vía instrumentación temporal del catch-all (mostraba `errors` como JSON en UI).
+   - Reveló que el campo realmente fallando era `debtId: "Invalid input"`.
+   - Causa raíz: D1 retorna `null` para campos opcionales no seteados (toda transacción sin deuda asociada). El schema zod los marcaba `.optional()` que solo acepta `undefined`, no `null`. **Cualquier transacción sin deuda fallaba al guardar**, independiente del PEN.
+   - Fix: agregar `.nullable()` a los 5 campos opcionales en `txFormSchema`.
+
+3. **Commit `85a429c`** — `fix(transactions): use ?? for nullable form fields to satisfy types after schema widened`
+   - El cambio anterior rompió el build TS de `Transactions.tsx`: la inferencia de `TxFormValues` ahora incluía `null`, pero `addTransaction`/`updateTransaction` esperan `number | undefined`.
+   - Ya había coerción con `||`, pero `||` no narrows `null | undefined` a `undefined` en TypeScript.
+   - Fix: cambiar `||` a `??` en los 5 campos en ambos handlers (`handleAdd` y `handleEdit`).
+   - Bonus: `??` evita un bug latente futuro donde `0` falsy se coercería a undefined incorrectamente.
+
+### Verificación end-to-end (todos pasaron)
+
+- **Test 1**: editar transacción normal → guarda OK.
+- **Test 2**: editar fila id=362 (forzada con `currency='PEN'` vía SQL para reproducir el escenario) → modal abrió con Moneda en COP (fallback), Guardar la dejó en COP en D1. Confirmado con `SELECT id, concept, currency FROM transactions WHERE id=362` → `currency=COP`.
+- **Test 3**: borrar campo Concepto a propósito → aparecen ambos mensajes de error (inline + catch-all) como esperado.
+
+### Lecciones para futuro
+
+- **Schemas zod necesitan `.nullable()` cuando consumen datos de D1**, no solo `.optional()`. SQLite retorna `null` para columnas no seteadas, no `undefined`. Los demás formularios de la app (categorías, deudas, metas, settings) deberían auditarse con el mismo criterio si se reportan bugs similares.
+- **`??` es preferible a `||` en coerciones de tipos opcionales**: `||` colapsa todos los falsy (incluido `0` y `""`), `??` solo `null`/`undefined`.
+- **Diagnóstico vía instrumentación temporal en UI** funcionó muy bien: agregar `<pre>{JSON.stringify(errors, ...)}</pre>` en el catch-all reveló la causa raíz en una sola iteración. Útil para futuros fallos silenciosos de `react-hook-form`.
+
+### Bugs vivos al cerrar sesión
+
+- **Bug B** (crash en pago internacional, `r.trm.toFixed is not a function`) sigue pendiente. No se tocó en esta sesión.
+- **Deuda técnica enum runtime** (PEN aceptado en INSERT pese al enum de Drizzle) sigue documentada en TODO.md. Mientras tanto el fallback en frontend lo cubre defensivamente.
+

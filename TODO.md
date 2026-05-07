@@ -7,12 +7,6 @@
 
 ## Bugs bloqueantes (afectan uso normal)
 
-### Bug A · Modal "Editar transacción" no guarda
-- **Síntoma**: al editar una transacción cuyo `currency` no esté en el enum (ej: `PEN`), el `<Select>` de moneda renderiza vacío. Cambiarlo a un valor válido (USD/COP/EUR) y darle Guardar **no hace nada**: el botón está enabled pero el click no dispara el PUT.
-- **Hipótesis**: validación `zod` con `enum(['COP','USD','EUR'])` falla silenciosamente porque `react-hook-form` recibió `undefined` como default y no se está mostrando el error de validación.
-- **Reproducir**: editar la fila "Suscripcion Google One AI Pro" antes del workaround SQL. Hoy ya no se reproduce porque la fila quedó en USD, pero el bug del Select default sigue ahí.
-- **Sugerencia de fix**: en el componente del modal, normalizar `defaultValues.currency` a un valor válido antes de pasar a `useForm`; mostrar errores de validación en el botón Guardar.
-
 ### Bug B · Crash en "Recibir pago internacional"
 - **Síntoma**: en `/pago internacional` paso 4 ("Cambio de moneda"), al marcar "¿Cambiaste a otra moneda?" e ingresar un monto recibido en COP, al apretar "Siguiente" se rompe con:
 ```
