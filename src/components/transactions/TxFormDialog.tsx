@@ -531,9 +531,18 @@ export function TxFormDialog({
           </div>
 
           {Object.keys(errors).length > 0 && (
-            <p className="text-[12px] text-danger-strong">
-              Hay campos con errores. Revisa el formulario.
-            </p>
+            <>
+              {(() => {
+                console.log('[TxFormDialog] validation errors:', errors)
+                return null
+              })()}
+              <p className="text-[12px] text-danger-strong">
+                Hay campos con errores. Revisa el formulario.
+              </p>
+              <pre className="text-[10px] text-danger-strong bg-surface-2 p-2 rounded overflow-auto max-h-[120px]">
+                {JSON.stringify(errors, (_, v) => v?.message ?? v, 2)}
+              </pre>
+            </>
           )}
 
           <DialogFooter className="gap-2 pt-2">
