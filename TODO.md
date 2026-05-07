@@ -69,6 +69,12 @@
   - Si el botón principal sigue siendo muy largo, ensanchar todos los modales del wizard (medida acordada).
 - **Aplicable a otros modales si conviene**: si la decisión es ensanchar, hacerlo de forma consistente.
 
+### Tabs temporales en Dashboard
+- **Contexto**: hoy el dashboard muestra solo el mes en curso. Andrés quiere poder cambiar la vista temporal con tabs.
+- **Tabs deseados**: Mensual (default) / Semanal / Trimestral / Semestral / Anual / 5 años / Desde el inicio.
+- **Cambios técnicos**: parametrizar `useDashboard.ts` para que acepte un rango temporal en lugar de hardcodear "este mes". Adaptar KPIs, gráfica de tendencia y card de Diezmo & Ofrendas para respetar el rango seleccionado. La card "Pendiente de devolver / entregar" puede que tenga sentido siempre como acumulado (no parametrizable) o siempre como mes actual; decisión de producto pendiente.
+- **Esfuerzo estimado**: 2-3h. Refactor de hook + UI de tabs + decisiones de producto sobre qué KPIs son temporales y cuáles acumulados.
+
 ---
 
 ## Features (no críticas)
@@ -158,3 +164,4 @@
 - **`user_test` en D1**: residuo de tests, no afecta nada pero ensucia. Borrar con SQL directo.
 - **`.claude/` untracked**: ya en `.gitignore` (resuelto en sesión 3).
 - **Code splitting / chunk size**: Vite warnea bundle >500kB. Fase 8 del plan original.
+- **Categoría "Cobro deuda" (id 51) sin diezmo**: decisión de sesión 3. Cuando alguien le devuelve a Andrés un préstamo, no es ingreso nuevo. La categoría existe en D1 y se usa para registrar ingresos, pero NO debe estar en `tithePercentByIncomeCategory`. Hoy se removió manualmente con SQL directo. Si en el futuro se hace wipe + reseed de categorías sistema, hay que volver a removerla manualmente o automatizarlo (ver Bug C parte 2 pendiente para protección automática).
