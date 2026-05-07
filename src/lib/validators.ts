@@ -33,11 +33,11 @@ export const txFormSchema = z.object({
     .positive('Debe ser mayor a 0'),
   currency: z.enum(CURRENCIES),
   trm: z.number().positive(),
-  notes: z.string().optional(),
-  isRecurring: z.boolean().optional(),
-  debtId: z.number().positive().optional(),
-  capitalAmount: z.number().min(0).optional(),
-  interestAmount: z.number().min(0).optional(),
+  notes: z.string().nullable().optional(),
+  isRecurring: z.boolean().nullable().optional(),
+  debtId: z.number().positive().nullable().optional(),
+  capitalAmount: z.number().min(0).nullable().optional(),
+  interestAmount: z.number().min(0).nullable().optional(),
 })
 
 export type TxFormValues = z.infer<typeof txFormSchema>
