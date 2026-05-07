@@ -5,15 +5,30 @@
 
 ---
 
-## Bugs bloqueantes (afectan uso normal)
+## 🔴 Bugs bloqueantes (afectan uso normal)
 
-### Bug B · Crash en "Recibir pago internacional"
-- **Síntoma**: en `/pago internacional` paso 4 ("Cambio de moneda"), al marcar "¿Cambiaste a otra moneda?" e ingresar un monto recibido en COP, al apretar "Siguiente" se rompe con:
-```
-  TypeError: r.trm.toFixed is not a function
-```
-- **Hipótesis**: el código está llamando `.toFixed()` sobre algo que no es número. Probablemente la TRM viene como string del store, o se calcula como ratio entre dos campos que devuelven `NaN`/`undefined`.
-- **Cómo investigar**: buscar `trm.toFixed` y similares en `src/`, mirar de dónde viene `r.trm` en ese flujo. La stack apunta a `useMemo` así que la TRM derivada vive en un memoized selector.
+### Bug C · Cálculo de ofrenda no aplica el porcentaje configurado
+- **Síntoma**: en el wizard de pago internacional paso 5, el resumen muestra "Diezmo a apartar (15%): USD 14.80" y "Ofrenda a apartar (0%): USD 0.00" para una categoría Freelance que en Settings está configurada como 10% diezmo + 10% ofrenda. El diezmo se calcula bien (10% de USD 148 = USD 14.80) pero la ofrenda siempre da 0% / USD 0.
+- **Adicional**: el dashboard también dice "Freelance · 10% + 0%" en la card de Diezmo & Ofrendas. Misma ofrenda perdida.
+- **Configuración correcta deseada según Andrés**: 
+  - Todas las categorías de ingreso (incluida Freelance, Otros ingresos): 10% diezmo + 10% ofrenda.
+  - Sueldo: 10% diezmo + 5% ofrenda.
+- **Hipótesis**: el cálculo en `src/lib/tithe.ts` (`calculateTitheForIncome`) probablemente lee `tithePercentByIncomeCategory[catId].tithe` pero se le olvida `[catId].offering`, o lee mal la estructura. El UI de settings sí guarda el valor (se ve correcto en la card de Diezmo & Ofrendas), pero el cálculo lo ignora.
+- **Cómo investigar**: `grep -rn "calculateTitheForIncome\|offering\|ofrenda" src/lib/tithe.ts src/components/transactions/IntlPaymentWizard.tsx`.
+- **Impacto emocional alto**: la app es central para Andrés porque calcula diezmo correctamente. Una ofrenda mal calculada distorsiona los números espirituales.
+
+### Bug D · Lista de transacciones no se refresca tras crear nueva transacción
+- **Síntoma**: tras completar el wizard de pago internacional y crear las transacciones, la página `/transactions` no muestra las nuevas filas. Hay que recargar manualmente con F5 para verlas.
+- **Hipótesis**: TanStack Query no está invalidando la query de `transactions` cuando se ejecuta el mutation de creación múltiple. Probablemente falta `queryClient.invalidateQueries({ queryKey: ['transactions'] })` en el `onSuccess` del mutation, o el wizard usa un endpoint que no dispara la invalidación.
+- **Cómo investigar**: ubicar el mutation de creación múltiple en el wizard y verificar el `onSuccess` / `onSettled`. Probablemente en `IntlPaymentWizard.tsx` o en `useTransactions.ts`. Comparar con el flujo del modal normal de "Nueva transacción" que sí refresca bien.
+- **Impacto**: rompe el feedback loop básico. Andrés crea algo y no lo ve, no sabe si funcionó.
+
+### Bug E · Colores editados de categorías no se reflejan en badges de la tabla
+- **Síntoma**: Andrés edita el color de una categoría en `/categorias`. Vuelve a `/transactions` y los badges de esa categoría siguen mostrando el color viejo. Incluso tras refrescar.
+- **Hipótesis A**: el badge en `TransactionsTable.tsx` lee el color de un campo cacheado/derivado en la fila de transacción en lugar de leerlo en vivo de la categoría.
+- **Hipótesis B**: el endpoint que actualiza categorías no invalida correctamente la query de transactions enriquecidas.
+- **Cómo investigar**: `grep -rn "category.color\|categoryColor\|c.color" src/components/transactions/`.
+- **Impacto**: bajo funcionalmente, alto en sensación de control. Andrés siente que la app no le obedece.
 
 ---
 
@@ -47,9 +62,39 @@
 ### Botón "Borrar datos" con confirmación typed
 - Hoy es solo AlertDialog sí/no. Pedir que escriba "BORRAR" para reducir riesgo de click accidental.
 
+### Mejoras UX wizard pago internacional
+- **Síntoma**: en el paso 5 del wizard, el botón "Crear todas las transacciones" es tan largo que genera scroll horizontal dentro del modal. El botón "Atrás" está al lado, ocupando footer junto con Cancelar.
+- **Propuesta de Andrés**: 
+  - Mover el botón "Atrás" a la esquina superior izquierda del modal, solo ícono `<ChevronLeft />` cuadrado, sin texto. Liberar el footer.
+  - Si el botón principal sigue siendo muy largo, ensanchar todos los modales del wizard (medida acordada).
+- **Aplicable a otros modales si conviene**: si la decisión es ensanchar, hacerlo de forma consistente.
+
 ---
 
 ## Features (no críticas)
+
+### Sistema de Clientes para ingresos Freelance
+- **Contexto**: Andrés trabaja como freelance con varios clientes recurrentes. Hoy escribe el nombre del cliente en el campo "Concepto" como texto libre. No hay forma de filtrar pagos por cliente, ver el historial de un cliente, o adjuntar facturas/soportes a un cliente específico.
+- **Decisión de producto**: cuando la categoría de un ingreso es "Freelance" (o cualquier categoría que se marque como "asociada a clientes" en el futuro), el campo "Concepto" del form se reemplaza por un selector "Cliente" que permite:
+  - Elegir un cliente existente.
+  - Crear un cliente nuevo inline.
+- **Sección `/clientes`**: nueva ruta para administrar clientes (CRUD). Cada cliente tiene perfil con:
+  - Datos básicos (nombre, contacto, notas).
+  - Lista de todos los pagos recibidos (transactions con `clientId === clienteActual`).
+  - Facturas asociadas.
+  - Soportes adjuntos.
+- **Reordenar form de transacción**: que la categoría se elija antes que el concepto, para que el campo cambie dinámicamente según la categoría.
+- **Cambios técnicos**:
+  - Nueva tabla D1 `clients` (id, userId, name, contactInfo, notes, createdAt, updatedAt).
+  - Nueva columna `clientId` en `transactions` (foreign key opcional).
+  - Mismo patrón en `invoices` para asociar facturas a clientes.
+  - Nuevo CRUD endpoint en `functions/api/clients`.
+  - Nueva página `/clientes` con lista + detalle.
+  - Modificar `TxFormDialog` para renderizar Cliente vs Concepto según categoría.
+- **Esfuerzo estimado**: 4-6 horas. No se puede meter en una sesión que también haga otra cosa.
+- **Decisión de producto pendiente** (no responder ahora, antes de implementar):
+  - ¿Un cliente puede asociarse a múltiples categorías de ingreso, o solo a Freelance?
+  - ¿Quieres reportes agregados por cliente (ingresos del año, top clientes, etc)?
 
 ### Pago internacional · agregar Plenti y GrabrFi como opciones
 - Hoy hay Wise. Andrés usa Plenti (USD->COP) y a veces GrabrFi.

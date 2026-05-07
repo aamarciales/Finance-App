@@ -299,3 +299,32 @@ Resolución más laberíntica de lo esperado, en 3 commits sucesivos:
 - **Bug B** (crash en pago internacional, `r.trm.toFixed is not a function`) sigue pendiente. No se tocó en esta sesión.
 - **Deuda técnica enum runtime** (PEN aceptado en INSERT pese al enum de Drizzle) sigue documentada en TODO.md. Mientras tanto el fallback en frontend lo cubre defensivamente.
 
+## 2026-05-07 (continuación) · Cierre de sesión 3 con Bug A y Bug B
+
+Continuación inmediata de la sesión 3. Cerrados ambos bugs bloqueantes que quedaron de sesión 2.
+
+### Bug B — Crash en wizard de pago internacional ✅
+
+Causa raíz: `useTRM.ts` retornaba `rate` como string. El API público de datos abiertos de Colombia (`datos.gov.co`) serializa el campo `valor` como string (`"3723.33"`), comportamiento típico de Socrata Open Data API. El resto de la app trabajaba con esa string sin notar nada porque JavaScript hace coerción automática en operadores aritméticos (`*`, `/`). Solo `.toFixed()` falla, y solo se usa en el `useMemo` de `trmDelta` del wizard que depende de `conversion.enabled === true`. Por eso el crash era esquina y específico al paso 4.
+
+Fix en commit `35091f1`: coerción a number en la fuente (`useTRM.ts` y `useForex.ts`) con guard defensivo (`typeof === 'string' ? parseFloat : passthrough` + `Number.isFinite` fallback). Toda la cadena de consumidores queda blindada porque TypeScript ya tipaba `trm: number` en todos lados — el único punto débil era el hook que sembraba string sin que TS lo detectara (data viene de `await res.json()` que es `any`).
+
+### Verificación end-to-end del wizard
+
+Wizard completado paso 1 al paso 5 con datos reales (Designstream USD 148, transferencia bancaria, conversión a COP). Paso 4 avanzó sin crash. Paso 5 mostró cálculos correctos (TRM aplicada, conversión USD→COP, diezmo del 10% sobre USD 148 = USD 14.80). Transacción real creada y persistida en D1.
+
+### Lecciones para futuro
+
+- **APIs públicos pueden devolver números como strings**: Socrata, ciertos bancos, algunos forex. La defensa correcta es coerción en el hook que envuelve el fetch, no en cada consumidor downstream.
+- **TypeScript no protege contra `any` que viene de `res.json()`**: el bug pasó desapercibido durante meses porque el tipo se asumía `number` desde el primer asignamiento. La línea `const rate = data?.[0]?.valor ?? FALLBACK` parece inocente pero `data` es `any`. Vale considerar zod en la frontera para parsear y validar respuestas externas.
+- **`.toFixed()` es el método más sensible para detectar este tipo de bugs**: si funciona la aritmética pero `.toFixed()` rompe, casi seguro es string disfrazado de number.
+
+### Sesión cerrada
+
+App funcional para uso diario:
+- Editar transacciones (cualquier tipo, cualquier estado de campos opcionales).
+- Recibir pagos internacionales con cálculo correcto de TRM, comisiones, conversión y diezmo.
+- Validación visible en formularios (no más fallos silenciosos).
+
+Bugs nuevos detectados durante verificación quedan documentados en `TODO.md` para próximas sesiones — no se atacaron para evitar scope creep en sesión de estabilización.
+
