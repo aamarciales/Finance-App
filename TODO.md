@@ -73,6 +73,35 @@
 
 ## Features (no críticas)
 
+### Sistema operativo de Diezmos y Ofrendas con compromisos, soportes y deuda histórica
+- **Contexto**: la página `/diezmos` actual es solo un dashboard de lectura (KPIs y desglose por categoría). Andrés necesita que sea una herramienta operativa para administrar el ciclo completo: compromiso generado por ingreso → marcado como entregado → soporte adjunto → registro automático en transacciones generales.
+- **Visión completa del flujo deseado**:
+  1. Cuando se registra un ingreso, la app genera automáticamente un compromiso de diezmo + ofrenda según los porcentajes configurados. El compromiso queda como pendiente, no se crea transacción todavía.
+  2. La página `/diezmos` muestra los compromisos pendientes como lista marcable (tipo checklist), agrupados por mes o por ingreso fuente.
+  3. Cuando Andrés va a la iglesia y entrega el diezmo, abre la lista, marca los compromisos que cubrió con ese pago, sube el soporte (foto del recibo, transferencia, captura). Esto dispara:
+     - Crear transacción tipo gasto categoría Diezmo y/o Ofrendas con el monto correcto.
+     - Marcar los compromisos seleccionados como "entregado".
+     - Adjuntar el soporte tanto al compromiso como a la transacción generada.
+     - Refrescar la card de Diezmo & Ofrendas del dashboard.
+  4. Andrés puede registrar deuda histórica espiritual que arrastra desde antes de instalar la app (ejemplo real: USD 150 diezmo + USD 150 ofrenda). Esa deuda no genera compromisos automáticos pero se ve como saldo pendiente.
+  5. Andrés puede hacer abonos parciales a esa deuda histórica subiendo soportes. Cada abono reduce la deuda y queda registrado.
+- **Cambios técnicos estimados**:
+  - Nueva tabla `tithe_commitments` (id, userId, sourceTransactionId, type 'tithe' | 'offering', amount, currency, status 'pending' | 'paid', settledAt, settledTransactionId, supportAttachmentId, createdAt).
+  - Nueva tabla `tithe_historical_debt` o reutilizar `debts` con un flag `isSpiritual` (id, userId, type 'tithe' | 'offering', initialAmount, currentBalance, currency, notes, createdAt).
+  - Generación automática de compromisos al crear un ingreso (post-mutation hook en backend o trigger en frontend).
+  - Página `/diezmos` reescrita: dashboard de lectura + lista accionable + sección de deuda histórica.
+  - Flujo de "marcar como entregado": modal que permite seleccionar 1+ compromisos, ingresar monto entregado, subir soporte, confirmar. Genera transacción.
+  - Adaptar la card del dashboard para reflejar el estado real (compromisos vs entregado vs deuda histórica).
+- **Esfuerzo estimado**: 3-5 horas de trabajo concentrado. Sesión dedicada.
+- **Decisiones de producto pendientes** (Andrés debe contestar antes de implementar):
+  1. **Un pago de diezmo cubre uno o varios compromisos**: cuando Andrés entrega la suma de varios meses o varios ingresos en un solo pago, ¿la UI debe permitir marcar varios compromisos como cubiertos por una sola transacción? ¿O un pago = un compromiso?
+  2. **Diezmo y ofrenda juntos o separados**: cuando se entrega el sobre con ambos en la iglesia, ¿es una sola transacción de gasto con desglose, o dos transacciones separadas?
+  3. **Histórico de cumplimiento**: ¿quieres una vista de cumplimiento mensual ("en abril cumpliste 100%, en mayo vas 60%")?
+  4. **Soportes (foto recibo, transferencia)**: ¿se adjuntan al compromiso, a la transacción generada, o a ambos? El sistema de adjuntos ya existe en la app (R2 + IndexedDB para Blobs), así que esa pieza no es nueva.
+  5. **Deuda histórica**: ¿una sola entrada (USD 300 total) o cuotas con fechas (USD 150 enero + USD 150 febrero)?
+- **Relación con Bug C**: Bug C es un fix puntual (porcentaje de ofrenda no se aplica al cálculo). Resolver Bug C primero deja la app calculando bien el "compromiso del mes" antes de meter el sistema operativo completo encima. Bug C es 30-60 min, este sistema es 3-5 horas.
+- **Diferencia con tabla `debts`**: la deuda espiritual es conceptualmente distinta de una deuda financiera (no tiene intereses, no tiene plazo de vencimiento estricto, no se le aplican comisiones bancarias). Reutilizar la tabla con un flag puede generar confusión en reportes, así que evaluar si conviene tabla separada.
+
 ### Sistema de Clientes para ingresos Freelance
 - **Contexto**: Andrés trabaja como freelance con varios clientes recurrentes. Hoy escribe el nombre del cliente en el campo "Concepto" como texto libre. No hay forma de filtrar pagos por cliente, ver el historial de un cliente, o adjuntar facturas/soportes a un cliente específico.
 - **Decisión de producto**: cuando la categoría de un ingreso es "Freelance" (o cualquier categoría que se marque como "asociada a clientes" en el futuro), el campo "Concepto" del form se reemplaza por un selector "Cliente" que permite:
