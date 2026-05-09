@@ -15,6 +15,13 @@
       "when": 1777853724362,
       "tag": "0001_handy_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778306559119,
+      "tag": "0002_certain_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }

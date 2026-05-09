@@ -39,6 +39,11 @@ export const invoices = sqliteTable('invoices', {
   currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
   trm: real('trm').notNull(),
   itemCount: integer('item_count').notNull(),
+  invoiceNumber: text('invoice_number'),
+  paymentMethod: text('payment_method'),
+  location: text('location'),
+  notes: text('notes'),
+  attachmentUrl: text('attachment_url'),
   createdAt: text('created_at').notNull(),
 })
 
@@ -50,6 +55,7 @@ export const invoiceItems = sqliteTable('invoice_items', {
   unitPrice: real('unit_price').notNull(),
   totalPrice: real('total_price').notNull(),
   subCategory: text('sub_category'),
+  barcode: text('barcode'),
 })
 
 export const debts = sqliteTable('debts', {
