@@ -47,7 +47,7 @@ export default function SettingsPage() {
   async function handleExport() {
     const data: Record<string, unknown> = {}
     const endpoints = ['transactions', 'categories', 'invoices', 'invoice-items', 'goals', 'debts', 'settings', 'tithe-payments'] as const
-    const labels = ['transactions', 'invoices', 'invoiceItems', 'categories', 'goals', 'debts', 'settings', 'tithePayments'] as const
+    const labels = ['transactions', 'categories', 'invoices', 'invoiceItems', 'goals', 'debts', 'settings', 'tithePayments'] as const
 
     for (let i = 0; i < endpoints.length; i++) {
       try {
