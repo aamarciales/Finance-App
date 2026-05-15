@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, Upload } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,11 +25,13 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/hooks/useSettings'
 import { useApi } from '@/lib/api'
+import { ImportJsonDialog } from '@/components/settings/ImportJsonDialog'
 import type { Currency, OcrProvider } from '@/types/domain'
 
 export default function SettingsPage() {
   const { settings: rawSettings, loading, setSetting } = useSettings()
   const [confirmClear, setConfirmClear] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const api = useApi()
   const queryClient = useQueryClient()
 
@@ -260,6 +262,9 @@ export default function SettingsPage() {
             <Button variant="outline" className="gap-1.5" onClick={handleExport}>
               <Download className="h-4 w-4" /> Exportar JSON
             </Button>
+            <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Importar JSON
+            </Button>
             <Button variant="outline" className="gap-1.5 text-danger-strong hover:text-danger-strong" onClick={() => setConfirmClear(true)}>
               <Trash2 className="h-4 w-4" /> Borrar datos
             </Button>
@@ -283,6 +288,8 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportJsonDialog open={importOpen} onOpenChange={setImportOpen} />
     </>
   )
 }
