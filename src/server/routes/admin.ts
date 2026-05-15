@@ -275,6 +275,9 @@ adminRouter.post('/import-bulk', async (c) => {
       }
       const debtId = tx.debtRef ? (debtNameToId.get(tx.debtRef) ?? null) : null
       const trm = (tx.trm && tx.trm > 0) ? tx.trm : 1.0
+      if (tx.currency === 'COP' && trm <= 1) {
+        return c.json({ error: `TRM inválida (=${trm}) para transacción COP "${tx.concept}". TRM debe ser > 1.` }, 400)
+      }
       const { base, secondary } = calcAmounts(tx.amount, tx.currency, trm)
 
       await db.insert(schema.transactions).values({
@@ -312,6 +315,9 @@ adminRouter.post('/import-bulk', async (c) => {
         continue
       }
       const trm = (inv.trm && inv.trm > 0) ? inv.trm : 1.0
+      if (inv.currency === 'COP' && trm <= 1) {
+        return c.json({ error: `TRM inválida (=${trm}) para factura COP "${inv.merchant}". TRM debe ser > 1.` }, 400)
+      }
       const { base, secondary } = calcAmounts(inv.total, inv.currency, trm)
 
       // 7a) Transacción (sin invoiceId todavía)

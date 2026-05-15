@@ -27,8 +27,13 @@ transactionsRouter.post('/', async (c) => {
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
   
   const body = await c.req.json()
+
+  if (body.currency === 'COP' && (!body.trm || body.trm <= 1)) {
+    return c.json({ error: 'TRM inválida para moneda COP. Debe ser mayor a 1.' }, 400)
+  }
+
   const db = drizzle(c.env.DB, { schema })
-  
+
   const result = await db.insert(schema.transactions).values({
     ...body,
     userId: auth.userId,
