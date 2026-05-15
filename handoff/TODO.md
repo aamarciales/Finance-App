@@ -6,26 +6,15 @@
 
 ## Bugs activos (ordenados por prioridad)
 
-### Bug H · TRM mal calculada en transacciones COP — bloqueante para uso real
-**Síntoma**: dashboard muestra montos USD enormes (USD 1.000.000 en Vivienda) porque las transacciones COP tienen `trm=1` y por ende `amountInBase = amount/1 = amount`, tratando el monto COP como si fuera USD.
-**Causa**: el `csv_to_json.py` y el endpoint `/admin/import-bulk` defaultearon `trm=1` cuando el CSV no traía valor.
-**Fix temporal**: SQL directo en D1 (ver `.patrimonio-agent/workflows/fix-trm-manual.md`).
-**Fix permanente**: agregar guard al backend POST `/transactions` y `/invoices`: si `currency=COP` y `trm<=1`, abortar. Ídem en `/admin/import-bulk`.
-
-### Bug G · "Ver factura" en /transactions crashea — bloqueante para flujo factura
-**Síntoma**: click en botón "Ver factura" → `Cannot read properties of undefined (reading 'length')`.
-**Causa probable**: el componente intenta leer `invoice.items.length` antes de que el array esté cargado, o el endpoint de invoice individual no devuelve items embebidos.
-**Fix sugerido**: extender `GET /api/invoices/:id` para hacer JOIN con invoice_items. Alternativa: cargar items aparte vía `useQuery` y mostrar skeleton mientras carga.
+### Bug D · Lista de transacciones no se refresca tras wizard de pago internacional
+**Síntoma**: completar wizard → la nueva transacción no aparece en `/transactions` sin F5.
+**Fix sugerido**: agregar `queryClient.invalidateQueries({ queryKey: ['transactions'] })` en el `onSuccess` del mutation del wizard.
 
 ### Bug C parte 2 · Defensiva titheConfig — no urgente
 **Síntoma**: si los IDs en titheConfig quedan huérfanos (categoría borrada), la app silenciosamente cae al default.
 **Fix**:
 1. `src/lib/tithe.ts`: `console.warn` en dev cuando se cae al default por ID huérfano (con Set para no spamear).
 2. `wipe-my-data` endpoint: ya borra settings, OK. Verificar que el seed después no deje IDs huérfanos en titheConfig.
-
-### Bug D · Lista de transacciones no se refresca tras wizard de pago internacional
-**Síntoma**: completar wizard → la nueva transacción no aparece en `/transactions` sin F5.
-**Fix sugerido**: agregar `queryClient.invalidateQueries({ queryKey: ['transactions'] })` en el `onSuccess` del mutation del wizard.
 
 ### Bug E · Colores editados de categorías no se reflejan en badges
 **Síntoma**: editar color de categoría → badges en `/transactions` siguen con color anterior incluso tras refresh.
@@ -36,10 +25,20 @@
 ## Backlog próximas sesiones
 
 ### Sesión 6 (corta, 2-3 h)
-- [ ] Bug H (~30 min)
-- [ ] Bug G (~45 min)
-- [ ] Botón "Importar JSON" en /settings (~30 min) — spec en `.patrimonio-agent/specs/import-json-button.md`
-- [ ] Bugs C2/D/E si queda tiempo
+- [x] Bug H — cerrado sesión 6 (TRM corregida manualmente + guard backend)
+- [x] Bug G — cerrado sesión 6 (InvoiceQuickView ahora hace fetch real)
+- [x] Botón "Importar JSON" en /settings — cerrado sesión 6
+- [ ] Bug D — transacciones no refrescan tras wizard
+- [ ] Bugs C2/E si queda tiempo
+
+### Sesión 6.5 — Importar CSV a factura (importante, Andrés tiene varias facturas pendientes)
+- [ ] Botón "Importar CSV" en `/invoices` (o wizard)
+- [ ] Parsear CSV (papaparse ya está en el stack)
+- [ ] Preview: mostrar items detectados, merchant, total, moneda
+- [ ] Opción de marcar como factura (genera transacción total + items) o como transacciones sueltas
+- [ ] Guard: validar TRM para filas COP antes de enviar
+- [ ] Al guardar: crea invoice + items + transacción asociada (flujo existente de `useInvoices.addInvoice`)
+- [ ] Invalidar queries de transacciones e invoices al terminar
 
 ### Sesión 7+ (sesión dedicada larga, 3-5 h cada una)
 - [ ] **Sistema F2 — Diezmos & Ofrendas**: tabla `tithe_commitments`, página `/diezmos` reescrita, modal "registrar entrega". Antes de arrancar, responder por escrito las 5 preguntas de producto (ver más abajo).

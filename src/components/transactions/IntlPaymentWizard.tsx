@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useQueryClient } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
 import { getEquivalentAmounts } from '@/lib/currency'
 import { calculateTitheForIncome } from '@/lib/tithe'
@@ -154,6 +155,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   }, [step1, originFees, intermediateFees, conversion, amountAfterFees, titheInfo, incomeCategories])
 
   const api = useApi()
+  const queryClient = useQueryClient()
 
   async function handleConfirm() {
     const groupId = crypto.randomUUID()
@@ -178,6 +180,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
         })
       }
       toast.success(`Pago internacional registrado con ${pendingTxs.filter(t => t.checked).length} movimientos`)
+      await queryClient.invalidateQueries()
       onOpenChange(false)
       setStep(1)
     } catch (e) {
