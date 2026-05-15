@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2, Upload } from 'lucide-react'
+import { Download, Trash2, FileUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -263,7 +263,7 @@ export default function SettingsPage() {
               <Download className="h-4 w-4" /> Exportar JSON
             </Button>
             <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" /> Importar JSON
+              <FileUp className="h-4 w-4" /> Importar JSON
             </Button>
             <Button variant="outline" className="gap-1.5 text-danger-strong hover:text-danger-strong" onClick={() => setConfirmClear(true)}>
               <Trash2 className="h-4 w-4" /> Borrar datos
