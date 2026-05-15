@@ -204,9 +204,23 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
     'Resumen y confirmación',
   ]
 
+  function goBack() {
+    if (step > 1) setStep(step - 1)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto relative">
+        {step > 1 && (
+          <button
+            type="button"
+            onClick={goBack}
+            className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-default transition-colors z-10"
+            aria-label="Atrás"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
             <Globe className="h-5 w-5" />
@@ -292,7 +306,6 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep(1)}><ChevronLeft className="mr-1 h-4 w-4" />Atrás</Button>
               <Button onClick={() => setStep(3)}>Siguiente</Button>
             </DialogFooter>
           </div>
@@ -323,7 +336,6 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
               </>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep(2)}><ChevronLeft className="mr-1 h-4 w-4" />Atrás</Button>
               <Button onClick={() => setStep(4)}>Siguiente</Button>
             </DialogFooter>
           </div>
@@ -372,7 +384,6 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
               </>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep(3)}><ChevronLeft className="mr-1 h-4 w-4" />Atrás</Button>
               <Button onClick={() => setStep(5)}>Siguiente</Button>
             </DialogFooter>
           </div>
@@ -401,8 +412,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button variant="outline" onClick={() => setStep(4)}><ChevronLeft className="mr-1 h-4 w-4" />Atrás</Button>
-              <Button onClick={handleConfirm}>Crear todas las transacciones</Button>
+              <Button onClick={handleConfirm}>Confirmar</Button>
             </DialogFooter>
           </div>
         )}
