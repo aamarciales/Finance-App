@@ -165,7 +165,15 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
         if (!tx.checked) continue
         const cat = categories.find((c) => c.name === tx.categoryName)
         if (!cat?.id) continue
-        const { amountInBase, amountInSecondary } = getEquivalentAmounts(tx.amount, tx.currency as Currency, rates)
+
+        // Use effective rate for USD→COP conversion pair, official TRM for everything else
+        const isConversionTx = conversion.enabled && tx.type === 'transfer'
+        const txTrm = (isConversionTx && step1.currency === 'USD' && conversion.toCurrency === 'COP' && effectiveRate > 0)
+          ? effectiveRate
+          : rates.trm
+        const txRates = { trm: txTrm, eurToUsd: rates.eurToUsd }
+
+        const { amountInBase, amountInSecondary } = getEquivalentAmounts(tx.amount, tx.currency as Currency, txRates)
         await api.post('/transactions', {
           date: step1.date,
           type: tx.type,
@@ -173,7 +181,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
           categoryId: cat.id,
           amount: tx.amount,
           currency: tx.currency,
-          trm: rates.trm,
+          trm: txTrm,
           amountInBase,
           amountInSecondary,
           transferGroupId: groupId,
