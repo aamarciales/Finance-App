@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useSettings } from '@/hooks/useSettings'
 import { useApi } from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTRM } from '@/hooks/useTRM'
 import { useTitheCommitments } from '@/hooks/useTitheCommitments'
 import { TithePaymentDialog } from '@/components/tithe/TithePaymentDialog'
@@ -28,6 +29,7 @@ export default function TithePage() {
   const { settings, setSetting } = useSettings()
   const { rate: trm } = useTRM()
   const api = useApi()
+  const queryClient = useQueryClient()
   const {
     pendingCommitments,
     payments,
@@ -63,6 +65,7 @@ export default function TithePage() {
     try {
       const result = await api.post<{ created: number }>('/admin/generate-commitments', {})
       toast.success(`${result.created} compromisos generados`)
+      await queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error generando compromisos')
     } finally {
@@ -227,37 +230,48 @@ export default function TithePage() {
                   <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-text-faint">
                     <th className="w-10 px-3 py-2" />
                     <th className="px-3 py-2 font-medium">Fecha</th>
+                    <th className="px-3 py-2 font-medium">Concepto</th>
                     <th className="px-3 py-2 text-right font-medium">Ingreso</th>
-                    <th className="px-3 py-2 text-center font-medium">Diezmo %</th>
-                    <th className="px-3 py-2 text-center font-medium">Ofrenda %</th>
-                    <th className="px-3 py-2 text-right font-medium">Total</th>
+                    <th className="px-3 py-2 text-center font-medium">%</th>
+                    <th className="px-3 py-2 text-right font-medium">A apartar</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingCommitments.map(c => (
-                    <tr
-                      key={c.id}
-                      className={`border-b border-border/30 transition-colors ${selectedIds.has(c.id!) ? 'bg-surface-2/60' : ''}`}
-                    >
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          checked={selectedIds.has(c.id!)}
-                          onCheckedChange={() => toggleCommitment(c.id!)}
-                        />
-                      </td>
-                      <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
-                        {format(parseISO(c.date), 'dd MMM', { locale: es })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        USD {c.incomeAmountBase.toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2 text-center font-mono">{c.tithePercent}%</td>
-                      <td className="px-3 py-2 text-center font-mono">{c.offeringPercent}%</td>
-                      <td className="px-3 py-2 text-right font-mono font-medium">
-                        USD {c.totalAmount.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {pendingCommitments.map(c => {
+                    const copEquivalent = Math.round(c.totalAmount * c.incomeTrm)
+                    return (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-border/30 transition-colors ${selectedIds.has(c.id!) ? 'bg-surface-2/60' : ''}`}
+                      >
+                        <td className="px-3 py-2">
+                          <Checkbox
+                            checked={selectedIds.has(c.id!)}
+                            onCheckedChange={() => toggleCommitment(c.id!)}
+                          />
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
+                          {format(parseISO(c.date), 'dd MMM', { locale: es })}
+                        </td>
+                        <td className="px-3 py-2 truncate max-w-[140px]">
+                          {c.incomeConcept || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          <div>USD {c.incomeAmountBase.toFixed(2)}</div>
+                          {c.incomeCurrency !== 'USD' && c.incomeOriginalAmount > 0 && (
+                            <div className="text-[11px] text-text-muted">{c.incomeCurrency} {c.incomeOriginalAmount.toLocaleString('es-CO')}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono text-[12px]">
+                          {c.tithePercent}+{c.offeringPercent}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-medium">
+                          <div>USD {c.totalAmount.toFixed(2)}</div>
+                          <div className="text-[11px] text-text-muted">${copEquivalent.toLocaleString('es-CO')} COP</div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border font-medium bg-surface-2/40">

@@ -22,7 +22,28 @@ titheCommitmentsRouter.get('/', async (c) => {
     orderBy: (tc, { desc }) => [desc(tc.date)],
   })
 
-  return c.json(results)
+  // Enrich with income transaction details
+  const txIds = results.map(r => r.incomeTransactionId).filter(Boolean)
+  let txMap: Record<number, { concept: string; categoryId: number; currency: string; amount: number }> = {}
+  if (txIds.length > 0) {
+    const txs = await db.query.transactions.findMany({
+      where: (t, { inArray }) => inArray(t.id, txIds),
+      columns: { id: true, concept: true, categoryId: true, currency: true, amount: true },
+    })
+    for (const tx of txs) {
+      txMap[tx.id] = { concept: tx.concept, categoryId: tx.categoryId, currency: tx.currency, amount: tx.amount }
+    }
+  }
+
+  const enriched = results.map(r => ({
+    ...r,
+    incomeConcept: txMap[r.incomeTransactionId]?.concept ?? '',
+    incomeCategory: txMap[r.incomeTransactionId]?.categoryId ?? 0,
+    incomeCurrency: txMap[r.incomeTransactionId]?.currency ?? r.incomeCurrency,
+    incomeOriginalAmount: txMap[r.incomeTransactionId]?.amount ?? r.incomeAmount,
+  }))
+
+  return c.json(enriched)
 })
 
 // GET /api/tithe-commitments/pending-summary

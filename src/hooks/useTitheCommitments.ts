@@ -38,6 +38,12 @@ export interface RegisterDebtPaymentData {
   trm: number
 }
 
+export interface EnrichedTitheCommitment extends TitheCommitment {
+  incomeConcept: string
+  incomeCategory: number
+  incomeOriginalAmount: number
+}
+
 export interface MonthlyCompliance {
   month: string
   committed: number
@@ -52,7 +58,7 @@ export function useTitheCommitments() {
 
   const { data: commitmentsData, isLoading: loadingCommitments } = useQuery({
     queryKey: ['tithe-commitments'],
-    queryFn: () => api.get<TitheCommitment[]>('/tithe-commitments'),
+    queryFn: () => api.get<EnrichedTitheCommitment[]>('/tithe-commitments'),
   })
 
   const { data: paymentsData, isLoading: loadingPayments } = useQuery({
@@ -65,7 +71,7 @@ export function useTitheCommitments() {
     queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number }>('/tithe-commitments/pending-summary'),
   })
 
-  const commitments = commitmentsData ?? []
+  const commitments: EnrichedTitheCommitment[] = commitmentsData ?? []
   const payments = paymentsData ?? []
 
   const pendingCommitments = useMemo(
