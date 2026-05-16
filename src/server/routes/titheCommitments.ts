@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getAuth } from '@hono/clerk-auth'
 import { drizzle } from 'drizzle-orm/d1'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, inArray } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { AppEnv } from '../types'
 
@@ -32,7 +32,7 @@ titheCommitmentsRouter.get('/', async (c) => {
         totalPaid: sql<number>`COALESCE(SUM(${schema.commitmentPayments.amountUsd}), 0)`,
       })
       .from(schema.commitmentPayments)
-      .where(sql`${schema.commitmentPayments.commitmentId} IN (${sql.join(commitmentIds.map(id => sql`${id}`), sql`, `)})`)
+      .where(inArray(schema.commitmentPayments.commitmentId, commitmentIds))
       .groupBy(schema.commitmentPayments.commitmentId)
     for (const row of paidRows) {
       paidMap[row.commitmentId] = row.totalPaid
