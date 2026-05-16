@@ -57,7 +57,7 @@ export function useReports(periodType: PeriodType): ReportsData {
     }
 
     const titheCatIds = new Set(
-      categories.filter(c => c.name === 'Diezmo' || c.name === 'Ofrendas').map(c => c.id)
+      categories.filter(c => ['Diezmo', 'Diezmo y Ofrenda', 'Ofrendas', 'Ofrenda'].includes(c.name)).map(c => c.id)
     )
 
     const groups = new Map<string, ReportPeriod>()

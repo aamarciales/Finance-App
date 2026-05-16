@@ -41,6 +41,7 @@ export interface RegisterDebtPaymentData {
 export interface EnrichedTitheCommitment extends TitheCommitment {
   incomeConcept: string
   incomeCategory: number
+  incomeCurrency: Currency
   incomeOriginalAmount: number
 }
 

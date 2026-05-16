@@ -82,12 +82,16 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
 
       const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, debt.currency, rates)
       const debtCategory = categories?.find(c => c.name === 'Deuda')
+      if (!debtCategory) {
+        toast.error('No se encontró la categoría "Deuda". Créala primero.')
+        return
+      }
 
       await api.post('/transactions', {
         date: data.date,
         type: 'debt_payment',
         concept: `Cuota · ${debt.name}`,
-        categoryId: debtCategory?.id ?? 10,
+        categoryId: debtCategory.id,
         amount: data.amount,
         currency: debt.currency,
         trm: rates.trm,

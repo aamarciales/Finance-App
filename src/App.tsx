@@ -1,6 +1,7 @@
 import { useAuth } from '@clerk/clerk-react'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/routes'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 
 import { ClerkProvider, SignedIn, SignedOut, SignIn } from '@clerk/clerk-react'
 
@@ -24,7 +25,9 @@ function AppContent() {
   return (
     <>
       <SignedIn>
-        <RouterProvider router={router} />
+        <ErrorBoundary>
+          <RouterProvider router={router} />
+        </ErrorBoundary>
       </SignedIn>
       <SignedOut>
         <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-4">

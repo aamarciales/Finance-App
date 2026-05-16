@@ -234,7 +234,15 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
         <span className="truncate">
           {tx.concept}
           {(hasInvoice || hasAttachment) && (
-            <Paperclip className="ml-1 inline h-3 w-3 text-text-faint" />
+            <a
+              href={tx.attachments?.[0] ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1 inline-flex text-text-faint hover:text-brand"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Paperclip className="h-3 w-3" />
+            </a>
           )}
         </span>
       </div>

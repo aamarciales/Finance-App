@@ -42,6 +42,7 @@ debtsRouter.post('/', async (c) => {
     isPaid: body.isPaid ?? false,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }).returning()
   
   return c.json(result[0])
@@ -55,7 +56,7 @@ debtsRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
   
-  const updates: Record<string, any> = {}
+  const updates: Record<string, any> = { updatedAt: new Date().toISOString() }
   const allowedFields = ['name', 'creditor', 'type', 'originalAmount', 'currentBalance', 'currency', 'interestRate', 'monthlyPayment', 'totalInstallments', 'paidInstallments', 'nextPaymentDate', 'notes', 'isPaid']
   for (const key of allowedFields) {
     if (body[key] !== undefined) updates[key] = body[key]

@@ -79,6 +79,7 @@ export const debts = sqliteTable('debts', {
   nextPaymentDate: text('next_payment_date'),
   notes: text('notes'),
   isPaid: integer('is_paid', { mode: 'boolean' }).default(false),
+  updatedAt: text('updated_at'),
   createdAt: text('created_at').notNull(),
 })
 

@@ -88,6 +88,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       debtId: source.debtId,
       capitalAmount: source.capitalAmount ?? source.amount,
       interestAmount: source.interestAmount ?? 0,
+      attachments: editTx?.attachments,
     }
   }
   return {
@@ -150,6 +151,7 @@ export function TxFormDialog({
 
   const selectedType = watch('type')
   const selectedCategoryId = watch('categoryId')
+  const existingAttachments = watch('attachments') ?? []
 
   const handleCreateCategory = useCallback(async () => {
     if (!newCatName?.trim()) return
@@ -200,7 +202,10 @@ export function TxFormDialog({
           // Skip failed uploads
         }
       }
-      await onSubmit({ ...values, attachments: uploadedUrls.length > 0 ? uploadedUrls : undefined })
+      // Merge existing + new attachments
+      const existing = values.attachments ?? []
+      const allAttachments = [...existing, ...uploadedUrls]
+      await onSubmit({ ...values, attachments: allAttachments.length > 0 ? allAttachments : undefined })
       setPendingFiles([])
       onOpenChange(false)
     },
@@ -578,6 +583,22 @@ export function TxFormDialog({
                 e.target.value = ''
               }}
             />
+            {existingAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {existingAttachments.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-[11px] text-text-muted hover:text-brand"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Archivo {i + 1}
+                  </a>
+                ))}
+              </div>
+            )}
             {pendingFiles.length > 0 && (
               <div className="grid grid-cols-5 gap-2">
                 {pendingFiles.map((pf, i) => (

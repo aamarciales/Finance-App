@@ -22,11 +22,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/hooks/useSettings'
 import { useApi } from '@/lib/api'
 import { ImportJsonDialog } from '@/components/settings/ImportJsonDialog'
-import type { Currency, OcrProvider } from '@/types/domain'
+import type { Category, Currency, OcrProvider } from '@/types/domain'
 
 export default function SettingsPage() {
   const { settings: rawSettings, loading, setSetting } = useSettings()
@@ -34,6 +34,11 @@ export default function SettingsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const api = useApi()
   const queryClient = useQueryClient()
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<Category[]>('/categories'),
+  })
 
   const settings = rawSettings!
 
@@ -95,8 +100,8 @@ export default function SettingsPage() {
     })
   }
 
-  const freeCatId = getFreelanceCatId()
-  const sueldoCatId = getSueldoCatId()
+  const freeCatId = categories?.find(c => c.name === 'Freelance')?.id ?? 0
+  const sueldoCatId = categories?.find(c => c.name === 'Sueldo')?.id ?? 0
 
   return (
     <>
@@ -313,12 +318,4 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
       {children}
     </div>
   )
-}
-
-function getFreelanceCatId(): number {
-  return 13 // Freelance category from seed
-}
-
-function getSueldoCatId(): number {
-  return 14 // Sueldo category from seed
 }

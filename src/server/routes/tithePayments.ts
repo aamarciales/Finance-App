@@ -106,16 +106,18 @@ tithePaymentsRouter.post('/', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  for (const commitment of commitments) {
-    await db.insert(schema.commitmentPayments).values({
+  await Promise.all(commitments.map(commitment =>
+    db.insert(schema.commitmentPayments).values({
       commitmentId: commitment.id,
       paymentId: paymentResult[0].id,
       amountUsd: commitment.totalAmount,
       createdAt: new Date().toISOString(),
     })
-    await db.update(schema.titheCommitments).set({ status: 'paid' })
+  ))
+  await Promise.all(commitments.map(commitment =>
+    db.update(schema.titheCommitments).set({ status: 'paid' })
       .where(eq(schema.titheCommitments.id, commitment.id))
-  }
+  ))
 
   return c.json({ payment: paymentResult[0], transaction: txResult[0], paidCount: commitments.length })
 })
@@ -234,16 +236,18 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  for (const commitment of validCommitments) {
-    await db.insert(schema.commitmentPayments).values({
+  await Promise.all(validCommitments.map(commitment =>
+    db.insert(schema.commitmentPayments).values({
       commitmentId: commitment.id,
       paymentId: paymentResult[0].id,
       amountUsd: commitment.totalAmount,
       createdAt: new Date().toISOString(),
     })
-    await db.update(schema.titheCommitments).set({ status: 'paid' })
+  ))
+  await Promise.all(validCommitments.map(commitment =>
+    db.update(schema.titheCommitments).set({ status: 'paid' })
       .where(eq(schema.titheCommitments.id, commitment.id))
-  }
+  ))
 
   return c.json({
     payment: paymentResult[0],
@@ -333,10 +337,21 @@ tithePaymentsRouter.delete('/:id', async (c) => {
   await db.delete(schema.commitmentPayments)
     .where(eq(schema.commitmentPayments.paymentId, id))
 
-  // Revert commitments to pending (keep transaction — it's a real expense)
+  // Revert commitments: check if each has remaining payments
   for (const cid of affectedCommitmentIds) {
-    await db.update(schema.titheCommitments).set({ status: 'pending' })
-      .where(eq(schema.titheCommitments.id, cid))
+    const remaining = await db.query.commitmentPayments.findFirst({
+      where: (cp, { eq }) => eq(cp.commitmentId, cid),
+    })
+    const commitment = await db.query.titheCommitments.findFirst({
+      where: (tc, { eq }) => eq(tc.id, cid),
+      columns: { status: true },
+    })
+    if (!remaining) {
+      // No more payments — revert to previous status (debt or pending)
+      const prevStatus = commitment?.status === 'paid' ? 'debt' : 'pending'
+      await db.update(schema.titheCommitments).set({ status: prevStatus })
+        .where(eq(schema.titheCommitments.id, cid))
+    }
   }
 
   // Delete the payment record
