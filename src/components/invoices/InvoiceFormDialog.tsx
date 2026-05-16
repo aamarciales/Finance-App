@@ -104,7 +104,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
               name: item.name,
               quantity: item.quantity,
               unitPrice: item.unitPrice ?? (item.totalPrice / Math.max(item.quantity, 1)),
-              subCategory: item.subCategory,
+              subCategory: item.subCategory ?? undefined,
             }))
           : [{ name: '', quantity: 1, unitPrice: 0 }],
       })
