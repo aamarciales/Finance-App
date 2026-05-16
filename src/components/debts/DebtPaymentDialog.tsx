@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,6 +38,7 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -50,7 +52,12 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
 
   const amount = watch('amount')
   const interestAmount = watch('interestAmount')
-  const autoCapital = Math.max(0, (amount || 0) - (interestAmount || 0))
+
+  // Auto-calculate capital when amount or interest changes
+  useEffect(() => {
+    const autoCapital = Math.max(0, (amount || 0) - (interestAmount || 0))
+    setValue('capitalAmount', autoCapital)
+  }, [amount, interestAmount, setValue])
 
   async function handleFormSubmit(values: FormValues) {
     await onPay(debt.id!, {
@@ -112,13 +119,13 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Capital</Label>
+              <Label>Capital (auto)</Label>
               <Input
                 type="number"
                 step="any"
                 {...register('capitalAmount', { valueAsNumber: true })}
-                className="font-mono"
-                value={autoCapital || ''}
+                className="font-mono bg-surface-2"
+                readOnly
               />
             </div>
           </div>
