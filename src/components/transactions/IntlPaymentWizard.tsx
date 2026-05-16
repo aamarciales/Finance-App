@@ -31,7 +31,7 @@ import { useSettings } from '@/hooks/useSettings'
 import { CURRENCIES } from '@/lib/validators'
 import type { Category, Currency } from '@/types/domain'
 
-const PLATFORMS = ['Wise', 'PayPal', 'Transferencia bancaria', 'Binance', 'Otro'] as const
+const PLATFORMS = ['Wise', 'PayPal', 'Transferencia bancaria', 'Binance', 'Plenti', 'Otro'] as const
 
 const step1Schema = z.object({
   date: z.string().min(1),
@@ -69,6 +69,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   const [originFees, setOriginFees] = useState<FeeConfig>({ enabled: false, receiveFee: 0, sendFee: 0 })
   const [intermediateFees, setIntermediateFees] = useState<FeeConfig>({ enabled: false, receiveFee: 0, sendFee: 0, platformName: '' })
   const [conversion, setConversion] = useState<ConversionConfig>({ enabled: false, toCurrency: 'COP', receivedAmount: 0 })
+  const [customPlatform, setCustomPlatform] = useState(false)
 
   const { settings } = useSettings()
 
@@ -306,12 +307,28 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
               <div className="grid gap-1.5">
                 <Label>Plataforma origen</Label>
                 <Controller name="platform" control={control} render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  customPlatform ? (
+                    <Input
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      placeholder="Nombre de la plataforma"
+                      autoFocus
+                    />
+                  ) : (
+                    <Select value={field.value} onValueChange={(v) => {
+                      if (v === 'Otro') {
+                        field.onChange('')
+                        setCustomPlatform(true)
+                      } else {
+                        field.onChange(v)
+                      }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                      <SelectContent>
+                        {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )
                 )} />
               </div>
             </form>
