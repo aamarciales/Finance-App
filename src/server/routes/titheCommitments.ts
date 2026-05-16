@@ -58,11 +58,13 @@ titheCommitmentsRouter.get('/pending-summary', async (c) => {
       totalPending: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'pending' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
       totalPaid: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'paid' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
       pendingCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'pending' THEN 1 ELSE 0 END), 0)`,
+      totalDebt: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'debt' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
+      debtCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'debt' THEN 1 ELSE 0 END), 0)`,
     })
     .from(schema.titheCommitments)
     .where(eq(schema.titheCommitments.userId, auth.userId))
 
-  return c.json(result[0] ?? { totalPending: 0, totalPaid: 0, pendingCount: 0 })
+  return c.json(result[0] ?? { totalPending: 0, totalPaid: 0, pendingCount: 0, totalDebt: 0, debtCount: 0 })
 })
 
 // PUT /api/tithe-commitments/:id
@@ -81,6 +83,39 @@ titheCommitmentsRouter.put('/:id', async (c) => {
     .returning()
 
   return c.json(result[0])
+})
+
+// POST /api/tithe-commitments/mark-as-debt
+titheCommitmentsRouter.post('/mark-as-debt', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const { commitmentIds } = await c.req.json()
+  if (!commitmentIds?.length) {
+    return c.json({ error: 'Selecciona al menos un compromiso' }, 400)
+  }
+
+  const db = drizzle(c.env.DB, { schema })
+
+  const commitments = await db.query.titheCommitments.findMany({
+    where: (tc, { eq, and, inArray }) => and(
+      eq(tc.userId, auth.userId),
+      inArray(tc.id, commitmentIds),
+      eq(tc.status, 'pending'),
+    ),
+  })
+
+  if (commitments.length === 0) {
+    return c.json({ error: 'No hay compromisos pendientes para mover' }, 400)
+  }
+
+  for (const c of commitments) {
+    await db.update(schema.titheCommitments).set({ status: 'debt' })
+      .where(eq(schema.titheCommitments.id, c.id))
+  }
+
+  const totalMoved = commitments.reduce((s, c) => s + c.totalAmount, 0)
+  return c.json({ movedCount: commitments.length, totalMoved })
 })
 
 // DELETE /api/tithe-commitments/:id

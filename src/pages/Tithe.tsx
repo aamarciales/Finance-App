@@ -12,6 +12,8 @@ import {
   Save,
   X,
   HandCoins,
+  Trash2,
+  ArrowRightCircle,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -32,6 +34,7 @@ export default function TithePage() {
   const queryClient = useQueryClient()
   const {
     pendingCommitments,
+    debtCommitments,
     payments,
     pendingSummary,
     monthlyCompliance,
@@ -41,6 +44,8 @@ export default function TithePage() {
     registerDebtPayment,
     linkExistingTransaction,
     linkDebtPayment,
+    markAsDebt,
+    deletePayment,
   } = useTitheCommitments()
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -92,8 +97,10 @@ export default function TithePage() {
 
   const titheConfig = settings?.titheConfig
 
-  // Combined total for dashboard card: pending commitments + spiritual debt
-  const totalPendingWithDebt = pendingSummary.totalPending + titheDebtUsd
+  // Combined total: pending commitments + debt commitments + manual debt setting
+  const debtFromCommitments = pendingSummary.totalDebt ?? 0
+  const totalDebt = debtFromCommitments + titheDebtUsd
+  const totalPendingWithDebt = pendingSummary.totalPending + totalDebt
 
   async function handleGenerateCommitments() {
     setGenerating(true)
@@ -182,21 +189,42 @@ export default function TithePage() {
         subtitle='"Porque el Señor tu Dios es quien te da el poder para hacer las riquezas" · Dt 8:18'
         actions={
           pendingCommitments.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (selectedCommitments.length === 0) {
-                  toast.error('Selecciona al menos un compromiso')
-                  return
-                }
-                setPaymentOpen(true)
-              }}
-              disabled={registerPayment.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-gold/90 disabled:opacity-50"
-            >
-              <HandCoins className="h-4 w-4" />
-              Registrar entrega ({selectedCommitments.length || '0'})
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedCommitments.length === 0) {
+                    toast.error('Selecciona al menos un compromiso')
+                    return
+                  }
+                  setPaymentOpen(true)
+                }}
+                disabled={registerPayment.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-gold/90 disabled:opacity-50"
+              >
+                <HandCoins className="h-4 w-4" />
+                Registrar entrega ({selectedCommitments.length || '0'})
+              </button>
+              {selectedCommitments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await markAsDebt.mutateAsync(selectedCommitments.map(c => c.id!))
+                      toast.success(`${selectedCommitments.length} compromiso${selectedCommitments.length > 1 ? 's' : ''} movido${selectedCommitments.length > 1 ? 's' : ''} a deuda`)
+                      setSelectedIds(new Set())
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : 'Error al mover a deuda')
+                    }
+                  }}
+                  disabled={markAsDebt.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 px-3 py-2 text-[13px] font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+                >
+                  <ArrowRightCircle className="h-4 w-4" />
+                  Mover a deuda
+                </button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -223,9 +251,10 @@ export default function TithePage() {
             />
             <SummaryCard
               icon={<Clock className="h-4 w-4" />}
-              iconTone={titheDebtUsd > 0 ? 'gold' : 'green'}
+              iconTone={totalDebt > 0 ? 'gold' : 'green'}
               label="Deuda espiritual"
-              amount={titheDebtUsd}
+              amount={totalDebt}
+              count={debtCommitments.length || undefined}
             />
             <SummaryCard
               icon={<Shield className="h-4 w-4" />}
@@ -474,6 +503,23 @@ export default function TithePage() {
                           ${p.amountCop.toLocaleString('es-CO')} COP
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm('¿Eliminar esta entrega? Los compromisos volverán a pendientes.')) return
+                          try {
+                            await deletePayment.mutateAsync(p.id)
+                            toast.success('Entrega eliminada')
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : 'Error al eliminar')
+                          }
+                        }}
+                        disabled={deletePayment.isPending}
+                        className="rounded p-1 text-text-faint transition-colors hover:bg-danger/10 hover:text-danger-strong"
+                        title="Eliminar entrega"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 )
@@ -483,7 +529,7 @@ export default function TithePage() {
         )}
 
         {/* Spiritual Debt */}
-        {titheDebtUsd > 0 && (
+        {(debtCommitments.length > 0 || titheDebtUsd > 0) && (
           <section>
             <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
               Deuda espiritual
@@ -499,18 +545,68 @@ export default function TithePage() {
                 <div>
                   <div className="font-serif text-[17px] font-medium">Deuda histórica</div>
                   <div className="font-mono text-[11.5px] text-text-faint">
-                    Saldo anterior a la app
+                    {debtCommitments.length} compromiso{debtCommitments.length !== 1 ? 's' : ''} pendiente{debtCommitments.length !== 1 ? 's' : ''} de deuda
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-serif text-[22px] italic text-gold">
-                    USD {titheDebtUsd.toFixed(2)}
+                    USD {totalDebt.toFixed(2)}
                   </div>
                   <div className="font-mono text-[11px] text-text-muted">
-                    ~${Math.round(titheDebtUsd * trm).toLocaleString('es-CO')} COP
+                    ~${Math.round(totalDebt * trm).toLocaleString('es-CO')} COP
                   </div>
                 </div>
               </div>
+
+              {debtCommitments.length > 0 && (
+                <div className="mt-4 overflow-x-auto rounded-lg border border-gold/20 bg-white/60">
+                  <table className="w-full text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-gold/20 text-[11px] uppercase tracking-[0.06em] text-text-faint">
+                        <th className="px-3 py-2 font-medium">Fecha</th>
+                        <th className="px-3 py-2 font-medium">Concepto</th>
+                        <th className="px-3 py-2 text-right font-medium">Ingreso</th>
+                        <th className="px-3 py-2 text-right font-medium">A apartar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {debtCommitments.map(c => (
+                        <tr key={c.id} className="border-b border-gold/10 last:border-b-0">
+                          <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
+                            {format(parseISO(c.date), 'dd MMM', { locale: es })}
+                          </td>
+                          <td className="px-3 py-2 truncate max-w-[140px]">
+                            {c.incomeConcept || '—'}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">
+                            USD {c.incomeAmountBase.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono font-medium text-gold">
+                            USD {c.totalAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-gold/30 font-medium">
+                        <td className="px-3 py-2" colSpan={3}>Total deuda</td>
+                        <td className="px-3 py-2 text-right font-mono text-gold">
+                          USD {debtCommitments.reduce((s, c) => s + c.totalAmount, 0).toFixed(2)}
+                        </td>
+                      </tr>
+                      {titheDebtUsd > 0 && (
+                        <tr className="border-t border-gold/20 text-text-muted">
+                          <td className="px-3 py-2" colSpan={3}>Deuda manual</td>
+                          <td className="px-3 py-2 text-right font-mono">
+                            USD {titheDebtUsd.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"

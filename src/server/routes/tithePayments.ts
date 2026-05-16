@@ -215,7 +215,7 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     ),
   })
 
-  const validCommitments = commitments.filter(tc => tc.status === 'pending')
+  const validCommitments = commitments.filter(tc => tc.status === 'pending' || tc.status === 'debt')
 
   if (validCommitments.length === 0) {
     return c.json({ error: 'No hay compromisos pendientes' }, 400)

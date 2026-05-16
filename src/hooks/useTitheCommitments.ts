@@ -68,7 +68,7 @@ export function useTitheCommitments() {
 
   const { data: pendingSummary } = useQuery({
     queryKey: ['tithe-commitments', 'pending-summary'],
-    queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number }>('/tithe-commitments/pending-summary'),
+    queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number; totalDebt: number; debtCount: number }>('/tithe-commitments/pending-summary'),
   })
 
   const commitments: EnrichedTitheCommitment[] = commitmentsData ?? []
@@ -81,6 +81,11 @@ export function useTitheCommitments() {
 
   const paidCommitments = useMemo(
     () => commitments.filter(c => c.status === 'paid'),
+    [commitments],
+  )
+
+  const debtCommitments = useMemo(
+    () => commitments.filter(c => c.status === 'debt'),
     [commitments],
   )
 
@@ -148,6 +153,23 @@ export function useTitheCommitments() {
     },
   })
 
+  const markAsDebt = useMutation({
+    mutationFn: (commitmentIds: number[]) =>
+      api.post('/tithe-commitments/mark-as-debt', { commitmentIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+    },
+  })
+
+  const deletePayment = useMutation({
+    mutationFn: (id: number) => api.delete(`/tithe-payments/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+      queryClient.invalidateQueries({ queryKey: ['tithe-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+
   const titheDebtUsd = settings?.titheDebtUsd ?? 0
 
   return {
@@ -155,7 +177,8 @@ export function useTitheCommitments() {
     payments,
     pendingCommitments,
     paidCommitments,
-    pendingSummary: pendingSummary ?? { totalPending: 0, totalPaid: 0, pendingCount: 0 },
+    debtCommitments,
+    pendingSummary: pendingSummary ?? { totalPending: 0, totalPaid: 0, pendingCount: 0, totalDebt: 0, debtCount: 0 },
     monthlyCompliance,
     titheDebtUsd,
     loading: loadingCommitments || loadingPayments,
@@ -163,5 +186,7 @@ export function useTitheCommitments() {
     registerDebtPayment,
     linkExistingTransaction,
     linkDebtPayment,
+    markAsDebt,
+    deletePayment,
   }
 }

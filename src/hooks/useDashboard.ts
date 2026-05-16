@@ -130,7 +130,7 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
 
   const { data: titheSummary } = useQuery({
     queryKey: ['tithe-commitments', 'pending-summary'],
-    queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number }>('/tithe-commitments/pending-summary'),
+    queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number; totalDebt: number; debtCount: number }>('/tithe-commitments/pending-summary'),
   })
 
   const transactions = transactionsData ?? null
@@ -174,8 +174,8 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
     const monthIncomeCop = monthTxs.filter(tx => tx.type === 'income').reduce((s, tx) => s + tx.amountInSecondary, 0)
     const monthExpensesCop = monthTxs.filter(tx => tx.type === 'expense' || tx.type === 'debt_payment').reduce((s, tx) => s + tx.amountInSecondary, 0)
 
-    // Tithe — from commitments API + spiritual debt
-    const titheDebtUsd = settings?.titheDebtUsd ?? 0
+    // Tithe — from commitments API + spiritual debt (from commitments + manual setting)
+    const titheDebtUsd = (titheSummary?.totalDebt ?? 0) + (settings?.titheDebtUsd ?? 0)
     const tithePending = (titheSummary?.totalPending ?? 0) + titheDebtUsd
 
     const titheBreakdown: TitheBreakdown = { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: tithePending }
