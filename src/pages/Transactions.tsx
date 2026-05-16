@@ -34,6 +34,7 @@ export default function TransactionsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | undefined>(undefined)
+  const [duplicateTx, setDuplicateTx] = useState<Transaction | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<EnrichedTransaction | null>(null)
   const [viewingInvoiceId, setViewingInvoiceId] = useState<number | null>(null)
 
@@ -115,6 +116,7 @@ export default function TransactionsPage() {
   function closeForm() {
     setFormOpen(false)
     setEditTx(undefined)
+    setDuplicateTx(undefined)
   }
 
   return (
@@ -158,6 +160,7 @@ export default function TransactionsPage() {
               transactions={transactions}
               onEdit={openEdit}
               onDelete={(tx) => setDeleteTarget(tx)}
+              onDuplicate={(tx) => { setDuplicateTx(tx); setFormOpen(true) }}
               onViewInvoice={(id) => setViewingInvoiceId(id)}
             />
           )}
@@ -165,11 +168,12 @@ export default function TransactionsPage() {
       </div>
 
       <TxFormDialog
-        open={formOpen || !!editTx}
+        open={formOpen || !!editTx || !!duplicateTx}
         onOpenChange={(open) => { if (!open) closeForm() }}
         categories={categories}
         onSubmit={editTx ? handleEdit : handleCreate}
         editTx={editTx}
+        prefillTx={duplicateTx}
         rates={rates}
       />
 

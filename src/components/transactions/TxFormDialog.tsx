@@ -60,6 +60,7 @@ interface TxFormDialogProps {
   categories: Category[]
   onSubmit: (values: TxFormValues) => Promise<void>
   editTx?: Transaction
+  prefillTx?: Transaction
   rates: { trm: number; eurToUsd: number }
 }
 
@@ -67,24 +68,25 @@ function toVisibleType(txType: Transaction['type']): 'expense' | 'income' {
   return txType === 'income' ? 'income' : 'expense'
 }
 
-function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }): TxFormValues {
-  if (editTx) {
-    const safeCurrency = (CURRENCIES as readonly string[]).includes(editTx.currency)
-      ? (editTx.currency as TxFormValues['currency'])
+function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, prefillTx?: Transaction): TxFormValues {
+  const source = editTx ?? prefillTx
+  if (source) {
+    const safeCurrency = (CURRENCIES as readonly string[]).includes(source.currency)
+      ? (source.currency as TxFormValues['currency'])
       : 'COP'
     return {
-      type: toVisibleType(editTx.type),
-      date: editTx.date,
-      concept: editTx.concept,
-      categoryId: editTx.categoryId,
-      amount: editTx.amount,
+      type: toVisibleType(source.type),
+      date: prefillTx ? new Date().toISOString().slice(0, 10) : source.date,
+      concept: source.concept,
+      categoryId: source.categoryId,
+      amount: source.amount,
       currency: safeCurrency,
-      trm: editTx.trm,
-      notes: editTx.notes ?? '',
-      isRecurring: editTx.isRecurring ?? false,
-      debtId: editTx.debtId,
-      capitalAmount: editTx.capitalAmount ?? editTx.amount,
-      interestAmount: editTx.interestAmount ?? 0,
+      trm: rates.trm,
+      notes: source.notes ?? '',
+      isRecurring: source.isRecurring ?? false,
+      debtId: source.debtId,
+      capitalAmount: source.capitalAmount ?? source.amount,
+      interestAmount: source.interestAmount ?? 0,
     }
   }
   return {
@@ -106,6 +108,7 @@ export function TxFormDialog({
   categories,
   onSubmit,
   editTx,
+  prefillTx,
   rates,
 }: TxFormDialogProps) {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
@@ -118,7 +121,7 @@ export function TxFormDialog({
   })
   const activeDebts = debtsData?.filter(d => d.currentBalance > 0) ?? []
 
-  const defaults = useMemo(() => buildDefaults(editTx, rates), [editTx, rates])
+  const defaults = useMemo(() => buildDefaults(editTx, rates, prefillTx), [editTx, rates, prefillTx])
 
   const {
     register,
@@ -137,9 +140,9 @@ export function TxFormDialog({
   // Force reset when dialog opens or editTx changes.
   useEffect(() => {
     if (open) {
-      reset(buildDefaults(editTx, rates))
+      reset(buildDefaults(editTx, rates, prefillTx))
     }
-  }, [editTx, open, reset, rates])
+  }, [editTx, prefillTx, open, reset, rates])
 
   const selectedType = watch('type')
   const selectedCategoryId = watch('categoryId')

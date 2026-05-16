@@ -24,6 +24,7 @@ import {
   Pencil,
   Trash2,
   FileSearch,
+  Copy,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Money } from '@/components/common/Money'
@@ -83,10 +84,11 @@ interface TransactionsTableProps {
   transactions: EnrichedTransaction[]
   onEdit: (tx: EnrichedTransaction) => void
   onDelete: (tx: EnrichedTransaction) => void
+  onDuplicate: (tx: EnrichedTransaction) => void
   onViewInvoice?: (invoiceId: number) => void
 }
 
-export function TransactionsTable({ transactions, onEdit, onDelete, onViewInvoice }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, onEdit, onDelete, onDuplicate, onViewInvoice }: TransactionsTableProps) {
   if (transactions.length === 0) {
     return (
       <EmptyState
@@ -113,7 +115,7 @@ export function TransactionsTable({ transactions, onEdit, onDelete, onViewInvoic
         </thead>
         <tbody>
           {transactions.map((tx) => (
-            <TxRow key={tx.id} tx={tx} onEdit={onEdit} onDelete={onDelete} onViewInvoice={onViewInvoice} />
+            <TxRow key={tx.id} tx={tx} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onViewInvoice={onViewInvoice} />
           ))}
         </tbody>
       </table>
@@ -125,11 +127,13 @@ function TxRow({
   tx,
   onEdit,
   onDelete,
+  onDuplicate,
   onViewInvoice,
 }: {
   tx: EnrichedTransaction
   onEdit: (tx: EnrichedTransaction) => void
   onDelete: (tx: EnrichedTransaction) => void
+  onDuplicate: (tx: EnrichedTransaction) => void
   onViewInvoice?: (invoiceId: number) => void
 }) {
   const isIncome = tx.type === 'income'
@@ -213,6 +217,14 @@ function TxRow({
             aria-label="Editar"
           >
             <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
+            onClick={() => onDuplicate(tx)}
+            aria-label="Duplicar"
+          >
+            <Copy className="h-4 w-4" />
           </button>
           <button
             type="button"
