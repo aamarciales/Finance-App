@@ -70,6 +70,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -129,33 +130,55 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0)
 
   async function uploadFile(file: File): Promise<string> {
+    setUploadProgress(10)
     const formData = new FormData()
     formData.append('file', file)
     const token = await getToken()
-    const res = await fetch('/api/files/upload', {
-      method: 'POST',
-      body: formData,
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!res.ok) {
-      let errMsg = `Error ${res.status}`
-      try {
-        const errData = await res.json()
-        errMsg = errData.error || errMsg
-      } catch {
-        errMsg = await res.text().catch(() => errMsg)
+    setUploadProgress(30)
+
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/files/upload')
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 70) + 30 // 30-100%
+          setUploadProgress(pct)
+        }
       }
-      throw new Error(errMsg)
-    }
-    const data = await res.json()
-    if (!data.url) throw new Error('El servidor no devolvió la URL del archivo')
-    return data.url
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            if (data.url) {
+              setUploadProgress(100)
+              resolve(data.url)
+            } else {
+              reject(new Error('El servidor no devolvió la URL del archivo'))
+            }
+          } catch {
+            reject(new Error('Error procesando la respuesta del servidor'))
+          }
+        } else {
+          let errMsg = `Error ${xhr.status}`
+          try {
+            const errData = JSON.parse(xhr.responseText)
+            errMsg = errData.error || errMsg
+          } catch {}
+          reject(new Error(errMsg))
+        }
+      }
+      xhr.onerror = () => reject(new Error('Error de conexión al subir archivo'))
+      xhr.send(formData)
+    })
   }
 
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   async function handleFormSubmit(values: InvoiceFormValues) {
     setSubmitError(null)
+    setUploadProgress(0)
     try {
       let attachmentUrl = existingAttachment ?? undefined
 
@@ -163,6 +186,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
         try {
           attachmentUrl = await uploadFile(pendingFile)
         } catch (uploadErr) {
+          setUploadProgress(0)
           setSubmitError(uploadErr instanceof Error ? uploadErr.message : 'Error subiendo archivo')
           toast.error('Error al subir el archivo. Intenta de nuevo.')
           return
@@ -176,10 +200,12 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       reset()
       setPendingFile(null)
       setExistingAttachment(null)
+      setUploadProgress(0)
       onOpenChange(false)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al guardar la factura'
       setSubmitError(msg)
+      setUploadProgress(0)
       toast.error(msg)
     }
   }
@@ -288,7 +314,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             </div>
 
             {/* Right: soporte */}
-            <div className="grid gap-2">
+            <div className="flex flex-col gap-4 self-start sticky top-0">
               <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Soporte</Label>
               <input
                 ref={fileInputRef}
@@ -297,39 +323,54 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingFile(f) }}
               />
-              {hasFile ? (
-                <div className="rounded-lg border border-border overflow-hidden">
-                  {isImage ? (
-                    <img
-                      src={pendingFile ? URL.createObjectURL(pendingFile) : existingAttachment!}
-                      alt="Soporte"
-                      className="w-full object-cover max-h-[200px]"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 p-3">
-                      <FileText className="h-8 w-8 text-text-muted" />
-                      <span className="flex-1 truncate text-[12px] text-text-muted">{fileName}</span>
+              <div className="w-[240px]">
+                {hasFile ? (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {isImage ? (
+                      <img
+                        src={pendingFile ? URL.createObjectURL(pendingFile) : existingAttachment!}
+                        alt="Soporte"
+                        className="w-full h-[180px] object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 h-[180px]">
+                        <FileText className="h-8 w-8 text-text-muted" />
+                        <span className="flex-1 truncate text-[12px] text-text-muted">{fileName}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-surface-2">
+                      <span className="truncate text-[11px] text-text-muted max-w-[140px]">{fileName}</span>
+                      <button type="button"
+                        onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                        className="text-[11px] text-danger-strong hover:underline">
+                        Eliminar
+                      </button>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-surface-2">
-                    <span className="truncate text-[11px] text-text-muted max-w-[140px]">{fileName}</span>
-                    <button type="button"
-                      onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                      className="text-[11px] text-danger-strong hover:underline">
-                      Eliminar
-                    </button>
                   </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
-                >
-                  <Upload className="h-5 w-5" />
-                  Subir imagen o PDF
-                </button>
-              )}
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border w-full h-[180px] text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
+                  >
+                    <Upload className="h-5 w-5" />
+                    Subir imagen o PDF
+                  </button>
+                )}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                )}
+                {uploadProgress > 0 && (
+                  <p className="mt-1 text-[11px] text-text-muted text-center">
+                    {uploadProgress >= 100 ? 'Procesando…' : `Subiendo… ${uploadProgress}%`}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
