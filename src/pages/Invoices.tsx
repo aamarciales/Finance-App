@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, Receipt, Trash2 } from 'lucide-react'
+import { Plus, Receipt, Trash2, FileUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Money } from '@/components/common/Money'
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog'
 import { InvoiceDetailModal } from '@/components/invoices/InvoiceDetailModal'
+import { ImportCsvDialog } from '@/components/invoices/ImportCsvDialog'
 import { useInvoices, type EnrichedInvoice } from '@/hooks/useInvoices'
 import type { Invoice } from '@/types/domain'
 
@@ -29,6 +30,7 @@ export default function InvoicesPage() {
   const [editInvoice, setEditInvoice] = useState<EnrichedInvoice | null>(null)
   const [detailData, setDetailData] = useState<EnrichedInvoice | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   async function handleSelect(id: number) {
     const inv = invoices.find(i => i.id === id)
@@ -54,10 +56,16 @@ export default function InvoicesPage() {
         title="Facturas"
         subtitle="Compras con detalle de ítems y soportes adjuntos"
         actions={
-          <Button onClick={() => setFormOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            Nueva factura
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
+              <FileUp className="h-4 w-4" />
+              Importar CSV
+            </Button>
+            <Button onClick={() => setFormOpen(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nueva factura
+            </Button>
+          </div>
         }
       />
 
@@ -122,6 +130,8 @@ export default function InvoicesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportCsvDialog open={importOpen} onOpenChange={setImportOpen} categories={categories} />
     </>
   )
 }
