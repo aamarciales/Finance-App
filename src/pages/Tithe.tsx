@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useSettings } from '@/hooks/useSettings'
+import { useApi } from '@/lib/api'
 import { useTRM } from '@/hooks/useTRM'
 import { useTitheCommitments } from '@/hooks/useTitheCommitments'
 import { TithePaymentDialog } from '@/components/tithe/TithePaymentDialog'
@@ -26,6 +27,7 @@ import { ComplianceChart } from '@/components/tithe/ComplianceChart'
 export default function TithePage() {
   const { settings, setSetting } = useSettings()
   const { rate: trm } = useTRM()
+  const api = useApi()
   const {
     pendingCommitments,
     payments,
@@ -59,11 +61,10 @@ export default function TithePage() {
   async function handleGenerateCommitments() {
     setGenerating(true)
     try {
-      const { useApi } = await import('@/lib/api')
-      const result = await useApi().post('/admin/generate-commitments', {}) as { created: number }
+      const result = await api.post<{ created: number }>('/admin/generate-commitments', {})
       toast.success(`${result.created} compromisos generados`)
     } catch (e) {
-      toast.error('Error generando compromisos')
+      toast.error(e instanceof Error ? e.message : 'Error generando compromisos')
     } finally {
       setGenerating(false)
     }
