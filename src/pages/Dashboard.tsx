@@ -111,7 +111,7 @@ export default function DashboardPage() {
         {/* Row 2: Cash Flow + Tithe Card */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
           <MonthlyTrend data={data.monthlyTrend} />
-          <TitheCard breakdown={data.titheBreakdown} formatCop={formatCop} />
+          <TitheCard pending={data.tithePending} />
         </div>
 
         {/* Section title */}
@@ -183,8 +183,8 @@ function InsightBanner({ insight, formatCop }: { insight: NonNullable<ReturnType
   )
 }
 
-function TitheCard({ breakdown, formatCop }: { breakdown: ReturnType<typeof useDashboard>['titheBreakdown']; formatCop: (n: number) => string }) {
-  if (breakdown.byCategory.length === 0) return null
+function TitheCard({ pending }: { pending: number }) {
+  if (pending <= 0) return null
 
   return (
     <div
@@ -196,33 +196,16 @@ function TitheCard({ breakdown, formatCop }: { breakdown: ReturnType<typeof useD
     >
       <div className="mb-4">
         <div className="font-serif text-[17px] font-medium">Diezmo & Ofrendas</div>
-        <div className="font-mono text-[11.5px] text-text-faint">Pendiente de devolver / entregar</div>
+        <div className="font-mono text-[11.5px] text-text-faint">Pendiente de devolver</div>
       </div>
 
-      {breakdown.byCategory.map((cat) => (
-        <div
-          key={cat.name}
-          className="flex items-baseline justify-between py-2.5 text-[13px]"
-          style={{ borderTop: '1px dashed rgba(184,146,58,0.3)' }}
-        >
-          <span className="text-text-muted">
-            <strong className="font-medium text-text">{cat.name}</strong>{' '}
-            · {cat.tithePct}% + {cat.offeringPct}%
-          </span>
-          <span className="font-mono text-[13px] font-medium text-gold">
-            USD {cat.tithe.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
-          </span>
-        </div>
-      ))}
-
-      {/* Totals */}
       <div
-        className="mt-3.5 flex items-baseline justify-between rounded-md px-3.5 py-3"
+        className="flex items-baseline justify-between rounded-md px-3.5 py-3"
         style={{ background: 'rgba(184,146,58,0.12)' }}
       >
-        <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Total a apartar</span>
+        <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Total pendiente</span>
         <span className="font-serif text-[20px] italic text-gold">
-          {formatCop(breakdown.totalCop)}
+          USD {pending.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
         </span>
       </div>
 
@@ -230,7 +213,7 @@ function TitheCard({ breakdown, formatCop }: { breakdown: ReturnType<typeof useD
         className="mt-3.5 border-t pt-3.5 text-[11.5px] italic leading-[1.55] text-text-muted"
         style={{ borderColor: 'rgba(184,146,58,0.2)' }}
       >
-        "Traed todos los diezmos al alfolí…" — Cada ingreso registrado calcula automáticamente lo que pertenece al Señor.
+        "Traed todos los diezmos al alfolí…" — Cada ingreso registrado genera un compromiso automáticamente.
       </div>
     </div>
   )

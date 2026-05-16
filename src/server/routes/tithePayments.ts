@@ -52,9 +52,12 @@ tithePaymentsRouter.post('/', async (c) => {
     return c.json({ error: 'Algunos compromisos no existen o no te pertenecen' }, 400)
   }
 
-  // Find "Diezmo" category for the expense transaction
+  // Find "Diezmo" or "Diezmo y Ofrenda" category for the expense transaction
   const diezmoCat = await db.query.categories.findFirst({
-    where: (cat, { eq, and }) => and(eq(cat.userId, auth.userId), eq(cat.name, 'Diezmo')),
+    where: (cat, { eq, and, or }) => and(
+      eq(cat.userId, auth.userId),
+      or(eq(cat.name, 'Diezmo'), eq(cat.name, 'Diezmo y Ofrenda')),
+    ),
   })
   if (!diezmoCat?.id) {
     return c.json({ error: 'No existe la categoría "Diezmo"' }, 400)
@@ -122,10 +125,13 @@ tithePaymentsRouter.post('/debt-payment', async (c) => {
 
   // Find Diezmo category
   const diezmoCat = await db.query.categories.findFirst({
-    where: (cat, { eq, and }) => and(eq(cat.userId, auth.userId), eq(cat.name, 'Diezmo')),
+    where: (cat, { eq, and, or }) => and(
+      eq(cat.userId, auth.userId),
+      or(eq(cat.name, 'Diezmo'), eq(cat.name, 'Diezmo y Ofrenda')),
+    ),
   })
   if (!diezmoCat?.id) {
-    return c.json({ error: 'No existe la categoría "Diezmo"' }, 400)
+    return c.json({ error: 'No existe la categoría "Diezmo" ni "Diezmo y Ofrenda"' }, 400)
   }
 
   // Create expense transaction

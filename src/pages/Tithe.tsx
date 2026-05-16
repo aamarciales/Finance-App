@@ -28,6 +28,7 @@ export default function TithePage() {
   const { rate: trm } = useTRM()
   const {
     pendingCommitments,
+    payments,
     pendingSummary,
     monthlyCompliance,
     titheDebtUsd,
@@ -41,6 +42,7 @@ export default function TithePage() {
   const [debtPaymentOpen, setDebtPaymentOpen] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const [editValues, setEditValues] = useState<Record<string, string>>({})
+  const [generating, setGenerating] = useState(false)
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -53,6 +55,19 @@ export default function TithePage() {
   const incomeCategories = categories.filter((c: any) => c.type === 'income')
 
   const titheConfig = settings?.titheConfig
+
+  async function handleGenerateCommitments() {
+    setGenerating(true)
+    try {
+      const { useApi } = await import('@/lib/api')
+      const result = await useApi().post('/admin/generate-commitments', {}) as { created: number }
+      toast.success(`${result.created} compromisos generados`)
+    } catch (e) {
+      toast.error('Error generando compromisos')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   function toggleCommitment(id: number) {
     setSelectedIds(prev => {
@@ -256,6 +271,60 @@ export default function TithePage() {
             </div>
           )}
         </section>
+
+        {/* Generate commitments for existing income */}
+        {pendingCommitments.length === 0 && (
+          <section>
+            <div className="rounded-[10px] border border-dashed border-border bg-surface px-6 py-6 text-center">
+              <p className="text-[13px] text-text-muted mb-3">
+                No hay compromisos pendientes. Si tienes ingresos previos, genera sus compromisos automáticamente.
+              </p>
+              <button
+                type="button"
+                onClick={handleGenerateCommitments}
+                disabled={generating}
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
+              >
+                {generating ? 'Generando…' : 'Generar compromisos de ingresos existentes'}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* Payment History */}
+        {payments.length > 0 && (
+          <section>
+            <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+              Historial de entregas
+            </h3>
+            <div className="rounded-lg border border-border bg-surface">
+              {payments.map(p => {
+                const dateLabel = p.date ? format(parseISO(p.date), 'dd MMM yyyy', { locale: es }) : '—'
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between border-b border-border/30 px-4 py-2.5 last:border-b-0"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="shrink-0 font-mono text-[12px] text-text-muted">{dateLabel}</span>
+                      <span className="truncate text-[13px]">{p.paidTo}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[13px] font-medium">
+                        USD {p.amountUsd.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                      </span>
+                      {p.amountCop && (
+                        <span className="font-mono text-[11px] text-text-muted">
+                          ${p.amountCop.toLocaleString('es-CO')} COP
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Spiritual Debt */}
         {titheDebtUsd > 0 && (
