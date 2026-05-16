@@ -12,12 +12,12 @@ titheCommitmentsRouter.get('/', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
 
-  const status = c.req.query('status')
+  const statusParam = c.req.query('status') as 'pending' | 'paid' | null
   const db = drizzle(c.env.DB, { schema })
 
   const results = await db.query.titheCommitments.findMany({
-    where: status
-      ? (tc, { eq, and }) => and(eq(tc.userId, auth.userId), eq(tc.status, status))
+    where: statusParam
+      ? (tc, { eq, and }) => and(eq(tc.userId, auth.userId), eq(tc.status, statusParam))
       : (tc, { eq }) => eq(tc.userId, auth.userId),
     orderBy: (tc, { desc }) => [desc(tc.date)],
   })

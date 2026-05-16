@@ -87,7 +87,7 @@ transactionsRouter.post('/', async (c) => {
           })
 
           await db.update(schema.transactions).set({
-            isTitheCalculated: 1,
+            isTitheCalculated: true as any,
             updatedAt: new Date().toISOString(),
           }).where(eq(schema.transactions.id, tx.id))
         }

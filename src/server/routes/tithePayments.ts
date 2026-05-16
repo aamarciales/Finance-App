@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getAuth } from '@hono/clerk-auth'
 import { drizzle } from 'drizzle-orm/d1'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import * as schema from '../schema'
 import { getEquivalentAmounts } from '../../lib/currency'
 import type { AppEnv } from '../types'

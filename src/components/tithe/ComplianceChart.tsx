@@ -33,7 +33,7 @@ export function ComplianceChart({ data }: ComplianceChartProps) {
             tickFormatter={(v: number) => `${v}%`}
           />
           <Tooltip
-            formatter={(value: number) => [`${value}%`, 'Cumplimiento']}
+            formatter={(value: unknown) => [`${value}%`, 'Cumplimiento']}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
           <Bar dataKey="percent" radius={[4, 4, 0, 0]} maxBarSize={32}>

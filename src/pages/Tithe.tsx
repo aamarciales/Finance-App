@@ -5,25 +5,20 @@ import { es } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import {
   Shield,
-  Heart,
   TrendingUp,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Pencil,
   Save,
   X,
   HandCoins,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { EmptyState } from '@/components/common/EmptyState'
-import { Badge } from '@/components/common/Badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useSettings } from '@/hooks/useSettings'
 import { useTRM } from '@/hooks/useTRM'
-import { useTitheCommitments, type TitheCommitment } from '@/hooks/useTitheCommitments'
-import { calculateTitheForIncome } from '@/lib/tithe'
+import { useTitheCommitments } from '@/hooks/useTitheCommitments'
 import { TithePaymentDialog } from '@/components/tithe/TithePaymentDialog'
 import { TitheDebtPaymentDialog } from '@/components/tithe/TitheDebtPaymentDialog'
 import { ComplianceChart } from '@/components/tithe/ComplianceChart'
@@ -32,7 +27,6 @@ export default function TithePage() {
   const { settings, setSetting } = useSettings()
   const { rate: trm } = useTRM()
   const {
-    commitments,
     pendingCommitments,
     pendingSummary,
     monthlyCompliance,
@@ -58,7 +52,6 @@ export default function TithePage() {
   const categories = categoriesData ?? []
   const incomeCategories = categories.filter((c: any) => c.type === 'income')
 
-  const now = new Date()
   const titheConfig = settings?.titheConfig
 
   function toggleCommitment(id: number) {
@@ -167,28 +160,24 @@ export default function TithePage() {
               label="Compromisos pendientes"
               amount={pendingSummary.totalPending}
               count={pendingSummary.pendingCount}
-              currency="USD"
             />
             <SummaryCard
               icon={<CheckCircle2 className="h-4 w-4" />}
               iconTone="green"
               label="Total entregado"
               amount={pendingSummary.totalPaid}
-              currency="USD"
             />
             <SummaryCard
               icon={<Clock className="h-4 w-4" />}
               iconTone={pendingSummary.totalPending > 0 ? 'gold' : 'green'}
               label="Deuda espiritual"
               amount={titheDebtUsd}
-              currency="USD"
             />
             <SummaryCard
               icon={<Shield className="h-4 w-4" />}
               iconTone="brand"
               label="TRM hoy"
               amount={trm}
-              currency="COP/USD"
               noDecimals
             />
           </div>
@@ -496,13 +485,12 @@ const TONE_CLASSES: Record<string, string> = {
   green: 'text-brand',
 }
 
-function SummaryCard({ icon, iconTone, label, amount, count, currency, noDecimals }: {
+function SummaryCard({ icon, iconTone, label, amount, count, noDecimals }: {
   icon: React.ReactNode
   iconTone: 'brand' | 'warm' | 'gold' | 'danger' | 'info' | 'green'
   label: string
   amount: number
   count?: number
-  currency?: string
   noDecimals?: boolean
 }) {
   return (
