@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, X, Upload, FileText, Image } from 'lucide-react'
+import { Plus, X, Upload, FileText } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -62,7 +63,6 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const isEditing = !!editInvoice
-
   const editCategoryId = editInvoice?.transactionCategoryId ?? 1
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -123,41 +123,52 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const items = watch('items')
   const currency = watch('currency')
-
   const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0)
 
   async function uploadFile(file: File): Promise<string> {
     const formData = new FormData()
     formData.append('file', file)
-    const res = await fetch('/api/files/upload', { method: 'POST', body: formData })
-    if (!res.ok) throw new Error('Error subiendo archivo')
+    const res = await fetch('/api/files/upload', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err || 'Error subiendo archivo')
+    }
     const data = await res.json()
     return data.url
   }
 
   async function handleFormSubmit(values: InvoiceFormValues) {
-    let attachmentUrl = existingAttachment ?? undefined
+    try {
+      let attachmentUrl = existingAttachment ?? undefined
 
-    if (pendingFile) {
-      attachmentUrl = await uploadFile(pendingFile)
+      if (pendingFile) {
+        attachmentUrl = await uploadFile(pendingFile)
+      }
+
+      await onSubmit({
+        ...values,
+        attachmentUrl,
+      })
+      reset()
+      setPendingFile(null)
+      setExistingAttachment(null)
+      onOpenChange(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al guardar la factura')
     }
-
-    await onSubmit({
-      ...values,
-      attachmentUrl,
-    })
-    reset()
-    setPendingFile(null)
-    setExistingAttachment(null)
-    onOpenChange(false)
   }
 
+  const hasFile = !!pendingFile || !!existingAttachment
   const fileName = pendingFile?.name ?? (existingAttachment ? existingAttachment.split('/').pop() : null)
   const isImage = pendingFile?.type.startsWith('image/') ?? (existingAttachment ? /\.(jpg|jpeg|png|webp|heic)$/i.test(existingAttachment) : false)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
             {isEditing ? 'Editar factura' : 'Nueva factura'}
@@ -208,108 +219,86 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             {errors.categoryId && <p className="text-[12px] text-danger-strong">{errors.categoryId.message}</p>}
           </div>
 
-          {/* Items */}
-          <div className="grid gap-2">
-            <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Ítems</Label>
-            {items.map((_, i) => (
-              <div key={i} className="grid grid-cols-[1fr_50px_80px_28px] gap-2 items-end">
-                <div>
-                  {i === 0 && <span className="text-[11px] text-text-faint">Descripción</span>}
-                  <Input
-                    {...register(`items.${i}.name`)}
-                    placeholder="Ej. Leche deslactosada"
-                    className="text-[13px]"
-                  />
+          <div className="grid grid-cols-[1fr_240px] gap-6">
+            {/* Left: items */}
+            <div className="grid gap-2">
+              <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Ítems</Label>
+              {items.map((_, i) => (
+                <div key={i} className="grid grid-cols-[1fr_50px_80px_28px] gap-2 items-end">
+                  <div>
+                    {i === 0 && <span className="text-[11px] text-text-faint">Descripción</span>}
+                    <Input {...register(`items.${i}.name`)} placeholder="Ej. Leche" className="text-[13px]" />
+                  </div>
+                  <div>
+                    {i === 0 && <span className="text-[11px] text-text-faint">Cant.</span>}
+                    <Input type="number" step="any" {...register(`items.${i}.quantity`, { valueAsNumber: true })} className="text-[13px] font-mono" />
+                  </div>
+                  <div>
+                    {i === 0 && <span className="text-[11px] text-text-faint">Precio</span>}
+                    <Input type="number" step="any" {...register(`items.${i}.unitPrice`, { valueAsNumber: true })} className="text-[13px] font-mono" />
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-7 shrink-0" disabled={items.length <= 1}
+                    onClick={() => { const n = [...items]; n.splice(i, 1); reset({ ...watch(), items: n }) }}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <div>
-                  {i === 0 && <span className="text-[11px] text-text-faint">Cant.</span>}
-                  <Input
-                    type="number"
-                    step="any"
-                    {...register(`items.${i}.quantity`, { valueAsNumber: true })}
-                    className="text-[13px] font-mono"
-                  />
-                </div>
-                <div>
-                  {i === 0 && <span className="text-[11px] text-text-faint">Precio</span>}
-                  <Input
-                    type="number"
-                    step="any"
-                    {...register(`items.${i}.unitPrice`, { valueAsNumber: true })}
-                    className="text-[13px] font-mono"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-7 shrink-0"
-                  disabled={items.length <= 1}
-                  onClick={() => {
-                    const newItems = [...items]
-                    newItems.splice(i, 1)
-                    reset({ ...watch(), items: newItems })
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="w-fit gap-1 text-[12px]"
+                onClick={() => { reset({ ...watch(), items: [...items, { name: '', quantity: 1, unitPrice: 0 }] }) }}>
+                <Plus className="h-3 w-3" /> Agregar ítem
+              </Button>
+              {errors.items && <p className="text-[12px] text-danger-strong">{errors.items.message}</p>}
+
+              <div className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2 text-[13px]">
+                <span className="text-text-muted">Total</span>
+                <span className="font-mono font-medium">{currency} {total.toLocaleString('es-CO', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-fit gap-1 text-[12px]"
-              onClick={() => {
-                reset({ ...watch(), items: [...items, { name: '', quantity: 1, unitPrice: 0 }] })
-              }}
-            >
-              <Plus className="h-3 w-3" /> Agregar ítem
-            </Button>
-            {errors.items && <p className="text-[12px] text-danger-strong">{errors.items.message}</p>}
-          </div>
+            </div>
 
-          {/* Total */}
-          <div className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2 text-[13px]">
-            <span className="text-text-muted">Total</span>
-            <span className="font-mono font-medium">{currency} {total.toLocaleString('es-CO', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
-          </div>
-
-          {/* Soporte / Attachment */}
-          <div className="grid gap-1.5">
-            <Label>Soporte (recibo o factura escaneada)</Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) setPendingFile(file)
-              }}
-            />
-            {fileName ? (
-              <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
-                {isImage ? <Image className="h-4 w-4 shrink-0 text-text-muted" /> : <FileText className="h-4 w-4 shrink-0 text-text-muted" />}
-                <span className="flex-1 truncate text-[13px]">{fileName}</span>
+            {/* Right: soporte */}
+            <div className="grid gap-2">
+              <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Soporte</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingFile(f) }}
+              />
+              {hasFile ? (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  {isImage ? (
+                    <img
+                      src={pendingFile ? URL.createObjectURL(pendingFile) : existingAttachment!}
+                      alt="Soporte"
+                      className="w-full object-cover max-h-[200px]"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 p-3">
+                      <FileText className="h-8 w-8 text-text-muted" />
+                      <span className="flex-1 truncate text-[12px] text-text-muted">{fileName}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-surface-2">
+                    <span className="truncate text-[11px] text-text-muted max-w-[140px]">{fileName}</span>
+                    <button type="button"
+                      onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                      className="text-[11px] text-danger-strong hover:underline">
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                  className="shrink-0 rounded p-1 text-text-faint hover:bg-danger/10 hover:text-danger-strong"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <Upload className="h-5 w-5" />
+                  Subir imagen o PDF
                 </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
-              >
-                <Upload className="h-4 w-4" />
-                Subir imagen o PDF
-              </button>
-            )}
+              )}
+            </div>
           </div>
 
           <DialogFooter className="gap-2 pt-2">
