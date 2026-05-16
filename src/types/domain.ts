@@ -19,7 +19,7 @@ export interface Transaction {
   amountInSecondary: number
   notes?: string
   invoiceId?: number
-  attachmentIds?: number[]
+  attachments?: string[]
   isRecurring?: boolean
   recurringId?: number
   debtId?: number

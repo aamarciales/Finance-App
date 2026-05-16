@@ -7,27 +7,28 @@ export interface OcrItem {
 
 export interface OcrResult {
   merchant: string
-  date: Date
+  date: string
   items: OcrItem[]
   total: number
+  currency?: string
   confidence: number
+  imageUrl?: string
 }
 
-export async function processReceiptOCR(_imageBlob: Blob): Promise<OcrResult> {
-  // TODO: En producción, esto llama al CF Worker con Claude API
-  await new Promise(resolve => setTimeout(resolve, 1500))
+export async function processReceiptOCR(imageBlob: Blob): Promise<OcrResult> {
+  const formData = new FormData()
+  formData.append('file', imageBlob, 'receipt.jpg')
 
-  return {
-    merchant: 'Supermercado Éxito',
-    date: new Date(),
-    items: [
-      { description: 'Leche deslactosada x 6', quantity: 6, price: 4200, category: 'Lácteos' },
-      { description: 'Pan integral', quantity: 1, price: 8900, category: 'Panadería' },
-      { description: 'Huevos x 30', quantity: 1, price: 18900, category: 'Proteínas' },
-      { description: 'Arroz x 2kg', quantity: 2, price: 6300, category: 'Granos' },
-      { description: 'Frutas variadas', quantity: 1, price: 23500, category: 'Frutas' },
-    ],
-    total: 31600,
-    confidence: 0.92,
+  const response = await fetch('/api/files/ocr', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'OCR failed' }))
+    throw new Error(err.error ?? 'OCR processing failed')
   }
+
+  const result = await response.json() as OcrResult
+  return result
 }

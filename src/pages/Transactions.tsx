@@ -71,6 +71,7 @@ export default function TransactionsPage() {
         debtId: values.debtId ?? undefined,
         capitalAmount: values.capitalAmount ?? undefined,
         interestAmount: values.interestAmount ?? undefined,
+        attachments: values.attachments,
       })
       toast.success('Transacción creada')
     },

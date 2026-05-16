@@ -42,8 +42,9 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
   const [merchant, setMerchant] = useState(result.merchant)
-  const [date, setDate] = useState(format(result.date, 'yyyy-MM-dd'))
-  const [currency, setCurrency] = useState<'COP' | 'USD' | 'EUR'>('COP')
+  const parsedDate = typeof result.date === 'string' ? result.date : format(result.date, 'yyyy-MM-dd')
+  const [date, setDate] = useState(parsedDate)
+  const [currency, setCurrency] = useState<'COP' | 'USD' | 'EUR'>(result.currency === 'USD' ? 'USD' : result.currency === 'EUR' ? 'EUR' : 'COP')
   const [categoryId, setCategoryId] = useState<string>(String(expenseCategories[0]?.id ?? ''))
   const [items, setItems] = useState<OcrItem[]>(result.items.map(i => ({ ...i })))
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)

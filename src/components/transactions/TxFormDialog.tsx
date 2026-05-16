@@ -185,11 +185,26 @@ export function TxFormDialog({
 
   const handleFormSubmit = useCallback(
     async (values: TxFormValues) => {
-      await onSubmit(values)
+      // Upload pending files first
+      const uploadedUrls: string[] = []
+      for (const pf of pendingFiles) {
+        const fd = new FormData()
+        fd.append('file', pf.file)
+        try {
+          const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.url) uploadedUrls.push(data.url)
+          }
+        } catch {
+          // Skip failed uploads
+        }
+      }
+      await onSubmit({ ...values, attachments: uploadedUrls.length > 0 ? uploadedUrls : undefined })
       setPendingFiles([])
       onOpenChange(false)
     },
-    [onSubmit, onOpenChange, pendingFiles, editTx],
+    [onSubmit, onOpenChange, pendingFiles],
   )
 
   function addFiles(fileList: FileList) {

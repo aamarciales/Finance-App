@@ -159,8 +159,16 @@ function TxRow({
       <td className="px-4 py-2.5">
         <span className="inline-flex items-center gap-1">
           {tx.concept}
-          {tx.attachmentIds && tx.attachmentIds.length > 0 && (
-            <Paperclip className="h-3.5 w-3.5 text-text-faint" />
+          {tx.attachments && tx.attachments.length > 0 && (
+            <a
+              href={tx.attachments[0]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-text-faint hover:text-brand"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </a>
           )}
         </span>
       </td>

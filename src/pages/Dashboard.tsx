@@ -223,7 +223,7 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
   const isIncome = tx.type === 'income'
   const dateLabel = format(parseISO(tx.date), 'dd MMM', { locale: es })
   const hasInvoice = !!tx.invoiceId
-  const hasAttachment = !!(tx.attachmentIds && tx.attachmentIds.length > 0)
+  const hasAttachment = !!(tx.attachments && tx.attachments.length > 0)
 
   return (
     <div

@@ -22,6 +22,8 @@ export const transactions = sqliteTable('transactions', {
   trm: real('trm').notNull(),
   amountInBase: real('amount_in_base').notNull(),
   amountInSecondary: real('amount_in_secondary').notNull(),
+  notes: text('notes'),
+  attachments: text('attachments', { mode: 'json' }).$type<string[]>(),
   invoiceId: integer('invoice_id'),
   debtId: integer('debt_id'),
   isTitheCalculated: integer('is_tithe_calculated', { mode: 'boolean' }).default(false),

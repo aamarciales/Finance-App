@@ -7,3 +7,7 @@ binding = "DB"
 database_name = "patrimonio-db"
 database_id = "60db20f5-1aa6-403c-90a6-69fc1e307913"
 migrations_dir = "drizzle"
+
+[[r2_buckets]]
+bucket_name = "patrimonio-files"
+binding = "FILES"
