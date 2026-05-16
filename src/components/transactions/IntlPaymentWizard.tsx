@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Globe, ChevronLeft } from 'lucide-react'
@@ -155,6 +155,18 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   }, [step1, originFees, intermediateFees, conversion, amountAfterFees, titheInfo, incomeCategories])
 
   const [checkedTxs, setCheckedTxs] = useState<Record<number, boolean>>({})
+
+  // Reset wizard state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setStep(1)
+      setOriginFees({ enabled: false, receiveFee: 0, sendFee: 0 })
+      setIntermediateFees({ enabled: false, receiveFee: 0, sendFee: 0, platformName: '' })
+      setConversion({ enabled: false, toCurrency: 'COP', receivedAmount: 0 })
+      setCheckedTxs({})
+      setCustomPlatform(false)
+    }
+  }, [open])
 
   const isTxChecked = (i: number) => checkedTxs[i] !== false
 

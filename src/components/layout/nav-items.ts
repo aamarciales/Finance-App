@@ -2,7 +2,6 @@ import {
   Activity,
   CreditCard,
   FileText,
-  History,
   LineChart,
   type LucideIcon,
   Receipt,
@@ -57,7 +56,6 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Configuración',
     items: [
-      { to: '/historial', label: 'Historial', icon: History },
       { to: '/settings', label: 'Ajustes', icon: Settings },
     ],
   },
