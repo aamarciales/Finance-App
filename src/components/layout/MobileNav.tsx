@@ -1,21 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NAV_SECTIONS } from './nav-items'
 import { TRMFooter } from './TRMFooter'
 
-/**
- * Drawer mobile (<768px). Renderizado vía portal en document.body para
- * evitar cualquier interferencia del layout padre.
- */
 export function MobileNav() {
   const [open, setOpen] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  const close = useCallback(() => {
+    setVisible(false)
+    const timer = setTimeout(() => setOpen(false), 250)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (open) {
+      setVisible(true)
       document.body.style.overflow = 'hidden'
       return () => { document.body.style.overflow = '' }
     }
@@ -33,26 +36,21 @@ export function MobileNav() {
       </button>
 
       {createPortal(
-        <AnimatePresence>
-          {open && (
-            <>
-              <motion.div
-                key="mobile-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setOpen(false)}
-                className="fixed inset-0 z-40 bg-[rgba(20,20,17,0.4)] backdrop-blur-sm md:hidden"
-              />
-              <motion.aside
-                key="mobile-drawer"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-                className="fixed bottom-0 left-0 top-0 z-50 flex w-[280px] flex-col overflow-y-auto bg-surface-2 px-5 py-5 md:hidden"
-              >
+        open && (
+          <>
+            <div
+              onClick={close}
+              className={cn(
+                'fixed inset-0 z-40 bg-[rgba(20,20,17,0.4)] backdrop-blur-sm md:hidden transition-opacity duration-200',
+                visible ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            <aside
+              className={cn(
+                'fixed bottom-0 left-0 top-0 z-50 flex w-[280px] flex-col overflow-y-auto bg-surface-2 px-5 py-5 md:hidden transition-transform duration-250 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
+                visible ? 'translate-x-0' : '-translate-x-full',
+              )}
+            >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-baseline gap-2 px-2">
                   <span className="font-serif text-[22px] font-medium italic tracking-[-0.01em]">
@@ -64,7 +62,7 @@ export function MobileNav() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                   aria-label="Cerrar menú"
                   className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted hover:bg-surface"
                 >
@@ -90,7 +88,7 @@ export function MobileNav() {
                           key={item.to}
                           to={item.to}
                           end={item.end}
-                          onClick={() => setOpen(false)}
+                          onClick={close}
                           className={({ isActive }) =>
                             cn(
                               'flex min-h-[44px] select-none items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] text-text-muted transition-colors duration-100',
@@ -113,11 +111,10 @@ export function MobileNav() {
               </nav>
 
               <TRMFooter className="mt-auto" />
-            </motion.aside>
+            </aside>
           </>
-        )}
-      </AnimatePresence>,
-      document.body,
+        ),
+        document.body,
       )}
     </>
   )
