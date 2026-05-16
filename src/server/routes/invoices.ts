@@ -40,9 +40,13 @@ invoicesRouter.post('/', async (c) => {
     if (body[key] !== undefined) values[key] = body[key]
   }
 
-  const result = await db.insert(schema.invoices).values(values as any).returning()
-
-  return c.json(result[0])
+  try {
+    const result = await db.insert(schema.invoices).values(values as any).returning()
+    return c.json(result[0])
+  } catch (err) {
+    console.error('Invoice insert error:', err)
+    return c.json({ error: 'Error al crear factura: ' + (err instanceof Error ? err.message : String(err)) }, 500)
+  }
 })
 
 invoicesRouter.put('/:id', async (c) => {
@@ -59,11 +63,16 @@ invoicesRouter.put('/:id', async (c) => {
     if (body[key] !== undefined) updates[key] = body[key]
   }
 
-  const result = await db.update(schema.invoices).set(updates).where(
-    and(eq(schema.invoices.id, id), eq(schema.invoices.userId, auth.userId))
-  ).returning()
+  try {
+    const result = await db.update(schema.invoices).set(updates).where(
+      and(eq(schema.invoices.id, id), eq(schema.invoices.userId, auth.userId))
+    ).returning()
 
-  return c.json(result[0])
+    return c.json(result[0])
+  } catch (err) {
+    console.error('Invoice update error:', err)
+    return c.json({ error: 'Error al actualizar factura: ' + (err instanceof Error ? err.message : String(err)) }, 500)
+  }
 })
 
 invoicesRouter.delete('/:id', async (c) => {

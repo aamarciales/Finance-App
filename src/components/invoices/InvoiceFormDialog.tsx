@@ -137,19 +137,35 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) {
-      const err = await res.text()
-      throw new Error(err || 'Error subiendo archivo')
+      let errMsg = `Error ${res.status}`
+      try {
+        const errData = await res.json()
+        errMsg = errData.error || errMsg
+      } catch {
+        errMsg = await res.text().catch(() => errMsg)
+      }
+      throw new Error(errMsg)
     }
     const data = await res.json()
+    if (!data.url) throw new Error('El servidor no devolvió la URL del archivo')
     return data.url
   }
 
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
   async function handleFormSubmit(values: InvoiceFormValues) {
+    setSubmitError(null)
     try {
       let attachmentUrl = existingAttachment ?? undefined
 
       if (pendingFile) {
-        attachmentUrl = await uploadFile(pendingFile)
+        try {
+          attachmentUrl = await uploadFile(pendingFile)
+        } catch (uploadErr) {
+          setSubmitError(uploadErr instanceof Error ? uploadErr.message : 'Error subiendo archivo')
+          toast.error('Error al subir el archivo. Intenta de nuevo.')
+          return
+        }
       }
 
       await onSubmit({
@@ -161,7 +177,9 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       setExistingAttachment(null)
       onOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al guardar la factura')
+      const msg = e instanceof Error ? e.message : 'Error al guardar la factura'
+      setSubmitError(msg)
+      toast.error(msg)
     }
   }
 
@@ -303,6 +321,17 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
               )}
             </div>
           </div>
+
+          {Object.keys(errors).length > 0 && (
+            <p className="text-[12px] text-danger-strong">
+              Hay campos con errores. Revisa el formulario.
+            </p>
+          )}
+          {submitError && (
+            <p className="text-[12px] text-danger-strong rounded-md bg-red-50 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter className="gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
