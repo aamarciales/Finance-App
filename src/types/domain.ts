@@ -129,7 +129,28 @@ export interface TithePayment {
   currency: Currency
   trm: number
   notes?: string
+  attachmentUrl?: string
   txId: number
+}
+
+export type CommitmentStatus = 'pending' | 'paid'
+
+export interface TitheCommitment {
+  id?: number
+  incomeTransactionId: number
+  date: string
+  incomeAmount: number
+  incomeCurrency: Currency
+  incomeTrm: number
+  incomeAmountBase: number
+  tithePercent: number
+  offeringPercent: number
+  titheAmount: number
+  offeringAmount: number
+  totalAmount: number
+  status: CommitmentStatus
+  tithePaymentId?: number
+  createdAt: string
 }
 
 export interface TRMRecord {
@@ -216,4 +237,5 @@ export interface AppSettings {
   availableCapitalCurrency?: Currency
   titheCarryoverUsd?: number
   titheStartDate?: string
+  titheDebtUsd?: number
 }

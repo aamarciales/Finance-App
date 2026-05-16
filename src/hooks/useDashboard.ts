@@ -128,6 +128,11 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
     queryFn: () => api.get<Category[]>('/categories'),
   })
 
+  const { data: titheSummary } = useQuery({
+    queryKey: ['tithe-commitments', 'pending-summary'],
+    queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number }>('/tithe-commitments/pending-summary'),
+  })
+
   const transactions = transactionsData ?? null
   const categories = categoriesData ?? []
 
@@ -169,36 +174,11 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
     const monthIncomeCop = monthTxs.filter(tx => tx.type === 'income').reduce((s, tx) => s + tx.amountInSecondary, 0)
     const monthExpensesCop = monthTxs.filter(tx => tx.type === 'expense' || tx.type === 'debt_payment').reduce((s, tx) => s + tx.amountInSecondary, 0)
 
-    // Tithe — global calculation
-    let totalHistoricalTitheCalculated = 0
-    let totalHistoricalTithePaid = 0
+    // Tithe — from commitments API
+    const tithePending = titheSummary?.totalPending ?? 0
 
+    const titheBreakdown: TitheBreakdown = { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: tithePending }
     if (settings) {
-      const startDate = settings.titheStartDate || '1970-01-01'
-      const titheTxs = kpiTxs.filter(tx => tx.date >= startDate)
-
-      // All income since startDate
-      const allHistoricalIncomeTxs = titheTxs.filter(tx => tx.type === 'income')
-      for (const tx of allHistoricalIncomeTxs) {
-        const result = calculateTitheForIncome(tx.amountInBase, tx.categoryId, settings)
-        totalHistoricalTitheCalculated += result.tithe + result.offering
-      }
-
-      // All tithe payments since startDate
-      const titheCategories = new Set(
-        categories.filter(c => c.name === 'Diezmo' || c.name === 'Ofrendas').map(c => c.id)
-      )
-      const allHistoricalTithePayments = titheTxs.filter(tx => tx.categoryId != null && titheCategories.has(tx.categoryId))
-      for (const tx of allHistoricalTithePayments) {
-        totalHistoricalTithePaid += tx.amountInBase
-      }
-    }
-
-    const tithePending = Math.max(0, (settings?.titheCarryoverUsd ?? 0) + totalHistoricalTitheCalculated - totalHistoricalTithePaid)
-
-    const titheBreakdown: TitheBreakdown = { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: 0 }
-    if (settings) {
-      // Informational breakdown by category (for the TitheCard)
       const allIncomeTxs = monthTxs.filter(tx => tx.type === 'income')
       const titheByCategory = new Map<number, { income: number; tithe: number; offering: number; tithePct: number; offeringPct: number }>()
 
@@ -227,7 +207,6 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       titheBreakdown.totalUsd = titheBreakdown.totalTithe + titheBreakdown.totalOffering
     }
 
-    // Compute tithe total in COP
     titheBreakdown.totalCop = Math.round(titheBreakdown.totalUsd * (monthIncomeCop / (monthIncome || 1)))
 
     // Insight: compare current month supermarket expense vs previous month
@@ -359,5 +338,5 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       availableCapitalCop,
       loading: false,
     }
-  }, [transactions, categories, categoryMap, settings, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period])
+  }, [transactions, categories, categoryMap, settings, titheSummary, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period])
 }

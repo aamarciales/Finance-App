@@ -81,10 +81,32 @@ export const tithePayments = sqliteTable('tithe_payments', {
   userId: text('user_id').notNull(),
   date: text('date').notNull(),
   amountUsd: real('amount_usd').notNull(),
+  amountCop: real('amount_cop'),
+  currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).default('USD'),
   paidTo: text('paid_to').notNull(),
   type: text('type', { enum: ['tithe', 'offering', 'both'] }).notNull(),
   notes: text('notes'),
+  attachmentUrl: text('attachment_url'),
   transactionId: integer('transaction_id'),
+  createdAt: text('created_at').notNull(),
+})
+
+export const titheCommitments = sqliteTable('tithe_commitments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull(),
+  incomeTransactionId: integer('income_transaction_id').notNull(),
+  date: text('date').notNull(),
+  incomeAmount: real('income_amount').notNull(),
+  incomeCurrency: text('income_currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
+  incomeTrm: real('income_trm').notNull(),
+  incomeAmountBase: real('income_amount_base').notNull(),
+  tithePercent: real('tithe_percent').notNull(),
+  offeringPercent: real('offering_percent').notNull(),
+  titheAmount: real('tithe_amount').notNull(),
+  offeringAmount: real('offering_amount').notNull(),
+  totalAmount: real('total_amount').notNull(),
+  status: text('status', { enum: ['pending', 'paid'] }).notNull().default('pending'),
+  tithePaymentId: integer('tithe_payment_id'),
   createdAt: text('created_at').notNull(),
 })
 

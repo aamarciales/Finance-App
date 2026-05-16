@@ -425,3 +425,69 @@ adminRouter.post('/import-bulk', async (c) => {
     return c.json({ error: 'Bulk import failed', detail: message, log }, 500)
   }
 })
+
+// POST /api/admin/generate-commitments — retroactively create commitments for existing income
+adminRouter.post('/generate-commitments', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const db = drizzle(c.env.DB, { schema })
+
+  // Find all income transactions without a commitment
+  const allIncome = await db.query.transactions.findMany({
+    where: (t, { eq, and }) => and(eq(t.userId, auth.userId), eq(t.type, 'income')),
+  })
+
+  // Find existing commitments
+  const existingCommitments = await db.query.titheCommitments.findMany({
+    where: (tc, { eq }) => eq(tc.userId, auth.userId),
+  })
+  const coveredTxIds = new Set(existingCommitments.map(c => c.incomeTransactionId))
+
+  // Get titheConfig
+  const settingRow = await db.query.settings.findFirst({
+    where: (s, { eq, and }) => and(eq(s.key, 'titheConfig'), eq(s.userId, auth.userId)),
+  })
+
+  if (!settingRow?.value) {
+    return c.json({ error: 'No hay configuración de diezmo' }, 400)
+  }
+
+  const config = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value
+  let created = 0
+
+  for (const tx of allIncome) {
+    if (coveredTxIds.has(tx.id)) continue
+    if (!tx.amountInBase || tx.amountInBase <= 0) continue
+
+    const defaultTithe = config?.defaultTithe ?? 10
+    const defaultOffering = config?.defaultOffering ?? 0
+    const catConfig = config?.tithePercentByIncomeCategory?.[tx.categoryId]
+    const tithePct = catConfig?.tithe ?? defaultTithe
+    const offeringPct = catConfig?.offering ?? defaultOffering
+    const tithe = Math.round(tx.amountInBase * (tithePct / 100) * 100) / 100
+    const offering = Math.round(tx.amountInBase * (offeringPct / 100) * 100) / 100
+
+    if (tithe > 0 || offering > 0) {
+      await db.insert(schema.titheCommitments).values({
+        userId: auth.userId,
+        incomeTransactionId: tx.id,
+        date: tx.date,
+        incomeAmount: tx.amount,
+        incomeCurrency: tx.currency,
+        incomeTrm: tx.trm,
+        incomeAmountBase: tx.amountInBase,
+        tithePercent: tithePct,
+        offeringPercent: offeringPct,
+        titheAmount: tithe,
+        offeringAmount: offering,
+        totalAmount: tithe + offering,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      })
+      created++
+    }
+  }
+
+  return c.json({ created, totalIncome: allIncome.length, alreadyHadCommitment: coveredTxIds.size })
+})

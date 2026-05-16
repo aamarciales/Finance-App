@@ -166,6 +166,18 @@ export default function SettingsPage() {
               />
             </FieldGroup>
 
+            <FieldGroup label="Deuda espiritual (USD)">
+              <Input
+                type="number"
+                step="any"
+                className="font-mono"
+                value={settings.titheDebtUsd ?? 0}
+                onChange={(e) => setSetting('titheDebtUsd', Number(e.target.value) || 0)}
+                placeholder="Ej. 300"
+              />
+              <p className="text-[11px] text-text-muted">Saldo de diezmo anterior a la app. Se irá debitando con cada abono.</p>
+            </FieldGroup>
+
             {/* Grid 2x3 with headers */}
             <div className="grid grid-cols-3 gap-3 items-center">
               <div></div>

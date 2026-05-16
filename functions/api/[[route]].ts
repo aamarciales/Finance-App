@@ -10,6 +10,7 @@ import { goalsRouter } from '../../src/server/routes/goals'
 import { invoicesRouter } from '../../src/server/routes/invoices'
 import { invoiceItemsRouter } from '../../src/server/routes/invoiceItems'
 import { tithePaymentsRouter } from '../../src/server/routes/tithePayments'
+import { titheCommitmentsRouter } from '../../src/server/routes/titheCommitments'
 import { adminRouter } from '../../src/server/routes/admin'
 
 const app = new Hono<AppEnv>().basePath('/api')
@@ -32,6 +33,7 @@ app.route('/goals', goalsRouter)
 app.route('/invoices', invoicesRouter)
 app.route('/invoice-items', invoiceItemsRouter)
 app.route('/tithe-payments', tithePaymentsRouter)
+app.route('/tithe-commitments', titheCommitmentsRouter)
 app.route('/admin', adminRouter)
 
 export const onRequest = handle(app)
