@@ -116,7 +116,40 @@ transactionsRouter.put('/:id', async (c) => {
     and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId))
   ).returning()
 
-  return c.json(result[0])
+  const updated = result[0]
+
+  // Recalculate tithe commitment if category or amount changed on an income transaction
+  if (updated && updated.type === 'income' && (body.categoryId != null || body.amount != null || body.amountInBase != null)) {
+    const commitment = await db.query.titheCommitments.findFirst({
+      where: (tc, { eq, and }) => and(eq(tc.incomeTransactionId, id), eq(tc.userId, auth.userId)),
+    })
+
+    if (commitment && commitment.status !== 'paid') {
+      const settingRow = await db.query.settings.findFirst({
+        where: (s, { eq, and }) => and(eq(s.key, 'titheConfig'), eq(s.userId, auth.userId)),
+      })
+      const config = settingRow?.value ? (typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value) : null
+
+      if (config) {
+        const { tithePct, offeringPct } = computeTithe(updated.amountInBase, updated.categoryId, config)
+        const titheAmount = Math.round(updated.amountInBase * (tithePct / 100) * 100) / 100
+        const offeringAmount = Math.round(updated.amountInBase * (offeringPct / 100) * 100) / 100
+        await db.update(schema.titheCommitments).set({
+          tithePercent: tithePct,
+          offeringPercent: offeringPct,
+          titheAmount,
+          offeringAmount,
+          totalAmount: titheAmount + offeringAmount,
+          incomeAmount: updated.amount,
+          incomeCurrency: updated.currency,
+          incomeTrm: updated.trm,
+          incomeAmountBase: updated.amountInBase,
+        }).where(eq(schema.titheCommitments.id, commitment.id))
+      }
+    }
+  }
+
+  return c.json(updated)
 })
 
 // DELETE /api/transactions/:id

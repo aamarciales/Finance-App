@@ -333,20 +333,13 @@ tithePaymentsRouter.delete('/:id', async (c) => {
   await db.delete(schema.commitmentPayments)
     .where(eq(schema.commitmentPayments.paymentId, id))
 
-  // Revert commitments to pending
+  // Revert commitments to pending (keep transaction — it's a real expense)
   for (const cid of affectedCommitmentIds) {
     await db.update(schema.titheCommitments).set({ status: 'pending' })
       .where(eq(schema.titheCommitments.id, cid))
   }
 
-  // Delete the associated transaction
-  if (payment.transactionId) {
-    await db.delete(schema.transactions).where(
-      and(eq(schema.transactions.id, payment.transactionId), eq(schema.transactions.userId, auth.userId))
-    )
-  }
-
-  // Delete the payment
+  // Delete the payment record
   await db.delete(schema.tithePayments).where(
     and(eq(schema.tithePayments.id, id), eq(schema.tithePayments.userId, auth.userId))
   )

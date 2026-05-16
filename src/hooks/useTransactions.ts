@@ -78,6 +78,8 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['transactions'] })
     queryClient.invalidateQueries({ queryKey: ['debts'] })
+    queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+    queryClient.invalidateQueries({ queryKey: ['tithe-payments'] })
   }
 
   const { mutateAsync: addTxMutate } = useMutation({

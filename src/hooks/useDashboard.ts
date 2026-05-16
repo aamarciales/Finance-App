@@ -174,9 +174,8 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
     const monthIncomeCop = monthTxs.filter(tx => tx.type === 'income').reduce((s, tx) => s + tx.amountInSecondary, 0)
     const monthExpensesCop = monthTxs.filter(tx => tx.type === 'expense' || tx.type === 'debt_payment').reduce((s, tx) => s + tx.amountInSecondary, 0)
 
-    // Tithe — from commitments API + spiritual debt (from commitments + manual setting)
-    const titheDebtUsd = (titheSummary?.totalDebt ?? 0) + (settings?.titheDebtUsd ?? 0)
-    const tithePending = (titheSummary?.totalPending ?? 0) + titheDebtUsd
+    // Tithe — from commitments API (pending + debt commitments)
+    const tithePending = (titheSummary?.totalPending ?? 0) + (titheSummary?.totalDebt ?? 0)
 
     const titheBreakdown: TitheBreakdown = { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: tithePending }
     if (settings) {

@@ -11,7 +11,6 @@ import {
   Pencil,
   Save,
   X,
-  HandCoins,
   Trash2,
   ArrowRightCircle,
 } from 'lucide-react'
@@ -23,8 +22,6 @@ import { useApi } from '@/lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTRM } from '@/hooks/useTRM'
 import { useTitheCommitments } from '@/hooks/useTitheCommitments'
-import { TithePaymentDialog } from '@/components/tithe/TithePaymentDialog'
-import { TitheDebtPaymentDialog } from '@/components/tithe/TitheDebtPaymentDialog'
 import { ComplianceChart } from '@/components/tithe/ComplianceChart'
 
 export default function TithePage() {
@@ -38,22 +35,17 @@ export default function TithePage() {
     payments,
     pendingSummary,
     monthlyCompliance,
-    titheDebtUsd,
     loading,
-    registerPayment,
-    registerDebtPayment,
     linkExistingTransaction,
-    linkDebtPayment,
     markAsDebt,
     deletePayment,
   } = useTitheCommitments()
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [paymentOpen, setPaymentOpen] = useState(false)
-  const [debtPaymentOpen, setDebtPaymentOpen] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const [editValues, setEditValues] = useState<Record<string, string>>({})
   const [generating, setGenerating] = useState(false)
+  const [linkingTxId, setLinkingTxId] = useState<number | null>(null)
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -93,14 +85,15 @@ export default function TithePage() {
     )
   }, [txData, diezmoCatIds, linkedTxIds])
 
-  const [linkingTxId, setLinkingTxId] = useState<number | null>(null)
-
   const titheConfig = settings?.titheConfig
 
-  // Combined total: pending commitments + debt commitments + manual debt setting
-  const debtFromCommitments = pendingSummary.totalDebt ?? 0
-  const totalDebt = debtFromCommitments + titheDebtUsd
-  const totalPendingWithDebt = pendingSummary.totalPending + totalDebt
+  const debtFromCommitments = debtCommitments.reduce((s, c) => s + c.totalAmount, 0)
+  const totalPendingWithDebt = pendingSummary.totalPending + debtFromCommitments
+
+  const allUnpaid = useMemo(
+    () => [...pendingCommitments, ...debtCommitments],
+    [pendingCommitments, debtCommitments],
+  )
 
   async function handleGenerateCommitments() {
     setGenerating(true)
@@ -124,17 +117,25 @@ export default function TithePage() {
     })
   }
 
-  function toggleAll() {
-    if (selectedIds.size === pendingCommitments.length) {
-      setSelectedIds(new Set())
+  function toggleAllPending() {
+    if (pendingCommitments.every(c => selectedIds.has(c.id!))) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const c of pendingCommitments) next.delete(c.id!)
+        return next
+      })
     } else {
-      setSelectedIds(new Set(pendingCommitments.map(c => c.id!)))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const c of pendingCommitments) next.add(c.id!)
+        return next
+      })
     }
   }
 
   const selectedCommitments = useMemo(
-    () => pendingCommitments.filter(c => selectedIds.has(c.id!)),
-    [pendingCommitments, selectedIds],
+    () => allUnpaid.filter(c => selectedIds.has(c.id!)),
+    [allUnpaid, selectedIds],
   )
 
   function startEditing() {
@@ -173,6 +174,15 @@ export default function TithePage() {
     }
   }
 
+  function startLinking(txId: number, target: 'pending' | 'debt') {
+    setLinkingTxId(txId)
+    if (target === 'pending') {
+      setSelectedIds(new Set(pendingCommitments.map(c => c.id!)))
+    } else {
+      setSelectedIds(new Set(debtCommitments.map(c => c.id!)))
+    }
+  }
+
   if (loading || !settings) {
     return (
       <>
@@ -188,30 +198,16 @@ export default function TithePage() {
         title={<><em className="font-serif italic">Diezmo</em> & Ofrendas</>}
         subtitle='"Porque el Señor tu Dios es quien te da el poder para hacer las riquezas" · Dt 8:18'
         actions={
-          pendingCommitments.length > 0 ? (
+          pendingCommitments.length > 0 && selectedCommitments.length > 0 ? (
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedCommitments.length === 0) {
-                    toast.error('Selecciona al menos un compromiso')
-                    return
-                  }
-                  setPaymentOpen(true)
-                }}
-                disabled={registerPayment.isPending}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-gold/90 disabled:opacity-50"
-              >
-                <HandCoins className="h-4 w-4" />
-                Registrar entrega ({selectedCommitments.length || '0'})
-              </button>
-              {selectedCommitments.length > 0 && (
+              {selectedCommitments.some(c => c.status === 'pending') && (
                 <button
                   type="button"
                   onClick={async () => {
+                    const pendingSelected = selectedCommitments.filter(c => c.status === 'pending')
                     try {
-                      await markAsDebt.mutateAsync(selectedCommitments.map(c => c.id!))
-                      toast.success(`${selectedCommitments.length} compromiso${selectedCommitments.length > 1 ? 's' : ''} movido${selectedCommitments.length > 1 ? 's' : ''} a deuda`)
+                      await markAsDebt.mutateAsync(pendingSelected.map(c => c.id!))
+                      toast.success(`${pendingSelected.length} compromiso${pendingSelected.length > 1 ? 's' : ''} movido${pendingSelected.length > 1 ? 's' : ''} a deuda`)
                       setSelectedIds(new Set())
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : 'Error al mover a deuda')
@@ -221,7 +217,7 @@ export default function TithePage() {
                   className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 px-3 py-2 text-[13px] font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
                 >
                   <ArrowRightCircle className="h-4 w-4" />
-                  Mover a deuda
+                  Mover a deuda ({selectedCommitments.filter(c => c.status === 'pending').length})
                 </button>
               )}
             </div>
@@ -251,9 +247,9 @@ export default function TithePage() {
             />
             <SummaryCard
               icon={<Clock className="h-4 w-4" />}
-              iconTone={totalDebt > 0 ? 'gold' : 'green'}
+              iconTone={debtFromCommitments > 0 ? 'gold' : 'green'}
               label="Deuda espiritual"
-              amount={totalDebt}
+              amount={debtFromCommitments}
               count={debtCommitments.length || undefined}
             />
             <SummaryCard
@@ -275,8 +271,8 @@ export default function TithePage() {
             {pendingCommitments.length > 0 && (
               <label className="flex items-center gap-1.5 text-[12px] text-text-muted cursor-pointer">
                 <Checkbox
-                  checked={selectedIds.size === pendingCommitments.length && pendingCommitments.length > 0}
-                  onCheckedChange={toggleAll}
+                  checked={pendingCommitments.length > 0 && pendingCommitments.every(c => selectedIds.has(c.id!))}
+                  onCheckedChange={toggleAllPending}
                 />
                 Seleccionar todos
               </label>
@@ -342,7 +338,7 @@ export default function TithePage() {
                     <td className="px-3 py-2" />
                     <td className="px-3 py-2" colSpan={4}>Total seleccionado</td>
                     <td className="px-3 py-2 text-right font-mono">
-                      USD {selectedCommitments.reduce((s, c) => s + c.totalAmount, 0).toFixed(2)}
+                      USD {selectedCommitments.filter(c => c.status === 'pending').reduce((s, c) => s + c.totalAmount, 0).toFixed(2)}
                     </td>
                   </tr>
                 </tfoot>
@@ -384,34 +380,23 @@ export default function TithePage() {
                         {tx.currency} {tx.amount.toLocaleString('es-CO', { minimumFractionDigits: tx.currency !== 'COP' ? 2 : 0 })}
                       </span>
                       {isLinking ? (
-                        <span className="text-[12px] text-brand">Selecciona compromisos arriba ↑</span>
+                        <span className="text-[12px] text-brand">Selecciona compromisos ↑</span>
                       ) : (
                         <div className="flex gap-1.5">
                           {pendingCommitments.length > 0 && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setLinkingTxId(tx.id)
-                                setSelectedIds(new Set(pendingCommitments.map(c => c.id!)))
-                              }}
+                              onClick={() => startLinking(tx.id, 'pending')}
                               className="rounded-md bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand transition-colors hover:bg-brand/20"
                             >
                               Vincular a compromisos
                             </button>
                           )}
-                          {titheDebtUsd > 0 && (
+                          {debtCommitments.length > 0 && (
                             <button
                               type="button"
-                              onClick={async () => {
-                                try {
-                                  await linkDebtPayment.mutateAsync({ transactionId: tx.id })
-                                  toast.success('Vinculado como abono a deuda espiritual')
-                                } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : 'Error al vincular deuda')
-                                }
-                              }}
-                              disabled={linkDebtPayment.isPending}
-                              className="rounded-md bg-gold/10 px-3 py-1 text-[12px] font-medium text-gold transition-colors hover:bg-gold/20 disabled:opacity-50"
+                              onClick={() => startLinking(tx.id, 'debt')}
+                              className="rounded-md bg-gold/10 px-3 py-1 text-[12px] font-medium text-gold transition-colors hover:bg-gold/20"
                             >
                               Vincular a deuda
                             </button>
@@ -427,7 +412,7 @@ export default function TithePage() {
               <div className="mt-3 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setLinkingTxId(null)}
+                  onClick={() => { setLinkingTxId(null); setSelectedIds(new Set()) }}
                   className="mr-2 rounded-md border border-border px-3 py-1.5 text-[12px] text-text-muted"
                 >
                   Cancelar
@@ -458,7 +443,7 @@ export default function TithePage() {
         )}
 
         {/* Generate commitments for existing income */}
-        {pendingCommitments.length === 0 && (
+        {pendingCommitments.length === 0 && debtCommitments.length === 0 && (
           <section>
             <div className="rounded-[10px] border border-dashed border-border bg-surface px-6 py-6 text-center">
               <p className="text-[13px] text-text-muted mb-3">
@@ -529,7 +514,7 @@ export default function TithePage() {
         )}
 
         {/* Spiritual Debt */}
-        {(debtCommitments.length > 0 || titheDebtUsd > 0) && (
+        {debtCommitments.length > 0 && (
           <section>
             <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
               Deuda espiritual
@@ -550,72 +535,64 @@ export default function TithePage() {
                 </div>
                 <div className="text-right">
                   <div className="font-serif text-[22px] italic text-gold">
-                    USD {totalDebt.toFixed(2)}
+                    USD {debtFromCommitments.toFixed(2)}
                   </div>
                   <div className="font-mono text-[11px] text-text-muted">
-                    ~${Math.round(totalDebt * trm).toLocaleString('es-CO')} COP
+                    ~${Math.round(debtFromCommitments * trm).toLocaleString('es-CO')} COP
                   </div>
                 </div>
               </div>
 
-              {debtCommitments.length > 0 && (
-                <div className="mt-4 overflow-x-auto rounded-lg border border-gold/20 bg-white/60">
-                  <table className="w-full text-left text-[13px]">
-                    <thead>
-                      <tr className="border-b border-gold/20 text-[11px] uppercase tracking-[0.06em] text-text-faint">
-                        <th className="px-3 py-2 font-medium">Fecha</th>
-                        <th className="px-3 py-2 font-medium">Concepto</th>
-                        <th className="px-3 py-2 text-right font-medium">Ingreso</th>
-                        <th className="px-3 py-2 text-right font-medium">A apartar</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {debtCommitments.map(c => (
-                        <tr key={c.id} className="border-b border-gold/10 last:border-b-0">
-                          <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
-                            {format(parseISO(c.date), 'dd MMM', { locale: es })}
+              <div className="mt-4 overflow-x-auto rounded-lg border border-gold/20 bg-white/60">
+                <table className="w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="border-b border-gold/20 text-[11px] uppercase tracking-[0.06em] text-text-faint">
+                      {linkingTxId && <th className="w-10 px-3 py-2" />}
+                      <th className="px-3 py-2 font-medium">Fecha</th>
+                      <th className="px-3 py-2 font-medium">Concepto</th>
+                      <th className="px-3 py-2 text-right font-medium">Ingreso</th>
+                      <th className="px-3 py-2 text-right font-medium">A apartar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {debtCommitments.map(c => (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-gold/10 last:border-b-0 transition-colors ${selectedIds.has(c.id!) ? 'bg-gold/10' : ''}`}
+                      >
+                        {linkingTxId && (
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={selectedIds.has(c.id!)}
+                              onCheckedChange={() => toggleCommitment(c.id!)}
+                            />
                           </td>
-                          <td className="px-3 py-2 truncate max-w-[140px]">
-                            {c.incomeConcept || '—'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">
-                            USD {c.incomeAmountBase.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-medium text-gold">
-                            USD {c.totalAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-gold/30 font-medium">
-                        <td className="px-3 py-2" colSpan={3}>Total deuda</td>
-                        <td className="px-3 py-2 text-right font-mono text-gold">
-                          USD {debtCommitments.reduce((s, c) => s + c.totalAmount, 0).toFixed(2)}
+                        )}
+                        <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
+                          {format(parseISO(c.date), 'dd MMM', { locale: es })}
+                        </td>
+                        <td className="px-3 py-2 truncate max-w-[140px]">
+                          {c.incomeConcept || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          USD {c.incomeAmountBase.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-medium text-gold">
+                          USD {c.totalAmount.toFixed(2)}
                         </td>
                       </tr>
-                      {titheDebtUsd > 0 && (
-                        <tr className="border-t border-gold/20 text-text-muted">
-                          <td className="px-3 py-2" colSpan={3}>Deuda manual</td>
-                          <td className="px-3 py-2 text-right font-mono">
-                            USD {titheDebtUsd.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setDebtPaymentOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-gold/90 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-gold"
-                >
-                  <HandCoins className="h-3.5 w-3.5" />
-                  Registrar abono
-                </button>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-gold/30 font-medium">
+                      {linkingTxId && <td className="px-3 py-2" />}
+                      <td className="px-3 py-2" colSpan={3}>Total deuda</td>
+                      <td className="px-3 py-2 text-right font-mono text-gold">
+                        USD {debtFromCommitments.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           </section>
@@ -774,22 +751,6 @@ export default function TithePage() {
           </div>
         </section>
       </div>
-
-      <TithePaymentDialog
-        open={paymentOpen}
-        onOpenChange={setPaymentOpen}
-        commitments={selectedCommitments}
-        trm={trm}
-        onSubmit={(data) => registerPayment.mutateAsync(data)}
-      />
-
-      <TitheDebtPaymentDialog
-        open={debtPaymentOpen}
-        onOpenChange={setDebtPaymentOpen}
-        remainingDebt={titheDebtUsd}
-        trm={trm}
-        onSubmit={(data) => registerDebtPayment.mutateAsync(data)}
-      />
     </>
   )
 }
