@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2, FileUp } from 'lucide-react'
+import { Download, Trash2, FileUp, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,16 +22,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { StepperInput } from '@/components/ui/stepper-input'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/hooks/useSettings'
 import { useApi } from '@/lib/api'
 import { ImportJsonDialog } from '@/components/settings/ImportJsonDialog'
-import type { Category, Currency, OcrProvider } from '@/types/domain'
+import type { AppSettings, Category, Currency, OcrProvider } from '@/types/domain'
 
 export default function SettingsPage() {
-  const { settings: rawSettings, loading, setSetting } = useSettings()
+  const { settings: serverSettings, loading, setSetting } = useSettings()
   const [confirmClear, setConfirmClear] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const api = useApi()
   const queryClient = useQueryClient()
 
@@ -40,9 +42,56 @@ export default function SettingsPage() {
     queryFn: () => api.get<Category[]>('/categories'),
   })
 
-  const settings = rawSettings!
+  // Local state buffer
+  const [local, setLocal] = useState<AppSettings | null>(null)
 
-  if (loading || !settings) {
+  useEffect(() => {
+    if (serverSettings && !local) {
+      setLocal(structuredClone(serverSettings))
+    }
+  }, [serverSettings, local])
+
+  const dirty = local !== null && serverSettings !== null && JSON.stringify(local) !== JSON.stringify(serverSettings)
+
+  const updateLocal = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    setLocal(prev => prev ? { ...prev, [key]: value } : prev)
+  }, [])
+
+  function updateTitheCategory(catId: number, field: 'tithe' | 'offering', value: number) {
+    if (!local) return
+    const existing = local.titheConfig.tithePercentByIncomeCategory[catId]
+    updateLocal('titheConfig', {
+      ...local.titheConfig,
+      tithePercentByIncomeCategory: {
+        ...local.titheConfig.tithePercentByIncomeCategory,
+        [catId]: {
+          tithe: field === 'tithe' ? value : (existing?.tithe ?? local.titheConfig.defaultTithe),
+          offering: field === 'offering' ? value : (existing?.offering ?? local.titheConfig.defaultOffering),
+        },
+      },
+    })
+  }
+
+  async function handleSave() {
+    if (!local || !serverSettings) return
+    setSaving(true)
+    try {
+      // Find changed keys and save them
+      const keys = Object.keys(local) as (keyof AppSettings)[]
+      for (const key of keys) {
+        if (JSON.stringify(local[key]) !== JSON.stringify(serverSettings[key])) {
+          await setSetting(key, local[key])
+        }
+      }
+      toast.success('Ajustes guardados')
+    } catch {
+      toast.error('Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading || !local) {
     return (
       <>
         <PageHeader title="Ajustes" subtitle="Configuración personal y preferencias" />
@@ -80,24 +129,11 @@ export default function SettingsPage() {
       await api.post('/admin/seed-system-categories', {})
       await queryClient.invalidateQueries()
       setConfirmClear(false)
+      setLocal(null)
       toast.success('Datos eliminados y categorías sistema restauradas')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al borrar los datos')
     }
-  }
-
-  function updateTitheCategory(catId: number, field: 'tithe' | 'offering', value: number) {
-    const existing = settings.titheConfig.tithePercentByIncomeCategory[catId]
-    setSetting('titheConfig', {
-      ...settings.titheConfig,
-      tithePercentByIncomeCategory: {
-        ...settings.titheConfig.tithePercentByIncomeCategory,
-        [catId]: {
-          tithe: field === 'tithe' ? value : (existing?.tithe ?? settings.titheConfig.defaultTithe),
-          offering: field === 'offering' ? value : (existing?.offering ?? settings.titheConfig.defaultOffering),
-        },
-      },
-    })
   }
 
   const freeCatId = categories?.find(c => c.name === 'Freelance')?.id ?? 0
@@ -118,8 +154,8 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="Moneda base">
                 <Select
-                  value={settings.baseCurrency}
-                  onValueChange={(v) => setSetting('baseCurrency', v as Currency)}
+                  value={local.baseCurrency}
+                  onValueChange={(v) => updateLocal('baseCurrency', v as Currency)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -131,8 +167,8 @@ export default function SettingsPage() {
               </FieldGroup>
               <FieldGroup label="Moneda secundaria">
                 <Select
-                  value={settings.secondaryCurrency}
-                  onValueChange={(v) => setSetting('secondaryCurrency', v as Currency)}
+                  value={local.secondaryCurrency}
+                  onValueChange={(v) => updateLocal('secondaryCurrency', v as Currency)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -163,9 +199,9 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <FieldGroup label="Iglesia / Destino">
               <Input
-                value={settings.titheConfig.destination}
+                value={local.titheConfig.destination}
                 onChange={(e) => {
-                  setSetting('titheConfig', { ...settings.titheConfig, destination: e.target.value })
+                  updateLocal('titheConfig', { ...local.titheConfig, destination: e.target.value })
                 }}
                 placeholder="Iglesia local"
               />
@@ -176,59 +212,63 @@ export default function SettingsPage() {
                 type="number"
                 step="any"
                 className="font-mono"
-                value={settings.titheDebtUsd ?? 0}
-                onChange={(e) => setSetting('titheDebtUsd', Number(e.target.value) || 0)}
+                value={local.titheDebtUsd ?? 0}
+                onChange={(e) => updateLocal('titheDebtUsd', Number(e.target.value) || 0)}
                 placeholder="Ej. 300"
               />
               <p className="text-[11px] text-text-muted">Saldo de diezmo anterior a la app. Se irá debitando con cada abono.</p>
             </FieldGroup>
 
-            {/* Grid 2x3 with headers */}
-            <div className="grid grid-cols-3 gap-3 items-center">
-              <div></div>
-              <Label className="text-center text-[11px] text-text-muted">Diezmo %</Label>
-              <Label className="text-center text-[11px] text-text-muted">Ofrenda %</Label>
+            {/* Stepper grid */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">
+                <span className="text-[11px] uppercase tracking-[0.06em] text-text-muted w-16">Tipo</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Diezmo</span>
+                  <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Ofrenda</span>
+                </div>
+              </div>
 
-              <Label className="text-[13px]">Freelance</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                className="text-center"
-                value={settings.titheConfig.tithePercentByIncomeCategory[freeCatId]?.tithe ?? settings.titheConfig.defaultTithe}
-                onChange={(e) => updateTitheCategory(freeCatId, 'tithe', Number(e.target.value))}
-              />
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                className="text-center"
-                value={settings.titheConfig.tithePercentByIncomeCategory[freeCatId]?.offering ?? settings.titheConfig.defaultOffering}
-                onChange={(e) => updateTitheCategory(freeCatId, 'offering', Number(e.target.value))}
-              />
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-3 items-center">
+                <span className="text-[13px]">Freelance</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <StepperInput
+                    value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.tithe ?? local.titheConfig.defaultTithe}
+                    onChange={(v) => updateTitheCategory(freeCatId, 'tithe', v)}
+                  />
+                  <StepperInput
+                    value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.offering ?? local.titheConfig.defaultOffering}
+                    onChange={(v) => updateTitheCategory(freeCatId, 'offering', v)}
+                  />
+                </div>
+              </div>
 
-              <Label className="text-[13px]">Sueldo</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                className="text-center"
-                value={settings.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.tithe ?? settings.titheConfig.defaultTithe}
-                onChange={(e) => updateTitheCategory(sueldoCatId, 'tithe', Number(e.target.value))}
-              />
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                className="text-center"
-                value={settings.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.offering ?? settings.titheConfig.defaultOffering}
-                onChange={(e) => updateTitheCategory(sueldoCatId, 'offering', Number(e.target.value))}
-              />
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-3 items-center">
+                <span className="text-[13px]">Sueldo</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <StepperInput
+                    value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.tithe ?? local.titheConfig.defaultTithe}
+                    onChange={(v) => updateTitheCategory(sueldoCatId, 'tithe', v)}
+                  />
+                  <StepperInput
+                    value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.offering ?? local.titheConfig.defaultOffering}
+                    onChange={(v) => updateTitheCategory(sueldoCatId, 'offering', v)}
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Save button */}
+            {dirty && (
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full gap-1.5"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -242,8 +282,8 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="Procesamiento OCR">
                 <Select
-                  value={settings.ocrProvider}
-                  onValueChange={(v) => setSetting('ocrProvider', v as OcrProvider)}
+                  value={local.ocrProvider}
+                  onValueChange={(v) => updateLocal('ocrProvider', v as OcrProvider)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -255,8 +295,8 @@ export default function SettingsPage() {
               </FieldGroup>
               <FieldGroup label="Categorización automática">
                 <Select
-                  value={settings.autoCategorize ? 'auto' : 'manual'}
-                  onValueChange={(v) => setSetting('autoCategorize', v === 'auto')}
+                  value={local.autoCategorize ? 'auto' : 'manual'}
+                  onValueChange={(v) => updateLocal('autoCategorize', v === 'auto')}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -266,6 +306,17 @@ export default function SettingsPage() {
                 </Select>
               </FieldGroup>
             </div>
+
+            {dirty && (
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full gap-1.5"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            )}
           </div>
         </div>
 

@@ -11,12 +11,53 @@ export const categoriesRouter = new Hono<AppEnv>()
 categoriesRouter.get('/', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-  
+
   const db = drizzle(c.env.DB, { schema })
+
+  // Auto-seed system categories for new users
+  const existing = await db
+    .select({ id: schema.categories.id })
+    .from(schema.categories)
+    .where(and(eq(schema.categories.userId, auth.userId), eq(schema.categories.isSystem, true)))
+
+  if (existing.length === 0) {
+    const SYSTEM_CATEGORIES = [
+      { name: 'Supermercado',        color: '#10B981', icon: 'shopping-cart',   type: 'expense' as const },
+      { name: 'Comida fuera',        color: '#F59E0B', icon: 'utensils',        type: 'expense' as const },
+      { name: 'Vivienda',            color: '#3B82F6', icon: 'home',            type: 'expense' as const },
+      { name: 'Servicios',           color: '#06B6D4', icon: 'zap',             type: 'expense' as const },
+      { name: 'Suscripciones',       color: '#8B5CF6', icon: 'calendar',        type: 'expense' as const },
+      { name: 'Transporte',          color: '#F97316', icon: 'car',             type: 'expense' as const },
+      { name: 'Salud',               color: '#EF4444', icon: 'heart',           type: 'expense' as const },
+      { name: 'Educación',           color: '#6366F1', icon: 'book',            type: 'expense' as const },
+      { name: 'Hogar',               color: '#A78BFA', icon: 'sofa',            type: 'expense' as const },
+      { name: 'Cuidado personal',    color: '#EC4899', icon: 'sparkles',        type: 'expense' as const },
+      { name: 'Diezmo y Ofrenda',    color: '#B8923A', icon: 'heart-handshake', type: 'expense' as const },
+      { name: 'Deuda',               color: '#A83E2B', icon: 'credit-card',     type: 'expense' as const },
+      { name: 'Impuestos',           color: '#78716C', icon: 'landmark',        type: 'expense' as const },
+      { name: 'Comisiones bancarias',color: '#9CA3AF', icon: 'banknote',        type: 'expense' as const },
+      { name: 'Mascotas',            color: '#FB923C', icon: 'paw-print',       type: 'expense' as const },
+      { name: 'Otros',               color: '#9CA3AF', icon: 'more-horizontal', type: 'expense' as const },
+      { name: 'Sueldo',              color: '#2D4A3E', icon: 'briefcase',       type: 'income'  as const },
+      { name: 'Freelance',           color: '#10B981', icon: 'code',            type: 'income'  as const },
+      { name: 'Adelanto',            color: '#84CC16', icon: 'trending-up',     type: 'income'  as const },
+      { name: 'Cobro deuda',         color: '#22C55E', icon: 'hand-coins',      type: 'income'  as const },
+      { name: 'Otros ingresos',      color: '#14B8A6', icon: 'plus-circle',     type: 'income'  as const },
+      { name: 'Transferencias',      color: '#6B7280', icon: 'refresh-cw',      type: 'expense' as const },
+    ]
+    for (const cat of SYSTEM_CATEGORIES) {
+      await db.insert(schema.categories).values({
+        ...cat,
+        userId: auth.userId,
+        isSystem: true,
+      })
+    }
+  }
+
   const results = await db.query.categories.findMany({
     where: (cat, { eq }) => eq(cat.userId, auth.userId),
   })
-  
+
   return c.json(results)
 })
 

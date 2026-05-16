@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, FileText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,9 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
         return isNaN(d.getTime()) ? '—' : format(d, "dd MMMM yyyy", { locale: es })
       })()
     : '—'
+
+  const hasAttachment = !!invoice.attachmentUrl
+  const isImage = hasAttachment && /\.(jpg|jpeg|png|webp|heic)$/i.test(invoice.attachmentUrl!)
 
   return (
     <>
@@ -62,7 +65,7 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
 
               {/* Content: items + attachment */}
               <div className="space-y-5">
-                {/* Items table — full width */}
+                {/* Items table */}
                 <div>
                   <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Ítems ({invoice.items.length})</h4>
                   <table className="w-full text-left text-[13px]">
@@ -103,6 +106,34 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+
+                {/* Attachment / Soporte */}
+                <div>
+                  <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Soporte</h4>
+                  {hasAttachment ? (
+                    isImage ? (
+                      <a href={invoice.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={invoice.attachmentUrl}
+                          alt="Soporte de factura"
+                          className="max-h-[50vh] w-auto rounded-lg border border-border object-contain"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={invoice.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-4 py-2 text-[13px] text-brand transition-colors hover:bg-brand/5"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Ver documento adjunto
+                      </a>
+                    )
+                  ) : (
+                    <p className="text-[13px] text-text-faint italic">Sin soporte adjunto</p>
+                  )}
                 </div>
               </div>
             </div>

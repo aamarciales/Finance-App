@@ -281,14 +281,13 @@ export default function TithePage() {
                     <th className="px-3 py-2 font-medium">Concepto</th>
                     <th className="px-3 py-2 text-right font-medium">Ingreso</th>
                     <th className="px-3 py-2 text-center font-medium">%</th>
-                    <th className="px-3 py-2 text-right font-medium">Progreso</th>
+                    <th className="px-3 py-2 text-right font-medium">Pagado</th>
                     <th className="px-3 py-2 text-right font-medium">Falta</th>
                   </tr>
                 </thead>
                 <tbody>
                   {partialCommitments.map(c => {
                     const remaining = c.totalAmount - c.amountPaidUsd
-                    const progress = Math.min(100, Math.round((c.amountPaidUsd / c.totalAmount) * 100))
                     return (
                       <tr
                         key={c.id}
@@ -314,16 +313,8 @@ export default function TithePage() {
                         <td className="px-3 py-2 text-center font-mono text-[12px]">
                           {c.tithePercent}+{c.offeringPercent}
                         </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-brand transition-all duration-300"
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                            <span className="font-mono text-[11px] text-text-muted shrink-0">{progress}%</span>
-                          </div>
+                        <td className="px-3 py-2 text-right font-mono text-[12px] text-text-muted">
+                          USD {c.amountPaidUsd.toFixed(2)} / {c.totalAmount.toFixed(2)}
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-medium text-brand">
                           USD {remaining.toFixed(2)}

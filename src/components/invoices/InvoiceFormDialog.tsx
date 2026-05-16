@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Upload, FileText, Image } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ interface InvoiceFormDialogProps {
     currency: 'COP' | 'USD' | 'EUR'
     items: Array<{ name: string; quantity: number; unitPrice: number; subCategory?: string }>
     categoryId: number
+    attachmentUrl?: string
   }) => Promise<void>
   editInvoice?: EnrichedInvoice
 }
@@ -63,6 +64,10 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   const isEditing = !!editInvoice
 
   const editCategoryId = editInvoice?.transactionCategoryId ?? 1
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [existingAttachment, setExistingAttachment] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -100,6 +105,8 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             }))
           : [{ name: '', quantity: 1, unitPrice: 0 }],
       })
+      setExistingAttachment(editInvoice.attachmentUrl ?? null)
+      setPendingFile(null)
     } else {
       reset({
         merchant: '',
@@ -109,6 +116,8 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
         categoryId: 0,
         items: [{ name: '', quantity: 1, unitPrice: 0 }],
       })
+      setExistingAttachment(null)
+      setPendingFile(null)
     }
   }, [editInvoice, open, reset])
 
@@ -117,17 +126,38 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0)
 
+  async function uploadFile(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch('/api/files/upload', { method: 'POST', body: formData })
+    if (!res.ok) throw new Error('Error subiendo archivo')
+    const data = await res.json()
+    return data.url
+  }
+
   async function handleFormSubmit(values: InvoiceFormValues) {
+    let attachmentUrl = existingAttachment ?? undefined
+
+    if (pendingFile) {
+      attachmentUrl = await uploadFile(pendingFile)
+    }
+
     await onSubmit({
       ...values,
+      attachmentUrl,
     })
     reset()
+    setPendingFile(null)
+    setExistingAttachment(null)
     onOpenChange(false)
   }
 
+  const fileName = pendingFile?.name ?? (existingAttachment ? existingAttachment.split('/').pop() : null)
+  const isImage = pendingFile?.type.startsWith('image/') ?? (existingAttachment ? /\.(jpg|jpeg|png|webp|heic)$/i.test(existingAttachment) : false)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
             {isEditing ? 'Editar factura' : 'Nueva factura'}
@@ -245,7 +275,42 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             <span className="font-mono font-medium">{currency} {total.toLocaleString('es-CO', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
           </div>
 
-
+          {/* Soporte / Attachment */}
+          <div className="grid gap-1.5">
+            <Label>Soporte (recibo o factura escaneada)</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) setPendingFile(file)
+              }}
+            />
+            {fileName ? (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
+                {isImage ? <Image className="h-4 w-4 shrink-0 text-text-muted" /> : <FileText className="h-4 w-4 shrink-0 text-text-muted" />}
+                <span className="flex-1 truncate text-[13px]">{fileName}</span>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                  className="shrink-0 rounded p-1 text-text-faint hover:bg-danger/10 hover:text-danger-strong"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
+              >
+                <Upload className="h-4 w-4" />
+                Subir imagen o PDF
+              </button>
+            )}
+          </div>
 
           <DialogFooter className="gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

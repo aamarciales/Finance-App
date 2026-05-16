@@ -7,7 +7,7 @@ import type { AppEnv } from '../types'
 
 function computeTithe(amountBase: number, categoryId: number, titheConfig: any) {
   const defaultTithe = titheConfig?.defaultTithe ?? 10
-  const defaultOffering = titheConfig?.defaultOffering ?? 0
+  const defaultOffering = titheConfig?.defaultOffering ?? 10
   const catConfig = titheConfig?.tithePercentByIncomeCategory?.[categoryId]
   const tithePct = catConfig?.tithe ?? defaultTithe
   const offeringPct = catConfig?.offering ?? defaultOffering
@@ -76,37 +76,51 @@ transactionsRouter.post('/', async (c) => {
   // Auto-generate tithe commitment for income transactions
   if (body.type === 'income' && tx?.id && body.amountInBase > 0) {
     try {
-      const settingRow = await db.query.settings.findFirst({
+      let settingRow = await db.query.settings.findFirst({
         where: (s, { eq, and }) => and(eq(s.key, 'titheConfig'), eq(s.userId, auth.userId)),
       })
 
-      if (settingRow?.value) {
-        const config = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value
-        const { tithe, offering, tithePct, offeringPct } = computeTithe(body.amountInBase, body.categoryId, config)
-
-        if (tithe > 0 || offering > 0) {
-          await db.insert(schema.titheCommitments).values({
-            userId: auth.userId,
-            incomeTransactionId: tx.id,
-            date: body.date,
-            incomeAmount: body.amount,
-            incomeCurrency: body.currency,
-            incomeTrm: body.trm,
-            incomeAmountBase: body.amountInBase,
-            tithePercent: tithePct,
-            offeringPercent: offeringPct,
-            titheAmount: tithe,
-            offeringAmount: offering,
-            totalAmount: tithe + offering,
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-          })
-
-          await db.update(schema.transactions).set({
-            isTitheCalculated: true as any,
-            updatedAt: new Date().toISOString(),
-          }).where(eq(schema.transactions.id, tx.id))
+      // Auto-create titheConfig with defaults if it doesn't exist
+      if (!settingRow?.value) {
+        const defaultConfig = {
+          defaultTithe: 10,
+          defaultOffering: 10,
+          destination: 'Iglesia local',
+          tithePercentByIncomeCategory: {},
         }
+        await db.insert(schema.settings).values({
+          key: 'titheConfig',
+          userId: auth.userId,
+          value: JSON.stringify(defaultConfig),
+        })
+        settingRow = { key: 'titheConfig', userId: auth.userId, value: defaultConfig }
+      }
+
+      const config = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value
+      const { tithe, offering, tithePct, offeringPct } = computeTithe(body.amountInBase, body.categoryId, config)
+
+      if (tithe > 0 || offering > 0) {
+        await db.insert(schema.titheCommitments).values({
+          userId: auth.userId,
+          incomeTransactionId: tx.id,
+          date: body.date,
+          incomeAmount: body.amount,
+          incomeCurrency: body.currency,
+          incomeTrm: body.trm,
+          incomeAmountBase: body.amountInBase,
+          tithePercent: tithePct,
+          offeringPercent: offeringPct,
+          titheAmount: tithe,
+          offeringAmount: offering,
+          totalAmount: tithe + offering,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        })
+
+        await db.update(schema.transactions).set({
+          isTitheCalculated: true as any,
+          updatedAt: new Date().toISOString(),
+        }).where(eq(schema.transactions.id, tx.id))
       }
     } catch {
       // Don't fail the transaction if commitment generation fails

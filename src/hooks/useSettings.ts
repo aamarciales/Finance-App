@@ -5,7 +5,7 @@ import type { AppSettings, TitheConfig, TaxProfile } from '@/types/domain'
 const DEFAULT_TITHE_CONFIG: TitheConfig = {
   tithePercentByIncomeCategory: {},
   defaultTithe: 10,
-  defaultOffering: 0,
+  defaultOffering: 10,
   destination: 'Iglesia local',
 }
 

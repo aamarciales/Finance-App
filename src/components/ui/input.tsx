@@ -2,7 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, onSelect, ...props }: React.ComponentProps<"input">) {
+  const handleFocus = React.useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    if (type === "number") {
+      e.target.select()
+    }
+    props.onFocus?.(e)
+  }, [type, props.onFocus])
+
   return (
     <input
       type={type}
@@ -12,6 +19,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         className
       )}
       {...props}
+      onFocus={handleFocus}
     />
   )
 }

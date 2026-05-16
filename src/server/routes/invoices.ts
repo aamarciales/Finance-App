@@ -10,19 +10,19 @@ export const invoicesRouter = new Hono<AppEnv>()
 invoicesRouter.get('/', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-  
+
   const db = drizzle(c.env.DB, { schema })
   const results = await db.query.invoices.findMany({
     where: (i, { eq }) => eq(i.userId, auth.userId),
   })
-  
+
   return c.json(results)
 })
 
 invoicesRouter.post('/', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-  
+
   const body = await c.req.json()
 
   if (body.currency === 'COP' && (!body.trm || body.trm <= 1)) {
@@ -31,42 +31,51 @@ invoicesRouter.post('/', async (c) => {
 
   const db = drizzle(c.env.DB, { schema })
 
-  const result = await db.insert(schema.invoices).values({
-    ...body,
+  const values: Record<string, any> = {
     userId: auth.userId,
     createdAt: new Date().toISOString(),
-  }).returning()
-  
+  }
+  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) values[key] = body[key]
+  }
+
+  const result = await db.insert(schema.invoices).values(values as any).returning()
+
   return c.json(result[0])
 })
 
 invoicesRouter.put('/:id', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-  
+
   const id = parseInt(c.req.param('id'), 10)
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
-  
-  const result = await db.update(schema.invoices).set({
-    ...body,
-  }).where(
+
+  const updates: Record<string, any> = {}
+  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  const result = await db.update(schema.invoices).set(updates).where(
     and(eq(schema.invoices.id, id), eq(schema.invoices.userId, auth.userId))
   ).returning()
-  
+
   return c.json(result[0])
 })
 
 invoicesRouter.delete('/:id', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-  
+
   const id = parseInt(c.req.param('id'), 10)
   const db = drizzle(c.env.DB, { schema })
-  
+
   await db.delete(schema.invoices).where(
     and(eq(schema.invoices.id, id), eq(schema.invoices.userId, auth.userId))
   )
-  
+
   return c.json({ success: true })
 })

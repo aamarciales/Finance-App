@@ -41,6 +41,7 @@ export interface Invoice {
   itemCount: number
   ocrConfidence?: number
   rawOcrData?: object
+  attachmentUrl?: string
   createdAt: string
 }
 

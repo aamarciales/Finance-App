@@ -23,6 +23,7 @@ export interface InvoiceFormData {
     subCategory?: string
   }>
   categoryId: number
+  attachmentUrl?: string
 }
 
 export function useInvoices(rates: { trm: number; eurToUsd: number }) {
@@ -96,6 +97,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
       currency: data.currency,
       trm,
       itemCount: data.items.length,
+      attachmentUrl: data.attachmentUrl,
     })
 
     // 2. Create items
@@ -145,6 +147,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
       currency: data.currency,
       trm,
       itemCount: data.items.length,
+      attachmentUrl: data.attachmentUrl,
     })
 
     // Replace items (delete old, create new)
