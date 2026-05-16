@@ -42,7 +42,6 @@ export interface EnrichedTitheCommitment extends TitheCommitment {
   incomeConcept: string
   incomeCategory: number
   incomeOriginalAmount: number
-  amountPaidUsd: number
 }
 
 export interface MonthlyCompliance {
@@ -76,7 +75,7 @@ export function useTitheCommitments() {
   const payments = paymentsData ?? []
 
   const pendingCommitments = useMemo(
-    () => commitments.filter(c => c.status === 'pending' || c.status === 'partial'),
+    () => commitments.filter(c => c.status === 'pending'),
     [commitments],
   )
 

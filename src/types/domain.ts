@@ -133,7 +133,7 @@ export interface TithePayment {
   txId: number
 }
 
-export type CommitmentStatus = 'pending' | 'partial' | 'paid'
+export type CommitmentStatus = 'pending' | 'paid'
 
 export interface TitheCommitment {
   id?: number
