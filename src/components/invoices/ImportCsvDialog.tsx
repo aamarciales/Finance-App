@@ -1,5 +1,5 @@
-import { useRef, useState, useMemo } from 'react'
-import { FileUp } from 'lucide-react'
+import { useRef, useState, useMemo, useCallback } from 'react'
+import { FileUp, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
 import {
@@ -88,7 +88,46 @@ function detectCsv(rows: Record<string, string>[]): ParsedCsv | null {
   }
 
   const firstRow = rows[0]
+
+  // Try service/utility bill format first (e.g. Claro, utilities)
+  const isServiceBill = headers.some(h =>
+    h.includes('proveedor') || h.includes('supplier') ||
+    h.includes('monto total') || h.includes('total amount') ||
+    h.includes('concepto') || h.includes('payment') || h.includes('pago')
+  )
   const hasDescription = headers.some(h => h.includes('description') || h.includes('descripcion') || h.includes('producto'))
+
+  if (isServiceBill && !hasDescription) {
+    const issuer = get(firstRow, 'proveedor', 'supplier', 'empresa', 'company', 'merchant', 'comercio')
+      || get(firstRow, 'issuer', 'tienda')
+    const totalAmount = parseNumber(
+      get(firstRow, 'monto total', 'total amount', 'total', 'monto', 'valor', 'amount', 'valor total')
+    )
+    const concept = get(firstRow, 'concepto', 'concept', 'descripcion', 'description', 'tipo')
+    const date = get(firstRow, 'fecha transaccion', 'fecha transacción', 'transaction date',
+      'fecha', 'date', 'issue date', 'fecha limite de pago', 'fecha límite de pago', 'due date')
+    const invoiceNumber = get(firstRow, 'referencia o numero cuenta', 'referencia',
+      'invoice number', 'numero factura', 'cuenta', 'reference')
+    const currencyStr = get(firstRow, 'moneda', 'currency')
+
+    if (totalAmount > 0 || issuer) {
+      const currency: Currency = (currencyStr?.toUpperCase() === 'USD' ? 'USD' : currencyStr?.toUpperCase() === 'EUR' ? 'EUR' : 'COP')
+      return {
+        invoiceNumber,
+        date: parseDate(date),
+        issuer: issuer || 'Servicio',
+        items: [{
+          name: concept || `Pago ${issuer || 'servicio'}`,
+          quantity: 1,
+          unitPrice: totalAmount,
+          totalPrice: totalAmount,
+        }],
+        currency,
+      }
+    }
+  }
+
+  // Product invoice format (supermarket, etc.)
   if (!hasDescription) return null
 
   const items: ParsedItem[] = []
@@ -128,10 +167,27 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsed, setParsed] = useState<ParsedCsv | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showFormat, setShowFormat] = useState(false)
   const [merchant, setMerchant] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [currency, setCurrency] = useState<Currency>('COP')
   const [categoryId, setCategoryId] = useState<string>('')
+
+  const downloadTemplate = useCallback((type: 'products' | 'service') => {
+    let csv: string
+    if (type === 'products') {
+      csv = 'Description,Qty,Unit Price,Total,Category\nLeche deslactosada,2,4500,9000,Lacteos\nPan integral,1,5800,5800,Panaderia\nHuevos 12pk,1,8900,8900,'
+    } else {
+      csv = 'Proveedor,Concepto,Monto Total,Moneda,Fecha Transaccion\nClaro,Pago de factura,44950,COP,2026/03/30'
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = type === 'products' ? 'plantilla-productos.csv' : 'plantilla-servicio.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [])
 
   const { addInvoice } = useInvoices(rates)
   const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense'), [categories])
@@ -144,6 +200,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
   function reset() {
     setParsed(null)
     setError(null)
+    setShowFormat(false)
     setMerchant('')
     setDate(new Date().toISOString().slice(0, 10))
     setCurrency('COP')
@@ -180,7 +237,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
 
     const detected = detectCsv(result.data)
     if (!detected) {
-      setError('No se detectaron items en el CSV. Asegúrate de tener columnas como "Description", "Qty", "Unit Price" o equivalentes.')
+      setError('No se detectaron items en el CSV. Formatos soportados: (1) Factura de productos con columnas "Description", "Qty", "Unit Price". (2) Recibo de servicio con columnas "Proveedor", "Monto Total", "Concepto".')
       return
     }
 
@@ -227,8 +284,40 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">Importar factura desde CSV</DialogTitle>
           <DialogDescription>
-            Sube un CSV con los items de tu factura.
+            Sube un CSV con los items de tu factura o un recibo de servicio.
           </DialogDescription>
+          <button
+            type="button"
+            onClick={() => setShowFormat(f => !f)}
+            className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-brand"
+          >
+            <HelpCircle className="h-3 w-3" /> Ver formatos soportados
+          </button>
+          {showFormat && (
+            <div className="rounded-md border border-border bg-surface-2 px-4 py-3 text-[12px] space-y-3">
+              <div>
+                <p className="font-medium mb-1">Factura de productos (supermercado, tienda):</p>
+                <code className="block text-[11px] bg-surface rounded px-2 py-1 text-text-muted">
+                  Description,Qty,Unit Price,Total,Category<br />
+                  Leche deslactosada,2,4500,9000,Lacteos<br />
+                  Pan integral,1,5800,5800,Panaderia
+                </code>
+                <button type="button" onClick={() => downloadTemplate('products')} className="text-brand text-[11px] mt-1 hover:underline">
+                  Descargar plantilla CSV
+                </button>
+              </div>
+              <div>
+                <p className="font-medium mb-1">Recibo de servicio (Claro, EPM, etc.):</p>
+                <code className="block text-[11px] bg-surface rounded px-2 py-1 text-text-muted">
+                  Proveedor,Concepto,Monto Total,Moneda,Fecha Transaccion<br />
+                  Claro,Pago de factura,44950,COP,2026/03/30
+                </code>
+                <button type="button" onClick={() => downloadTemplate('service')} className="text-brand text-[11px] mt-1 hover:underline">
+                  Descargar plantilla CSV
+                </button>
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="overflow-y-auto -mx-4 px-4 flex-1 space-y-4">

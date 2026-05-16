@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Plus, X, Upload, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@clerk/clerk-react'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -244,31 +245,41 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             {/* Left: items */}
             <div className="grid gap-2">
               <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Ítems</Label>
-              {items.map((_, i) => (
-                <div key={i} className="grid grid-cols-[1fr_50px_80px_28px] gap-2 items-end">
-                  <div>
-                    {i === 0 && <span className="text-[11px] text-text-faint">Descripción</span>}
-                    <Input {...register(`items.${i}.name`)} placeholder="Ej. Leche" className="text-[13px]" />
+              {items.map((_, i) => {
+                const itemErrs = errors.items?.[i] as Record<string, { message?: string }> | undefined
+                return (
+                  <div key={i} className="grid gap-1">
+                    <div className="grid grid-cols-[1fr_50px_80px_28px] gap-2 items-center">
+                      <div>
+                        {i === 0 && <span className="text-[11px] text-text-faint">Descripción</span>}
+                        <Input {...register(`items.${i}.name`)} placeholder="Ej. Leche" className={cn('text-[13px]', itemErrs?.name && 'border-danger-strong')} />
+                      </div>
+                      <div>
+                        {i === 0 && <span className="text-[11px] text-text-faint">Cant.</span>}
+                        <Input type="number" step="any" {...register(`items.${i}.quantity`, { valueAsNumber: true })} className={cn('text-[13px] font-mono', (itemErrs?.quantity) && 'border-danger-strong')} />
+                      </div>
+                      <div>
+                        {i === 0 && <span className="text-[11px] text-text-faint">Precio</span>}
+                        <Input type="number" step="any" {...register(`items.${i}.unitPrice`, { valueAsNumber: true })} className={cn('text-[13px] font-mono', (itemErrs?.unitPrice) && 'border-danger-strong')} />
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-7 shrink-0" disabled={items.length <= 1}
+                        onClick={() => { const n = [...items]; n.splice(i, 1); reset({ ...watch(), items: n }) }}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    {itemErrs && (
+                      <p className="text-[11px] text-danger-strong">
+                        {[itemErrs.name?.message, itemErrs.quantity?.message, itemErrs.unitPrice?.message].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    {i === 0 && <span className="text-[11px] text-text-faint">Cant.</span>}
-                    <Input type="number" step="any" {...register(`items.${i}.quantity`, { valueAsNumber: true })} className="text-[13px] font-mono" />
-                  </div>
-                  <div>
-                    {i === 0 && <span className="text-[11px] text-text-faint">Precio</span>}
-                    <Input type="number" step="any" {...register(`items.${i}.unitPrice`, { valueAsNumber: true })} className="text-[13px] font-mono" />
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-8 w-7 shrink-0" disabled={items.length <= 1}
-                    onClick={() => { const n = [...items]; n.splice(i, 1); reset({ ...watch(), items: n }) }}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
               <Button type="button" variant="outline" size="sm" className="w-fit gap-1 text-[12px]"
                 onClick={() => { reset({ ...watch(), items: [...items, { name: '', quantity: 1, unitPrice: 0 }] }) }}>
                 <Plus className="h-3 w-3" /> Agregar ítem
               </Button>
-              {errors.items && <p className="text-[12px] text-danger-strong">{errors.items.message}</p>}
+              {typeof errors.items?.message === 'string' && <p className="text-[12px] text-danger-strong">{errors.items.message}</p>}
 
               <div className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2 text-[13px]">
                 <span className="text-text-muted">Total</span>
@@ -323,9 +334,19 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           </div>
 
           {Object.keys(errors).length > 0 && (
-            <p className="text-[12px] text-danger-strong">
-              Hay campos con errores. Revisa el formulario.
-            </p>
+            <div className="rounded-md bg-red-50 px-3 py-2">
+              <p className="text-[12px] font-medium text-danger-strong mb-1">Corrige estos errores:</p>
+              <ul className="text-[11px] text-danger-strong list-disc pl-4 space-y-0.5">
+                {errors.merchant && <li>Comercio: {errors.merchant.message}</li>}
+                {errors.date && <li>Fecha: {errors.date.message}</li>}
+                {errors.currency && <li>Moneda: {errors.currency.message}</li>}
+                {errors.categoryId && <li>Categoría: {errors.categoryId.message}</li>}
+                {Array.isArray(errors.items) && errors.items.map((itemErr, i) =>
+                  itemErr ? <li key={i}>Ítem {i + 1}: {[itemErr.name?.message, itemErr.quantity?.message, itemErr.unitPrice?.message].filter(Boolean).join(', ')}</li> : null
+                )}
+                {typeof errors.items?.message === 'string' && <li>{errors.items.message}</li>}
+              </ul>
+            </div>
           )}
           {submitError && (
             <p className="text-[12px] text-danger-strong rounded-md bg-red-50 px-3 py-2">
