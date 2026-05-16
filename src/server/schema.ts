@@ -112,7 +112,7 @@ export const titheCommitments = sqliteTable('tithe_commitments', {
   titheAmount: real('tithe_amount').notNull(),
   offeringAmount: real('offering_amount').notNull(),
   totalAmount: real('total_amount').notNull(),
-  status: text('status', { enum: ['pending', 'paid', 'debt'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'partial', 'paid', 'debt'] }).notNull().default('pending'),
   createdAt: text('created_at').notNull(),
 })
 

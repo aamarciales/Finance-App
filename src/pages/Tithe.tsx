@@ -31,6 +31,7 @@ export default function TithePage() {
   const queryClient = useQueryClient()
   const {
     pendingCommitments,
+    partialCommitments,
     debtCommitments,
     payments,
     pendingSummary,
@@ -88,11 +89,12 @@ export default function TithePage() {
   const titheConfig = settings?.titheConfig
 
   const debtFromCommitments = debtCommitments.reduce((s, c) => s + c.totalAmount, 0)
-  const totalPendingWithDebt = pendingSummary.totalPending + debtFromCommitments
+  const partialRemaining = partialCommitments.reduce((s, c) => s + (c.totalAmount - c.amountPaidUsd), 0)
+  const totalPendingWithDebt = pendingSummary.totalPending + debtFromCommitments + partialRemaining
 
   const allUnpaid = useMemo(
-    () => [...pendingCommitments, ...debtCommitments],
-    [pendingCommitments, debtCommitments],
+    () => [...pendingCommitments, ...partialCommitments, ...debtCommitments],
+    [pendingCommitments, partialCommitments, debtCommitments],
   )
 
   async function handleGenerateCommitments() {
@@ -174,10 +176,12 @@ export default function TithePage() {
     }
   }
 
-  function startLinking(txId: number, target: 'pending' | 'debt') {
+  function startLinking(txId: number, target: 'pending' | 'debt' | 'partial') {
     setLinkingTxId(txId)
     if (target === 'pending') {
       setSelectedIds(new Set(pendingCommitments.map(c => c.id!)))
+    } else if (target === 'partial') {
+      setSelectedIds(new Set(partialCommitments.map(c => c.id!)))
     } else {
       setSelectedIds(new Set(debtCommitments.map(c => c.id!)))
     }
@@ -261,6 +265,86 @@ export default function TithePage() {
             />
           </div>
         </section>
+
+        {/* Partial commitments */}
+        {partialCommitments.length > 0 && (
+          <section>
+            <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+              Compromisos parciales
+            </h3>
+            <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-text-faint">
+                    {linkingTxId && <th className="w-10 px-3 py-2" />}
+                    <th className="px-3 py-2 font-medium">Fecha</th>
+                    <th className="px-3 py-2 font-medium">Concepto</th>
+                    <th className="px-3 py-2 text-right font-medium">Ingreso</th>
+                    <th className="px-3 py-2 text-center font-medium">%</th>
+                    <th className="px-3 py-2 text-right font-medium">Progreso</th>
+                    <th className="px-3 py-2 text-right font-medium">Falta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partialCommitments.map(c => {
+                    const remaining = c.totalAmount - c.amountPaidUsd
+                    const progress = Math.min(100, Math.round((c.amountPaidUsd / c.totalAmount) * 100))
+                    return (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-border/30 transition-colors ${selectedIds.has(c.id!) ? 'bg-brand/5' : ''}`}
+                      >
+                        {linkingTxId && (
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={selectedIds.has(c.id!)}
+                              onCheckedChange={() => toggleCommitment(c.id!)}
+                            />
+                          </td>
+                        )}
+                        <td className="px-3 py-2 font-mono text-[12px] text-text-muted">
+                          {format(parseISO(c.date), 'dd MMM', { locale: es })}
+                        </td>
+                        <td className="px-3 py-2 truncate max-w-[140px]">
+                          {c.incomeConcept || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          USD {c.incomeAmountBase.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono text-[12px]">
+                          {c.tithePercent}+{c.offeringPercent}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-brand transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <span className="font-mono text-[11px] text-text-muted shrink-0">{progress}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-medium text-brand">
+                          USD {remaining.toFixed(2)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-border font-medium bg-surface-2/40">
+                    {linkingTxId && <td className="px-3 py-2" />}
+                    <td className="px-3 py-2" colSpan={5}>Total pendiente de parciales</td>
+                    <td className="px-3 py-2 text-right font-mono">
+                      USD {partialRemaining.toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
 
         {/* Pending commitments */}
         <section>
@@ -383,10 +467,13 @@ export default function TithePage() {
                         <span className="text-[12px] text-brand">Selecciona compromisos ↑</span>
                       ) : (
                         <div className="flex gap-1.5">
-                          {pendingCommitments.length > 0 && (
+                          {(pendingCommitments.length > 0 || partialCommitments.length > 0) && (
                             <button
                               type="button"
-                              onClick={() => startLinking(tx.id, 'pending')}
+                              onClick={() => {
+                                setLinkingTxId(tx.id)
+                                setSelectedIds(new Set([...pendingCommitments, ...partialCommitments].map(c => c.id!)))
+                              }}
                               className="rounded-md bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand transition-colors hover:bg-brand/20"
                             >
                               Vincular a compromisos
@@ -443,7 +530,7 @@ export default function TithePage() {
         )}
 
         {/* Generate commitments for existing income */}
-        {pendingCommitments.length === 0 && debtCommitments.length === 0 && (
+        {pendingCommitments.length === 0 && partialCommitments.length === 0 && debtCommitments.length === 0 && (
           <section>
             <div className="rounded-[10px] border border-dashed border-border bg-surface px-6 py-6 text-center">
               <p className="text-[13px] text-text-muted mb-3">

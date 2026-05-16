@@ -105,7 +105,7 @@ export interface Debt {
   createdAt: string
 }
 
-export type CommitmentStatus = 'pending' | 'paid' | 'debt'
+export type CommitmentStatus = 'pending' | 'partial' | 'paid' | 'debt'
 
 export interface TitheCommitment {
   id?: number

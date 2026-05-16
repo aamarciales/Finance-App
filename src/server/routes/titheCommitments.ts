@@ -12,7 +12,7 @@ titheCommitmentsRouter.get('/', async (c) => {
   const auth = getAuth(c)
   if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
 
-  const statusParam = c.req.query('status') as 'pending' | 'paid' | null
+  const statusParam = c.req.query('status') as 'pending' | 'partial' | 'paid' | null
   const db = drizzle(c.env.DB, { schema })
 
   const results = await db.query.titheCommitments.findMany({
@@ -21,6 +21,23 @@ titheCommitmentsRouter.get('/', async (c) => {
       : (tc, { eq }) => eq(tc.userId, auth.userId),
     orderBy: (tc, { desc }) => [desc(tc.date)],
   })
+
+  // Get payment sums per commitment
+  const commitmentIds = results.map(r => r.id).filter(Boolean)
+  let paidMap: Record<number, number> = {}
+  if (commitmentIds.length > 0) {
+    const paidRows = await db
+      .select({
+        commitmentId: schema.commitmentPayments.commitmentId,
+        totalPaid: sql<number>`COALESCE(SUM(${schema.commitmentPayments.amountUsd}), 0)`,
+      })
+      .from(schema.commitmentPayments)
+      .where(sql`${schema.commitmentPayments.commitmentId} IN (${sql.join(commitmentIds.map(id => sql`${id}`), sql`, `)})`)
+      .groupBy(schema.commitmentPayments.commitmentId)
+    for (const row of paidRows) {
+      paidMap[row.commitmentId] = row.totalPaid
+    }
+  }
 
   // Enrich with income transaction details
   const txIds = results.map(r => r.incomeTransactionId).filter(Boolean)
@@ -35,13 +52,26 @@ titheCommitmentsRouter.get('/', async (c) => {
     }
   }
 
-  const enriched = results.map(r => ({
-    ...r,
-    incomeConcept: txMap[r.incomeTransactionId]?.concept ?? '',
-    incomeCategory: txMap[r.incomeTransactionId]?.categoryId ?? 0,
-    incomeCurrency: txMap[r.incomeTransactionId]?.currency ?? r.incomeCurrency,
-    incomeOriginalAmount: txMap[r.incomeTransactionId]?.amount ?? r.incomeAmount,
-  }))
+  const enriched = results.map(r => {
+    const amountPaidUsd = paidMap[r.id] ?? 0
+    // Calculate dynamic status
+    let dynamicStatus = r.status
+    if (amountPaidUsd >= r.totalAmount && amountPaidUsd > 0) {
+      dynamicStatus = 'paid'
+    } else if (amountPaidUsd > 0 && amountPaidUsd < r.totalAmount) {
+      dynamicStatus = 'partial'
+    }
+
+    return {
+      ...r,
+      status: dynamicStatus,
+      amountPaidUsd,
+      incomeConcept: txMap[r.incomeTransactionId]?.concept ?? '',
+      incomeCategory: txMap[r.incomeTransactionId]?.categoryId ?? 0,
+      incomeCurrency: txMap[r.incomeTransactionId]?.currency ?? r.incomeCurrency,
+      incomeOriginalAmount: txMap[r.incomeTransactionId]?.amount ?? r.incomeAmount,
+    }
+  })
 
   return c.json(enriched)
 })
@@ -55,9 +85,9 @@ titheCommitmentsRouter.get('/pending-summary', async (c) => {
 
   const result = await db
     .select({
-      totalPending: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'pending' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
+      totalPending: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} IN ('pending', 'partial') THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
       totalPaid: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'paid' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
-      pendingCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'pending' THEN 1 ELSE 0 END), 0)`,
+      pendingCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} IN ('pending', 'partial') THEN 1 ELSE 0 END), 0)`,
       totalDebt: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'debt' THEN ${schema.titheCommitments.totalAmount} ELSE 0 END), 0)`,
       debtCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.titheCommitments.status} = 'debt' THEN 1 ELSE 0 END), 0)`,
     })

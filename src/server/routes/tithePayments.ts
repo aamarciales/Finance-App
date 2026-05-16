@@ -24,6 +24,35 @@ async function findDiezmoCategories(db: DbClient, userId: string) {
   })
 }
 
+async function recalcCommitmentStatus(db: DbClient, commitmentId: number) {
+  const payments = await db.query.commitmentPayments.findMany({
+    where: (cp, { eq }) => eq(cp.commitmentId, commitmentId),
+    columns: { amountUsd: true },
+  })
+  const commitment = await db.query.titheCommitments.findFirst({
+    where: (tc, { eq }) => eq(tc.id, commitmentId),
+    columns: { totalAmount: true, status: true },
+  })
+  if (!commitment) return
+
+  const totalPaid = payments.reduce((s, p) => s + p.amountUsd, 0)
+
+  let newStatus: 'pending' | 'partial' | 'paid' | 'debt'
+  if (totalPaid >= commitment.totalAmount) {
+    newStatus = 'paid'
+  } else if (totalPaid > 0) {
+    newStatus = 'partial'
+  } else {
+    // No payments — keep existing status (preserves 'debt' vs 'pending')
+    return
+  }
+
+  if (commitment.status !== newStatus) {
+    await db.update(schema.titheCommitments).set({ status: newStatus })
+      .where(eq(schema.titheCommitments.id, commitmentId))
+  }
+}
+
 // GET /api/tithe-payments
 tithePaymentsRouter.get('/', async (c) => {
   const auth = getAuth(c)
@@ -61,7 +90,7 @@ tithePaymentsRouter.post('/', async (c) => {
 
   const alreadyPaid = commitments.filter(tc => tc.status === 'paid')
   if (alreadyPaid.length > 0) {
-    return c.json({ error: 'Algunos compromisos ya fueron pagados' }, 400)
+    return c.json({ error: 'Algunos compromisos ya fueron pagados completamente' }, 400)
   }
   if (commitments.length !== commitmentIds.length) {
     return c.json({ error: 'Algunos compromisos no existen o no te pertenecen' }, 400)
@@ -106,18 +135,23 @@ tithePaymentsRouter.post('/', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  await Promise.all(commitments.map(commitment =>
-    db.insert(schema.commitmentPayments).values({
+  // Distribute payment proportionally across commitments
+  const totalCommitmentAmount = commitments.reduce((s, c) => s + c.totalAmount, 0)
+  await Promise.all(commitments.map(commitment => {
+    const proportion = commitment.totalAmount / totalCommitmentAmount
+    const allocated = Math.round(amountUsd * proportion * 100) / 100
+    return db.insert(schema.commitmentPayments).values({
       commitmentId: commitment.id,
       paymentId: paymentResult[0].id,
-      amountUsd: commitment.totalAmount,
+      amountUsd: allocated,
       createdAt: new Date().toISOString(),
     })
-  ))
-  await Promise.all(commitments.map(commitment =>
-    db.update(schema.titheCommitments).set({ status: 'paid' })
-      .where(eq(schema.titheCommitments.id, commitment.id))
-  ))
+  }))
+
+  // Recalculate status for each commitment
+  for (const commitment of commitments) {
+    await recalcCommitmentStatus(db, commitment.id)
+  }
 
   return c.json({ payment: paymentResult[0], transaction: txResult[0], paidCount: commitments.length })
 })
@@ -217,7 +251,8 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     ),
   })
 
-  const validCommitments = commitments.filter(tc => tc.status === 'pending' || tc.status === 'debt')
+  // Allow pending, partial, and debt commitments — only reject fully paid
+  const validCommitments = commitments.filter(tc => tc.status !== 'paid')
 
   if (validCommitments.length === 0) {
     return c.json({ error: 'No hay compromisos pendientes' }, 400)
@@ -236,18 +271,25 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  await Promise.all(validCommitments.map(commitment =>
-    db.insert(schema.commitmentPayments).values({
+  // Distribute payment proportionally across commitments
+  const totalCommitmentAmount = validCommitments.reduce((s, c) => s + c.totalAmount, 0)
+  const paymentAmount = tx.amountInBase
+
+  await Promise.all(validCommitments.map(commitment => {
+    const proportion = commitment.totalAmount / totalCommitmentAmount
+    const allocated = Math.round(paymentAmount * proportion * 100) / 100
+    return db.insert(schema.commitmentPayments).values({
       commitmentId: commitment.id,
       paymentId: paymentResult[0].id,
-      amountUsd: commitment.totalAmount,
+      amountUsd: allocated,
       createdAt: new Date().toISOString(),
     })
-  ))
-  await Promise.all(validCommitments.map(commitment =>
-    db.update(schema.titheCommitments).set({ status: 'paid' })
-      .where(eq(schema.titheCommitments.id, commitment.id))
-  ))
+  }))
+
+  // Recalculate status for each commitment
+  for (const commitment of validCommitments) {
+    await recalcCommitmentStatus(db, commitment.id)
+  }
 
   return c.json({
     payment: paymentResult[0],
@@ -333,24 +375,34 @@ tithePaymentsRouter.delete('/:id', async (c) => {
   })
   const affectedCommitmentIds = affectedLinks.map(l => l.commitmentId)
 
-  // Delete commitment_payments
+  // Delete commitment_payments for this payment
   await db.delete(schema.commitmentPayments)
     .where(eq(schema.commitmentPayments.paymentId, id))
 
-  // Revert commitments: check if each has remaining payments
+  // Recalculate status for affected commitments
   for (const cid of affectedCommitmentIds) {
-    const remaining = await db.query.commitmentPayments.findFirst({
+    // Check remaining payments
+    const remaining = await db.query.commitmentPayments.findMany({
       where: (cp, { eq }) => eq(cp.commitmentId, cid),
+      columns: { amountUsd: true },
     })
-    const commitment = await db.query.titheCommitments.findFirst({
-      where: (tc, { eq }) => eq(tc.id, cid),
-      columns: { status: true },
-    })
-    if (!remaining) {
-      // No more payments — revert to previous status (debt or pending)
-      const prevStatus = commitment?.status === 'paid' ? 'debt' : 'pending'
-      await db.update(schema.titheCommitments).set({ status: prevStatus })
+    const totalRemaining = remaining.reduce((s, p) => s + p.amountUsd, 0)
+
+    if (totalRemaining === 0) {
+      // No more payments — get current status and revert appropriately
+      const commitment = await db.query.titheCommitments.findFirst({
+        where: (tc, { eq }) => eq(tc.id, cid),
+        columns: { status: true },
+      })
+      // If it was 'paid' or 'partial' (meaning it had payments), revert to pending
+      // But if the original state was 'debt', keep it as 'debt'
+      const prevStatus = commitment?.status
+      const revertTo = prevStatus === 'debt' ? 'debt' : 'pending'
+      await db.update(schema.titheCommitments).set({ status: revertTo })
         .where(eq(schema.titheCommitments.id, cid))
+    } else {
+      // Still has remaining payments — recalculate
+      await recalcCommitmentStatus(db, cid)
     }
   }
 
