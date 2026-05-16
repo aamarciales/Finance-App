@@ -49,11 +49,27 @@ transactionsRouter.post('/', async (c) => {
   const db = drizzle(c.env.DB, { schema })
 
   const result = await db.insert(schema.transactions).values({
-    ...body,
+    date: body.date,
+    type: body.type,
+    concept: body.concept,
+    categoryId: body.categoryId,
+    amount: body.amount,
+    currency: body.currency,
+    trm: body.trm,
+    amountInBase: body.amountInBase,
+    amountInSecondary: body.amountInSecondary,
+    notes: body.notes ?? null,
+    attachments: body.attachments ?? null,
+    invoiceId: body.invoiceId ?? null,
+    debtId: body.debtId ?? null,
+    isRecurring: body.isRecurring ?? false,
+    capitalAmount: body.capitalAmount ?? null,
+    interestAmount: body.interestAmount ?? null,
+    isTitheCalculated: false,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  }).returning()
+  } as any).returning()
 
   const tx = result[0]
 
@@ -109,10 +125,13 @@ transactionsRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
 
-  const result = await db.update(schema.transactions).set({
-    ...body,
-    updatedAt: new Date().toISOString(),
-  }).where(
+  const updates: Record<string, any> = { updatedAt: new Date().toISOString() }
+  const allowedFields = ['date', 'type', 'concept', 'categoryId', 'amount', 'currency', 'trm', 'amountInBase', 'amountInSecondary', 'notes', 'attachments', 'invoiceId', 'debtId', 'isRecurring', 'capitalAmount', 'interestAmount']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  const result = await db.update(schema.transactions).set(updates).where(
     and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId))
   ).returning()
 

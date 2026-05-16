@@ -12,7 +12,6 @@ import TaxesPage from '@/pages/Taxes'
 import InsightsPage from '@/pages/Insights'
 import ReportsPage from '@/pages/Reports'
 import SettingsPage from '@/pages/Settings'
-import AuditLogPage from '@/pages/AuditLog'
 
 export const router = createBrowserRouter([
   {
@@ -22,8 +21,6 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'transactions', element: <TransactionsPage /> },
       { path: 'invoices', element: <InvoicesPage /> },
-      /* `/invoices/:id` se materializa en Fase 4 (drill-down). Por ahora
-         redirige a la lista para evitar un 404 si alguien navega allí. */
       { path: 'invoices/:id', element: <Navigate to="/invoices" replace /> },
       { path: 'import', element: <ImportPage /> },
       { path: 'categories', element: <CategoriesPage /> },
@@ -34,7 +31,7 @@ export const router = createBrowserRouter([
       { path: 'insights', element: <InsightsPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'historial', element: <AuditLogPage /> },
+      { path: 'historial', element: <Navigate to="/" replace /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

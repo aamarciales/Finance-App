@@ -33,7 +33,7 @@ export default function ImportPage() {
   const { rate: trm } = useTRM()
   const { eurToUsd } = useForex()
   const rates = useMemo(() => ({ trm, eurToUsd }), [trm, eurToUsd])
-  const { addInvoice } = useInvoices()
+  const { addInvoice } = useInvoices(rates)
   const api = useApi()
   const queryClient = useQueryClient()
 

@@ -25,7 +25,7 @@ export interface InvoiceFormData {
   categoryId: number
 }
 
-export function useInvoices() {
+export function useInvoices(rates: { trm: number; eurToUsd: number }) {
   const api = useApi()
   const queryClient = useQueryClient()
 
@@ -83,10 +83,7 @@ export function useInvoices() {
 
   const addInvoice = async (data: InvoiceFormData) => {
     const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-
-    // Using default TRM for now since TRM records are not migrated yet
-    const trm = 4087.30
-    const rates = { trm, eurToUsd: 1.08 }
+    const { trm } = rates
     const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
 
     // 1. Create invoice
@@ -136,9 +133,8 @@ export function useInvoices() {
 
   const updateInvoice = async (id: number, data: InvoiceFormData, existing: EnrichedInvoice) => {
     const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-    const trm = existing.trm ?? 4087.30
-    const rates = { trm, eurToUsd: 1.08 }
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
+    const trm = existing.trm || rates.trm
+    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, { ...rates, trm })
 
     // Update invoice
     await api.put(`/invoices/${id}`, {

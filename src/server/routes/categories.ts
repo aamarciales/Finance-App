@@ -29,10 +29,12 @@ categoriesRouter.post('/', async (c) => {
   const db = drizzle(c.env.DB, { schema })
   
   const result = await db.insert(schema.categories).values({
-    ...body,
+    name: body.name,
+    color: body.color,
+    icon: body.icon,
+    type: body.type,
+    isSystem: body.isSystem ?? false,
     userId: auth.userId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   }).returning()
   
   return c.json(result[0])
@@ -47,11 +49,13 @@ categoriesRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
 
-  const result = await db.update(schema.categories).set({
-    ...body,
-    userId: auth.userId,
-    updatedAt: new Date().toISOString(),
-  }).where(
+  const updates: Record<string, any> = {}
+  const allowedFields = ['name', 'color', 'icon', 'type', 'isSystem']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  const result = await db.update(schema.categories).set(updates).where(
     and(eq(schema.categories.id, id), eq(schema.categories.userId, auth.userId))
   ).returning()
 

@@ -21,11 +21,16 @@ import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog'
 import { InvoiceDetailModal } from '@/components/invoices/InvoiceDetailModal'
 import { ImportCsvDialog } from '@/components/invoices/ImportCsvDialog'
 import { useInvoices, type EnrichedInvoice } from '@/hooks/useInvoices'
+import { useTRM } from '@/hooks/useTRM'
+import { useForex } from '@/hooks/useForex'
 import type { Invoice } from '@/types/domain'
 
 
 export default function InvoicesPage() {
-  const { invoices, categories, loading, addInvoice, updateInvoice, deleteInvoice } = useInvoices()
+  const { rate: trm } = useTRM()
+  const { eurToUsd } = useForex()
+  const rates = { trm, eurToUsd }
+  const { invoices, categories, loading, addInvoice, updateInvoice, deleteInvoice } = useInvoices(rates)
   const [formOpen, setFormOpen] = useState(false)
   const [editInvoice, setEditInvoice] = useState<EnrichedInvoice | null>(null)
   const [detailData, setDetailData] = useState<EnrichedInvoice | null>(null)
@@ -131,7 +136,7 @@ export default function InvoicesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ImportCsvDialog open={importOpen} onOpenChange={setImportOpen} categories={categories} />
+      <ImportCsvDialog open={importOpen} onOpenChange={setImportOpen} categories={categories} rates={rates} />
     </>
   )
 }

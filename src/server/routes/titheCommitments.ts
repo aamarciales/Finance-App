@@ -76,9 +76,15 @@ titheCommitmentsRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
 
+  const updates: Record<string, any> = {}
+  const allowedFields = ['status']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+
   const result = await db
     .update(schema.titheCommitments)
-    .set(body)
+    .set(updates)
     .where(and(eq(schema.titheCommitments.id, id), eq(schema.titheCommitments.userId, auth.userId)))
     .returning()
 

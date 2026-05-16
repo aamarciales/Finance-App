@@ -45,6 +45,7 @@ interface ImportCsvDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: Category[]
+  rates: { trm: number; eurToUsd: number }
 }
 
 function parseNumber(val: unknown): number {
@@ -123,7 +124,7 @@ function detectCsv(rows: Record<string, string>[]): ParsedCsv | null {
   return { invoiceNumber, date: parseDate(date), issuer, items, currency }
 }
 
-export function ImportCsvDialog({ open, onOpenChange, categories }: ImportCsvDialogProps) {
+export function ImportCsvDialog({ open, onOpenChange, categories, rates }: ImportCsvDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsed, setParsed] = useState<ParsedCsv | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +133,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories }: ImportCsvDia
   const [currency, setCurrency] = useState<Currency>('COP')
   const [categoryId, setCategoryId] = useState<string>('')
 
-  const { addInvoice } = useInvoices()
+  const { addInvoice } = useInvoices(rates)
   const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense'), [categories])
 
   const total = useMemo(() => {

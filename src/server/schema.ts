@@ -26,6 +26,9 @@ export const transactions = sqliteTable('transactions', {
   attachments: text('attachments', { mode: 'json' }).$type<string[]>(),
   invoiceId: integer('invoice_id'),
   debtId: integer('debt_id'),
+  isRecurring: integer('is_recurring', { mode: 'boolean' }).default(false),
+  capitalAmount: real('capital_amount'),
+  interestAmount: real('interest_amount'),
   isTitheCalculated: integer('is_tithe_calculated', { mode: 'boolean' }).default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -65,7 +68,7 @@ export const debts = sqliteTable('debts', {
   userId: text('user_id').notNull(),
   name: text('name').notNull(),
   creditor: text('creditor').notNull(),
-  type: text('type', { enum: ['credit_card', 'personal_loan', 'family_loan'] }).notNull(),
+  type: text('type', { enum: ['credit_card', 'personal_loan', 'family_loan', 'mortgage', 'other'] }).notNull(),
   originalAmount: real('original_amount').notNull(),
   currentBalance: real('current_balance').notNull(),
   currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
@@ -75,6 +78,7 @@ export const debts = sqliteTable('debts', {
   paidInstallments: integer('paid_installments'),
   nextPaymentDate: text('next_payment_date'),
   notes: text('notes'),
+  isPaid: integer('is_paid', { mode: 'boolean' }).default(false),
   createdAt: text('created_at').notNull(),
 })
 
@@ -108,7 +112,6 @@ export const titheCommitments = sqliteTable('tithe_commitments', {
   offeringAmount: real('offering_amount').notNull(),
   totalAmount: real('total_amount').notNull(),
   status: text('status', { enum: ['pending', 'paid', 'debt'] }).notNull().default('pending'),
-  tithePaymentId: integer('tithe_payment_id'),
   createdAt: text('created_at').notNull(),
 })
 
@@ -130,11 +133,13 @@ export const goals = sqliteTable('goals', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: text('user_id').notNull(),
   name: text('name').notNull(),
+  description: text('description'),
   targetAmount: real('target_amount').notNull(),
   currentAmount: real('current_amount').default(0).notNull(),
-  deadline: text('deadline'),
+  monthlyContribution: real('monthly_contribution'),
+  targetDate: text('deadline'),
   currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
   color: text('color').notNull(),
-  icon: text('icon').notNull(),
+  iconKey: text('icon').notNull(),
   createdAt: text('created_at').notNull(),
 })

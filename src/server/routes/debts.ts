@@ -27,7 +27,19 @@ debtsRouter.post('/', async (c) => {
   const db = drizzle(c.env.DB, { schema })
   
   const result = await db.insert(schema.debts).values({
-    ...body,
+    name: body.name,
+    creditor: body.creditor,
+    type: body.type,
+    originalAmount: body.originalAmount,
+    currentBalance: body.currentBalance,
+    currency: body.currency,
+    interestRate: body.interestRate ?? null,
+    monthlyPayment: body.monthlyPayment ?? null,
+    totalInstallments: body.totalInstallments ?? 0,
+    paidInstallments: body.paidInstallments ?? 0,
+    nextPaymentDate: body.nextPaymentDate ?? null,
+    notes: body.notes ?? null,
+    isPaid: body.isPaid ?? false,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
   }).returning()
@@ -43,9 +55,13 @@ debtsRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
   
-  const result = await db.update(schema.debts).set({
-    ...body,
-  }).where(
+  const updates: Record<string, any> = {}
+  const allowedFields = ['name', 'creditor', 'type', 'originalAmount', 'currentBalance', 'currency', 'interestRate', 'monthlyPayment', 'totalInstallments', 'paidInstallments', 'nextPaymentDate', 'notes', 'isPaid']
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  const result = await db.update(schema.debts).set(updates).where(
     and(eq(schema.debts.id, id), eq(schema.debts.userId, auth.userId))
   ).returning()
   

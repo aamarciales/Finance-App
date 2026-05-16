@@ -21,7 +21,6 @@ export interface Transaction {
   invoiceId?: number
   attachments?: string[]
   isRecurring?: boolean
-  recurringId?: number
   debtId?: number
   capitalAmount?: number
   interestAmount?: number
@@ -61,24 +60,10 @@ export type CategoryType = 'expense' | 'income'
 export interface Category {
   id?: number
   name: string
-  parentId?: number
   color: string
   icon: string
   type: CategoryType
   isSystem: boolean
-}
-
-export interface Attachment {
-  id?: number
-  type: 'image' | 'pdf' | 'csv'
-  filename: string
-  mimeType: string
-  size: number
-  blob: Blob
-  thumbnail?: Blob
-  transactionId?: number
-  invoiceId?: number
-  createdAt: string
 }
 
 export interface Goal {
@@ -120,19 +105,6 @@ export interface Debt {
   createdAt: string
 }
 
-export interface TithePayment {
-  id?: number
-  date: string
-  destination: string
-  tithesAmount: number
-  offeringsAmount: number
-  currency: Currency
-  trm: number
-  notes?: string
-  attachmentUrl?: string
-  txId: number
-}
-
 export type CommitmentStatus = 'pending' | 'paid' | 'debt'
 
 export interface TitheCommitment {
@@ -149,7 +121,6 @@ export interface TitheCommitment {
   offeringAmount: number
   totalAmount: number
   status: CommitmentStatus
-  tithePaymentId?: number
   createdAt: string
 }
 
@@ -162,26 +133,11 @@ export interface TRMRecord {
 
 export interface ForexRate {
   id?: number
-  pair: string        // e.g. 'EUR-USD'
-  date: string        // ISO date
+  pair: string
+  date: string
   rate: number
   source: 'frankfurter' | 'manual' | 'wise'
   fetchedAt: string
-}
-
-export type AuditEntityType = 'transaction' | 'category' | 'debt' | 'goal' | 'tithe_payment'
-export type AuditOperation = 'create' | 'update' | 'delete' | 'revert'
-
-export interface AuditLogEntry {
-  id?: number
-  timestamp: string
-  entityType: AuditEntityType
-  entityId: number
-  operation: AuditOperation
-  beforeState?: object
-  afterState?: object
-  description: string
-  isReverted: boolean
 }
 
 export interface ExchangeOperation {
