@@ -219,16 +219,14 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
 
   // Verify commitments
   const commitments = await db.query.titheCommitments.findMany({
-    where: (tc, { eq, and }) => and(
+    where: (tc, { eq, and, inArray }) => and(
       eq(tc.userId, auth.userId),
-      // commitmentIds is an array
+      inArray(tc.id, commitmentIds),
     ),
   })
 
   // Filter to valid pending ones
-  const validCommitments = commitments.filter(tc =>
-    commitmentIds.includes(tc.id) && tc.status === 'pending'
-  )
+  const validCommitments = commitments.filter(tc => tc.status === 'pending')
 
   if (validCommitments.length === 0) {
     return c.json({ error: 'No hay compromisos pendientes válidos' }, 400)

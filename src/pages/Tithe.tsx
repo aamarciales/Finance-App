@@ -51,10 +51,7 @@ export default function TithePage() {
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
-    queryFn: async () => {
-      const { useApi } = await import('@/lib/api')
-      return useApi().get<any[]>('/categories')
-    },
+    queryFn: () => api.get<any[]>('/categories'),
   })
   const categories = categoriesData ?? []
   const incomeCategories = categories.filter((c: any) => c.type === 'income')
