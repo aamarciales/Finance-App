@@ -9,8 +9,9 @@ import {
   Upload,
   X,
   FileText,
+  Plus,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
@@ -115,6 +116,9 @@ export function TxFormDialog({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const api = useApi()
+  const queryClient = useQueryClient()
+  const [newCatName, setNewCatName] = useState<string | undefined>(undefined)
+
   const { data: debtsData } = useQuery({
     queryKey: ['debts'],
     queryFn: () => api.get<Debt[]>('/debts'),
@@ -146,6 +150,23 @@ export function TxFormDialog({
 
   const selectedType = watch('type')
   const selectedCategoryId = watch('categoryId')
+
+  const handleCreateCategory = useCallback(async () => {
+    if (!newCatName?.trim()) return
+    const isIncome = selectedType === 'income'
+    const colors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16']
+    const color = colors[Math.floor(Math.random() * colors.length)]
+    const result = await api.post<{ id: number }>('/categories', {
+      name: newCatName.trim(),
+      color,
+      icon: 'more-horizontal',
+      type: isIncome ? 'income' : 'expense',
+      isSystem: false,
+    })
+    await queryClient.invalidateQueries({ queryKey: ['categories'] })
+    setValue('categoryId', result.id)
+    setNewCatName(undefined)
+  }, [api, newCatName, queryClient, setValue, selectedType])
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === selectedCategoryId),
@@ -329,7 +350,16 @@ export function TxFormDialog({
 
           {/* Categoría */}
           <div className="grid gap-1.5">
-            <Label>Categoría</Label>
+            <div className="flex items-center justify-between">
+              <Label>Categoría</Label>
+              <button
+                type="button"
+                onClick={() => setNewCatName('')}
+                className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-brand"
+              >
+                <Plus className="h-3 w-3" /> Nueva
+              </button>
+            </div>
             <Controller
               name="categoryId"
               control={control}
@@ -357,6 +387,38 @@ export function TxFormDialog({
                 </Select>
               )}
             />
+            {newCatName !== undefined && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="Nombre de la categoría"
+                  className="flex-1 rounded-md border border-border px-2 py-1 text-[13px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleCreateCategory()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={!newCatName.trim()}
+                  className="rounded-md bg-brand px-3 py-1 text-[12px] font-medium text-white disabled:opacity-50"
+                >
+                  Crear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewCatName(undefined)}
+                  className="rounded-md border border-border px-2 py-1 text-[12px] text-text-muted"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
             {errors.categoryId && (
               <p className="text-[12px] text-danger-strong">{errors.categoryId.message}</p>
             )}
