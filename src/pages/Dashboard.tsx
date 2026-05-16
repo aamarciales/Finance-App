@@ -284,7 +284,7 @@ const PERIOD_TABS: { value: DashboardPeriod; label: string }[] = [
 
 function PeriodTabs({ value, onChange }: { value: DashboardPeriod; onChange: (v: DashboardPeriod) => void }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto">
+    <div className="flex items-center gap-1 overflow-x-auto py-1 -mx-1 px-1">
       {PERIOD_TABS.map((tab) => (
         <button
           key={tab.value}

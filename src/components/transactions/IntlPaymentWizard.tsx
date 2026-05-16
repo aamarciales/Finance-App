@@ -123,35 +123,39 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   }, [settings, step, step1.amount, step1.incomeCategoryId])
 
   const pendingTxs = useMemo(() => {
-    const txs: Array<{ label: string; checked: boolean; type: string; amount: number; currency: string; categoryName: string }> = []
+    const txs: Array<{ label: string; type: string; amount: number; currency: string; categoryName: string }> = []
 
-    txs.push({ label: `+${step1.currency} ${step1.amount.toFixed(2)}  ${step1.concept}`, checked: true, type: 'income', amount: step1.amount, currency: step1.currency, categoryName: incomeCategories.find(c => c.id === step1.incomeCategoryId)?.name ?? '' })
+    txs.push({ label: `+${step1.currency} ${step1.amount.toFixed(2)}  ${step1.concept}`, type: 'income', amount: step1.amount, currency: step1.currency, categoryName: incomeCategories.find(c => c.id === step1.incomeCategoryId)?.name ?? '' })
 
     if (originFees.enabled) {
-      if (originFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${originFees.receiveFee.toFixed(2)}  Comisión recibir (${step1.platform})`, checked: true, type: 'expense', amount: originFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
-      if (originFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${originFees.sendFee.toFixed(2)}  Comisión envío (${step1.platform})`, checked: true, type: 'expense', amount: originFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      if (originFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${originFees.receiveFee.toFixed(2)}  Comisión recibir (${step1.platform})`, type: 'expense', amount: originFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      if (originFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${originFees.sendFee.toFixed(2)}  Comisión envío (${step1.platform})`, type: 'expense', amount: originFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
     }
 
     if (intermediateFees.enabled) {
       const name = intermediateFees.platformName || 'Intermedia'
-      if (intermediateFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.receiveFee.toFixed(2)}  Comisión recibir (${name})`, checked: true, type: 'expense', amount: intermediateFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
-      if (intermediateFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.sendFee.toFixed(2)}  Comisión envío (${name})`, checked: true, type: 'expense', amount: intermediateFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      if (intermediateFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.receiveFee.toFixed(2)}  Comisión recibir (${name})`, type: 'expense', amount: intermediateFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      if (intermediateFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.sendFee.toFixed(2)}  Comisión envío (${name})`, type: 'expense', amount: intermediateFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
     }
 
     if (conversion.enabled && conversion.receivedAmount > 0) {
-      txs.push({ label: `−${step1.currency} ${amountAfterFees.toFixed(2)}  Transfer ${step1.currency} → ${conversion.toCurrency}`, checked: true, type: 'transfer', amount: amountAfterFees, currency: step1.currency, categoryName: 'Transferencias' })
-      txs.push({ label: `+${conversion.toCurrency} ${conversion.receivedAmount.toFixed(0)}  Recibido en ${conversion.toCurrency}`, checked: true, type: 'transfer', amount: conversion.receivedAmount, currency: conversion.toCurrency, categoryName: 'Transferencias' })
+      txs.push({ label: `−${step1.currency} ${amountAfterFees.toFixed(2)}  Transfer ${step1.currency} → ${conversion.toCurrency}`, type: 'transfer', amount: amountAfterFees, currency: step1.currency, categoryName: 'Transferencias' })
+      txs.push({ label: `+${conversion.toCurrency} ${conversion.receivedAmount.toFixed(0)}  Recibido en ${conversion.toCurrency}`, type: 'transfer', amount: conversion.receivedAmount, currency: conversion.toCurrency, categoryName: 'Transferencias' })
     }
 
     if (titheInfo && titheInfo.tithe > 0) {
-      txs.push({ label: `−${step1.currency} ${titheInfo.tithe.toFixed(2)}  Diezmo`, checked: true, type: 'expense', amount: titheInfo.tithe, currency: step1.currency, categoryName: 'Diezmo' })
+      txs.push({ label: `−${step1.currency} ${titheInfo.tithe.toFixed(2)}  Diezmo`, type: 'expense', amount: titheInfo.tithe, currency: step1.currency, categoryName: 'Diezmo' })
     }
     if (titheInfo && titheInfo.offering > 0) {
-      txs.push({ label: `−${step1.currency} ${titheInfo.offering.toFixed(2)}  Ofrenda`, checked: true, type: 'expense', amount: titheInfo.offering, currency: step1.currency, categoryName: 'Ofrendas' })
+      txs.push({ label: `−${step1.currency} ${titheInfo.offering.toFixed(2)}  Ofrenda`, type: 'expense', amount: titheInfo.offering, currency: step1.currency, categoryName: 'Ofrendas' })
     }
 
     return txs
   }, [step1, originFees, intermediateFees, conversion, amountAfterFees, titheInfo, incomeCategories])
+
+  const [checkedTxs, setCheckedTxs] = useState<Record<number, boolean>>({})
+
+  const isTxChecked = (i: number) => checkedTxs[i] !== false
 
   const api = useApi()
   const queryClient = useQueryClient()
@@ -160,8 +164,9 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
     const groupId = crypto.randomUUID()
 
     try {
-      for (const tx of pendingTxs) {
-        if (!tx.checked) continue
+      for (let i = 0; i < pendingTxs.length; i++) {
+        const tx = pendingTxs[i]
+        if (!isTxChecked(i)) continue
         const cat = categories.find((c) => c.name === tx.categoryName)
         if (!cat?.id) continue
 
@@ -185,7 +190,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
           transferGroupId: groupId,
         })
       }
-      toast.success(`Pago internacional registrado con ${pendingTxs.filter(t => t.checked).length} movimientos`)
+      toast.success(`Pago internacional registrado con ${pendingTxs.filter((_, i) => isTxChecked(i)).length} movimientos`)
       await queryClient.invalidateQueries()
       onOpenChange(false)
       setStep(1)
@@ -411,8 +416,8 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                 {pendingTxs.map((tx, i) => (
                   <label key={i} className="flex items-center gap-2 text-[13px]">
                     <Checkbox
-                      checked={tx.checked}
-                      onCheckedChange={() => {}}
+                      checked={isTxChecked(i)}
+                      onCheckedChange={(v) => setCheckedTxs(prev => ({ ...prev, [i]: !!v }))}
                     />
                     <span>{tx.label}</span>
                   </label>
