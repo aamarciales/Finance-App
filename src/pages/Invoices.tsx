@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, Receipt, Trash2, FileUp } from 'lucide-react'
+import { Plus, Receipt, Trash2, FileUp, Paperclip } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Money } from '@/components/common/Money'
@@ -174,7 +174,12 @@ function InvoiceCard({ invoice, onClick, onDelete }: { invoice: Invoice; onClick
       <div className="mb-2 font-mono text-[13px] text-text-muted">{dateLabel}</div>
 
       <div className="flex items-center justify-between">
-        <Money amount={invoice.total} currency={invoice.currency} variant="inline" className="font-semibold" />
+        <div className="flex items-center gap-2">
+          <Money amount={invoice.total} currency={invoice.currency} variant="inline" className="font-semibold" />
+          {invoice.attachmentUrl && (
+            <Paperclip className="h-3.5 w-3.5 text-text-muted" />
+          )}
+        </div>
         <Badge tone="gray">{invoice.itemCount} ítems</Badge>
       </div>
     </div>

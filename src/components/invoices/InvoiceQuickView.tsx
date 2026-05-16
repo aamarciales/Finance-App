@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Money } from '@/components/common/Money'
 import { formatMoney } from '@/lib/format'
 import { useApi } from '@/lib/api'
+import { FileText, ExternalLink } from 'lucide-react'
 
 import type { Invoice, InvoiceItem } from '@/types/domain'
 
@@ -106,6 +107,41 @@ export function InvoiceQuickView({ open, onOpenChange, invoiceId }: InvoiceQuick
                       ))}
                     </tbody>
                   </table>
+                )}
+
+                {invoice.attachmentUrl && (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {/\.(jpg|jpeg|png|webp|heic)$/i.test(invoice.attachmentUrl) ? (
+                      <a href={invoice.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <img
+                          src={invoice.attachmentUrl}
+                          alt="Soporte"
+                          className="w-full object-cover max-h-[200px] hover:opacity-90 transition-opacity"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={invoice.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-4 text-brand hover:bg-brand/5 transition-colors"
+                      >
+                        <FileText className="h-6 w-6 shrink-0" />
+                        <span className="text-[13px]">Ver documento PDF</span>
+                      </a>
+                    )}
+                    <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
+                      <a
+                        href={invoice.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-brand hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Abrir en nueva pestaña
+                      </a>
+                    </div>
+                  </div>
                 )}
               </div>
             </>
