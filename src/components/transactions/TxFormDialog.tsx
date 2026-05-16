@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useAuth } from '@clerk/clerk-react'
 import {
   CalendarIcon,
   Link2,
@@ -115,6 +116,7 @@ export function TxFormDialog({
 }: TxFormDialogProps) {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { getToken } = useAuth()
 
   const api = useApi()
   const queryClient = useQueryClient()
@@ -188,12 +190,17 @@ export function TxFormDialog({
   const handleFormSubmit = useCallback(
     async (values: TxFormValues) => {
       // Upload pending files first
+      const token = await getToken()
       const uploadedUrls: string[] = []
       for (const pf of pendingFiles) {
         const fd = new FormData()
         fd.append('file', pf.file)
         try {
-          const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
+          const res = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: fd,
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
           if (res.ok) {
             const data = await res.json()
             if (data.url) uploadedUrls.push(data.url)

@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, X, Upload, FileText } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@clerk/clerk-react'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ interface InvoiceFormDialogProps {
 
 export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, editInvoice }: InvoiceFormDialogProps) {
 
+  const { getToken } = useAuth()
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const isEditing = !!editInvoice
   const editCategoryId = editInvoice?.transactionCategoryId ?? 1
@@ -128,10 +130,11 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   async function uploadFile(file: File): Promise<string> {
     const formData = new FormData()
     formData.append('file', file)
+    const token = await getToken()
     const res = await fetch('/api/files/upload', {
       method: 'POST',
       body: formData,
-      credentials: 'same-origin',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) {
       const err = await res.text()
