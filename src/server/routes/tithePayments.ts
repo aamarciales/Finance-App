@@ -237,7 +237,7 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     return c.json({ error: 'La transacción no es de la categoría Diezmo u Ofrendas' }, 400)
   }
 
-  // Get commitments — allow pending AND partial
+  // Get commitments — allow pending AND partial (check dynamic status)
   const commitments = await db.query.titheCommitments.findMany({
     where: (tc, { eq, and, inArray }) => and(
       eq(tc.userId, auth.userId),
@@ -245,7 +245,21 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     ),
   })
 
-  const validCommitments = commitments.filter(tc => tc.status !== 'paid')
+  // Get current payment totals for these commitments
+  const paidRows = await db
+    .select({
+      commitmentId: schema.commitmentPayments.commitmentId,
+      totalPaid: sql<number>`COALESCE(SUM(${schema.commitmentPayments.amountUsd}), 0)`,
+    })
+    .from(schema.commitmentPayments)
+    .where(sql`${schema.commitmentPayments.commitmentId} IN (${sql.join(commitmentIds.map((id: number) => sql`${id}`), sql`, `)})`)
+    .groupBy(schema.commitmentPayments.commitmentId)
+
+  const paidMap = new Map(paidRows.map(r => [r.commitmentId, r.totalPaid]))
+  const validCommitments = commitments.filter(tc => {
+    const paid = paidMap.get(tc.id) ?? 0
+    return paid < tc.totalAmount // not fully paid
+  })
 
   if (validCommitments.length === 0) {
     return c.json({ error: 'No hay compromisos pendientes válidos' }, 400)
@@ -346,7 +360,22 @@ tithePaymentsRouter.post('/debt-link', async (c) => {
         inArray(tc.id, commitmentIds),
       ),
     })
-    const validCommitments = commitments.filter(tc => tc.status !== 'paid')
+
+    // Check dynamic status
+    const paidRows = await db
+      .select({
+        commitmentId: schema.commitmentPayments.commitmentId,
+        totalPaid: sql<number>`COALESCE(SUM(${schema.commitmentPayments.amountUsd}), 0)`,
+      })
+      .from(schema.commitmentPayments)
+      .where(sql`${schema.commitmentPayments.commitmentId} IN (${sql.join(commitmentIds.map((id: number) => sql`${id}`), sql`, `)})`)
+      .groupBy(schema.commitmentPayments.commitmentId)
+
+    const paidMap = new Map(paidRows.map(r => [r.commitmentId, r.totalPaid]))
+    const validCommitments = commitments.filter(tc => {
+      const paid = paidMap.get(tc.id) ?? 0
+      return paid < tc.totalAmount
+    })
 
     const paymentResult = await db.insert(schema.tithePayments).values({
       userId: auth.userId,
