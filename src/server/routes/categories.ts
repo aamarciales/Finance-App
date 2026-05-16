@@ -38,6 +38,26 @@ categoriesRouter.post('/', async (c) => {
   return c.json(result[0])
 })
 
+// PUT /api/categories/:id
+categoriesRouter.put('/:id', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const id = parseInt(c.req.param('id'), 10)
+  const body = await c.req.json()
+  const db = drizzle(c.env.DB, { schema })
+
+  const result = await db.update(schema.categories).set({
+    ...body,
+    userId: auth.userId,
+    updatedAt: new Date().toISOString(),
+  }).where(
+    and(eq(schema.categories.id, id), eq(schema.categories.userId, auth.userId))
+  ).returning()
+
+  return c.json(result[0])
+})
+
 // DELETE /api/categories/:id
 categoriesRouter.delete('/:id', async (c) => {
   const auth = getAuth(c)

@@ -99,21 +99,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'percent': Percent,
 }
 
-const COLORS = [
-  '#2d4a3e',
-  '#b8923a',
-  '#c4621d',
-  '#a83e2b',
-  '#5a4ea0',
-  '#4a6e8a',
-  '#7a4a6e',
-  '#8a6a4a',
-  '#2d5e4a',
-  '#d4b974',
-  '#6b9080',
-  '#9a978d',
-]
-
 interface CategoryFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -227,28 +212,20 @@ export function CategoryFormDialog({
               name="color"
               control={control}
               render={({ field }) => (
-                <div className="grid grid-cols-6 gap-2">
-                  {COLORS.map((color) => {
-                    const isSelected = field.value === color
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => field.onChange(color)}
-                        className="relative flex h-8 w-8 items-center justify-center rounded-lg transition"
-                        style={{
-                          backgroundColor: color,
-                          boxShadow: isSelected
-                            ? `0 0 0 2px var(--background), 0 0 0 4px ${color}`
-                            : undefined,
-                        }}
-                      >
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-white" />
-                        )}
-                      </button>
-                    )
-                  })}
+                <div className="flex items-center gap-3">
+                  <label
+                    className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-border overflow-hidden"
+                    style={{ backgroundColor: field.value }}
+                  >
+                    <input
+                      type="color"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    />
+                    <Check className="h-4 w-4 text-white drop-shadow-sm" />
+                  </label>
+                  <span className="font-mono text-[13px] text-text-muted">{field.value}</span>
                 </div>
               )}
             />
