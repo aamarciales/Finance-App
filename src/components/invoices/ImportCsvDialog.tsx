@@ -1,6 +1,7 @@
 import { useRef, useState, useMemo, useCallback } from 'react'
-import { FileUp, HelpCircle } from 'lucide-react'
+import { FileUp, HelpCircle, Upload, FileText, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@clerk/clerk-react'
 import Papa from 'papaparse'
 import {
   Dialog,
@@ -172,6 +173,10 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [currency, setCurrency] = useState<Currency>('COP')
   const [categoryId, setCategoryId] = useState<string>('')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const supportRef = useRef<HTMLInputElement>(null)
+  const { getToken } = useAuth()
 
   const downloadTemplate = useCallback((type: 'products' | 'service') => {
     let csv: string
@@ -189,6 +194,42 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     URL.revokeObjectURL(url)
   }, [])
 
+  async function uploadFile(file: File): Promise<string> {
+    setUploadProgress(10)
+    const formData = new FormData()
+    formData.append('file', file)
+    const token = await getToken()
+    setUploadProgress(30)
+
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/files/upload')
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 70) + 30
+          setUploadProgress(pct)
+        }
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            if (data.url) { setUploadProgress(100); resolve(data.url) }
+            else reject(new Error('El servidor no devolvió la URL del archivo'))
+          } catch { reject(new Error('Error procesando la respuesta')) }
+        } else {
+          let errMsg = `Error ${xhr.status}`
+          try { const d = JSON.parse(xhr.responseText); errMsg = d.error || errMsg } catch {}
+          reject(new Error(errMsg))
+        }
+      }
+      xhr.onerror = () => reject(new Error('Error de conexión'))
+      xhr.send(formData)
+    })
+  }
+
   const { addInvoice } = useInvoices(rates)
   const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense'), [categories])
 
@@ -205,6 +246,8 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     setDate(new Date().toISOString().slice(0, 10))
     setCurrency('COP')
     setCategoryId('')
+    setPendingFile(null)
+    setUploadProgress(0)
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -254,6 +297,18 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     if (!parsed || !categoryId) return
 
     const catId = Number(categoryId)
+
+    let attachmentUrl: string | undefined
+    if (pendingFile) {
+      try {
+        attachmentUrl = await uploadFile(pendingFile)
+      } catch (e) {
+        setUploadProgress(0)
+        toast.error(e instanceof Error ? e.message : 'Error al subir el soporte')
+        return
+      }
+    }
+
     const formData: InvoiceFormData = {
       merchant,
       date,
@@ -265,6 +320,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
         unitPrice: i.totalPrice > 0 && i.quantity > 0 ? i.totalPrice / i.quantity : i.unitPrice,
         ...(i.subCategory ? { subCategory: i.subCategory } : {}),
       })),
+      attachmentUrl,
     }
 
     try {
@@ -405,6 +461,53 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Soporte */}
+              <div className="grid gap-1.5">
+                <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Soporte (opcional)</Label>
+                <input
+                  ref={supportRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingFile(f) }}
+                />
+                {pendingFile ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
+                    <FileText className="h-4 w-4 shrink-0 text-text-muted" />
+                    <span className="flex-1 truncate text-[12px] text-text-muted">{pendingFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setPendingFile(null); setUploadProgress(0); if (supportRef.current) supportRef.current.value = '' }}
+                      className="text-text-muted hover:text-danger-strong"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => supportRef.current?.click()}
+                    className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Subir imagen o PDF
+                  </button>
+                )}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="h-1.5 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                )}
+                {uploadProgress > 0 && (
+                  <p className="text-[11px] text-text-muted">
+                    {uploadProgress >= 100 ? 'Procesando…' : `Subiendo… ${uploadProgress}%`}
+                  </p>
+                )}
               </div>
             </>
           )}
