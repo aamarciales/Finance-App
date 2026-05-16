@@ -127,6 +127,16 @@ export function useTitheCommitments() {
     },
   })
 
+  const linkExistingTransaction = useMutation({
+    mutationFn: (data: { transactionId: number; commitmentIds: number[] }) =>
+      api.post('/tithe-payments/link-existing', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+      queryClient.invalidateQueries({ queryKey: ['tithe-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+
   const titheDebtUsd = settings?.titheDebtUsd ?? 0
 
   return {
@@ -140,5 +150,6 @@ export function useTitheCommitments() {
     loading: loadingCommitments || loadingPayments,
     registerPayment,
     registerDebtPayment,
+    linkExistingTransaction,
   }
 }

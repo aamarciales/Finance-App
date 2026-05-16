@@ -1,5 +1,7 @@
 import type { AppSettings } from '@/types/domain'
 
+const warnedCategoryIds = new Set<number>()
+
 interface TitheResult {
   tithe: number
   offering: number
@@ -26,6 +28,24 @@ export function calculateTitheForIncome(
   }
 
   const categoryConfig = titheConfig?.tithePercentByIncomeCategory?.[categoryId]
+
+  if (
+    !categoryConfig &&
+    titheConfig?.tithePercentByIncomeCategory &&
+    Object.keys(titheConfig.tithePercentByIncomeCategory).length > 0 &&
+    import.meta.env.DEV
+  ) {
+    if (!warnedCategoryIds.has(categoryId)) {
+      console.warn(
+        `[tithe] No tithe config found for categoryId=${categoryId}. ` +
+        `Using defaults (tithe=${defaultTithe}%, offering=${defaultOffering}%). ` +
+        `This may indicate orphan IDs in settings after a category reseed. ` +
+        `Configured IDs: ${Object.keys(titheConfig.tithePercentByIncomeCategory).join(', ')}`,
+      )
+      warnedCategoryIds.add(categoryId)
+    }
+  }
+
   const tithePct = categoryConfig?.tithe ?? defaultTithe
   const offeringPct = categoryConfig?.offering ?? defaultOffering
 

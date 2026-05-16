@@ -39,6 +39,7 @@ export default function TithePage() {
     loading,
     registerPayment,
     registerDebtPayment,
+    linkExistingTransaction,
   } = useTitheCommitments()
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -57,6 +58,42 @@ export default function TithePage() {
   })
   const categories = categoriesData ?? []
   const incomeCategories = categories.filter((c: any) => c.type === 'income')
+  const diezmoCatIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const c of categories) {
+      if (c.name === 'Diezmo' || c.name === 'Diezmo y Ofrenda' || c.name === 'Ofrendas' || c.name === 'Ofrenda') {
+        if (c.id) ids.add(c.id)
+      }
+    }
+    return ids
+  }, [categories])
+
+  // Fetch transactions to find unlinked diezmo/ofrenda expenses
+  const { data: txData } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => api.get<any[]>('/transactions'),
+  })
+
+  // Get payment transaction IDs that are already linked
+  const linkedTxIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const p of payments) {
+      if (p.transactionId) ids.add(p.transactionId)
+    }
+    return ids
+  }, [payments])
+
+  // Unlinked diezmo/ofrenda expense transactions
+  const unlinkedTxs = useMemo(() => {
+    if (!txData) return []
+    return txData.filter((tx: any) =>
+      (tx.type === 'expense' || tx.type === 'debt_payment') &&
+      diezmoCatIds.has(tx.categoryId) &&
+      !linkedTxIds.has(tx.id)
+    )
+  }, [txData, diezmoCatIds, linkedTxIds])
+
+  const [linkingTxId, setLinkingTxId] = useState<number | null>(null)
 
   const titheConfig = settings?.titheConfig
 
@@ -286,6 +323,92 @@ export default function TithePage() {
             </div>
           )}
         </section>
+
+        {/* Unlinked diezmo/ofrenda transactions */}
+        {unlinkedTxs.length > 0 && (
+          <section>
+            <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+              Transacciones sin vincular
+            </h3>
+            <p className="mb-3 text-[12px] text-text-muted">
+              Estas transacciones de diezmo/ofrenda no están asociadas a ningún compromiso. Haz click en "Vincular" para marcar compromisos como pagados.
+            </p>
+            <div className="space-y-2">
+              {unlinkedTxs.map((tx: any) => {
+                const dateLabel = tx.date ? format(parseISO(tx.date), 'dd MMM yyyy', { locale: es }) : '—'
+                const cat = categories.find((c: any) => c.id === tx.categoryId)
+                const isLinking = linkingTxId === tx.id
+                return (
+                  <div key={tx.id} className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="shrink-0 font-mono text-[12px] text-text-muted">{dateLabel}</span>
+                      <span className="truncate text-[13px]">{tx.concept}</span>
+                      {cat && (
+                        <span
+                          className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
+                          style={{ backgroundColor: cat.color + '20', color: cat.color }}
+                        >
+                          {cat.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[13px] font-medium shrink-0">
+                        {tx.currency} {tx.amount.toLocaleString('es-CO', { minimumFractionDigits: tx.currency !== 'COP' ? 2 : 0 })}
+                      </span>
+                      {isLinking ? (
+                        <span className="text-[12px] text-brand">Selecciona compromisos arriba ↑</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLinkingTxId(tx.id)
+                            // Select all pending commitments by default
+                            setSelectedIds(new Set(pendingCommitments.map(c => c.id!)))
+                          }}
+                          className="rounded-md bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand transition-colors hover:bg-brand/20"
+                        >
+                          Vincular
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {linkingTxId && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setLinkingTxId(null)}
+                  className="mr-2 rounded-md border border-border px-3 py-1.5 text-[12px] text-text-muted"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedIds.size === 0 || linkExistingTransaction.isPending}
+                  onClick={async () => {
+                    try {
+                      await linkExistingTransaction.mutateAsync({
+                        transactionId: linkingTxId,
+                        commitmentIds: [...selectedIds],
+                      })
+                      toast.success(`${selectedIds.size} compromiso${selectedIds.size > 1 ? 's' : ''} vinculado${selectedIds.size > 1 ? 's' : ''}`)
+                      setLinkingTxId(null)
+                      setSelectedIds(new Set())
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : 'Error al vincular')
+                    }
+                  }}
+                  className="rounded-md bg-brand px-4 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+                >
+                  {linkExistingTransaction.isPending ? 'Vinculando…' : `Confirmar vinculación (${selectedIds.size})`}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Generate commitments for existing income */}
         {pendingCommitments.length === 0 && (

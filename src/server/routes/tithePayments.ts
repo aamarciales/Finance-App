@@ -176,6 +176,93 @@ tithePaymentsRouter.post('/debt-payment', async (c) => {
   return c.json({ previousDebt: currentDebt, amountPaid: amountUsd, remainingDebt: newDebt })
 })
 
+// POST /api/tithe-payments/link-existing — link an existing expense transaction to commitments
+tithePaymentsRouter.post('/link-existing', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const body = await c.req.json()
+  const { transactionId, commitmentIds } = body
+
+  if (!transactionId || !commitmentIds?.length) {
+    return c.json({ error: 'Selecciona una transacción y al menos un compromiso' }, 400)
+  }
+
+  const db = drizzle(c.env.DB, { schema })
+
+  // Verify the transaction belongs to user and is an expense in Diezmo/Ofrenda category
+  const tx = await db.query.transactions.findFirst({
+    where: (t, { eq, and }) => and(eq(t.id, transactionId), eq(t.userId, auth.userId)),
+  })
+
+  if (!tx) {
+    return c.json({ error: 'Transacción no encontrada' }, 404)
+  }
+
+  // Find Diezmo/Ofrenda categories
+  const diezmoCats = await db.query.categories.findMany({
+    where: (cat, { eq, and, or }) => and(
+      eq(cat.userId, auth.userId),
+      or(
+        eq(cat.name, 'Diezmo'),
+        eq(cat.name, 'Diezmo y Ofrenda'),
+        eq(cat.name, 'Ofrendas'),
+        eq(cat.name, 'Ofrenda'),
+      ),
+    ),
+  })
+  const diezmoCatIds = new Set(diezmoCats.map(c => c.id))
+
+  if (!diezmoCatIds.has(tx.categoryId)) {
+    return c.json({ error: 'La transacción no es de la categoría Diezmo u Ofrendas' }, 400)
+  }
+
+  // Verify commitments
+  const commitments = await db.query.titheCommitments.findMany({
+    where: (tc, { eq, and }) => and(
+      eq(tc.userId, auth.userId),
+      // commitmentIds is an array
+    ),
+  })
+
+  // Filter to valid pending ones
+  const validCommitments = commitments.filter(tc =>
+    commitmentIds.includes(tc.id) && tc.status === 'pending'
+  )
+
+  if (validCommitments.length === 0) {
+    return c.json({ error: 'No hay compromisos pendientes válidos' }, 400)
+  }
+
+  // Create a tithe_payment record linking the existing transaction
+  const paymentResult = await db.insert(schema.tithePayments).values({
+    userId: auth.userId,
+    date: tx.date,
+    amountUsd: tx.amountInBase,
+    amountCop: tx.amountInSecondary || null,
+    currency: tx.currency,
+    paidTo: 'Transacción existente',
+    type: 'both',
+    notes: `Vinculado a transacción #${tx.id}: ${tx.concept}`,
+    transactionId: tx.id,
+    createdAt: new Date().toISOString(),
+  }).returning()
+
+  // Mark commitments as paid
+  for (const commitment of validCommitments) {
+    await db.update(schema.titheCommitments).set({
+      status: 'paid',
+      tithePaymentId: paymentResult[0].id,
+    }).where(eq(schema.titheCommitments.id, commitment.id))
+  }
+
+  return c.json({
+    payment: paymentResult[0],
+    linkedCount: validCommitments.length,
+    transactionId: tx.id,
+  })
+})
+
 // DELETE /api/tithe-payments/:id
 tithePaymentsRouter.delete('/:id', async (c) => {
   const auth = getAuth(c)
