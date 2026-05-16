@@ -5,31 +5,21 @@ import {
   Wallet, TrendingUp, TrendingDown, Heart, ArrowRight,
   Paperclip, ChevronRight, Banknote,
 } from 'lucide-react'
+import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Money } from '@/components/common/Money'
 import { Badge } from '@/components/common/Badge'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { ExpensesByCategory } from '@/components/charts/ExpensesByCategory'
 import { MonthlyTrend } from '@/components/charts/MonthlyTrend'
-import { useDashboard, type EnrichedTransaction } from '@/hooks/useDashboard'
+import { useDashboard, type EnrichedTransaction, type DashboardPeriod } from '@/hooks/useDashboard'
 import { useSettings } from '@/hooks/useSettings'
 import { useUser } from '@clerk/clerk-react'
-import type { BadgeTone } from '@/components/common/Badge'
-
-const CATEGORY_TONE_MAP: Record<string, BadgeTone> = {
-  Supermercado: 'green', 'Comida fuera': 'gold', Transporte: 'warm',
-  Servicios: 'info', Salud: 'info', 'Educación': 'info', Hogar: 'gray',
-  Diezmo: 'gold', Ofrendas: 'gold', Deuda: 'danger', Impuestos: 'gray',
-  Otros: 'gray', Freelance: 'green', Sueldo: 'green', 'Otros ingresos': 'gray',
-  Transferencias: 'gray', 'Comisiones bancarias': 'warm', 'Intereses bancarios': 'danger',
-  Mercado: 'green', Prestamo: 'gray', Perdida: 'danger', Adelanto: 'green',
-  'Cobro Deuda': 'green', Suscripciones: 'info', Mascotas: 'gray', Teléfono: 'warm',
-  Iglesia: 'gold', Vivienda: 'gray',
-}
 
 export default function DashboardPage() {
   const { settings } = useSettings()
-  const data = useDashboard()
+  const [period, setPeriod] = useState<DashboardPeriod>('this-month')
+  const data = useDashboard(period)
   const { user } = useUser()
 
   const now = new Date()
@@ -38,6 +28,16 @@ export default function DashboardPage() {
     hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
   const monthLabel = format(now, "LLLL yyyy", { locale: es })
   const month = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)
+
+  const PERIOD_LABELS: Record<DashboardPeriod, string> = {
+    'this-month': month,
+    'last-month': 'Mes anterior',
+    'this-week': 'Esta semana',
+    'quarter': 'Trimestral',
+    'semester': 'Semestral',
+    'year': 'Anual',
+    'all': 'Desde inicio',
+  }
   
   // Prioriza el nombre de Clerk (Google), luego el de Dexie, luego genérico
   const name = user?.firstName || settings?.displayName || 'Usuario'
@@ -54,13 +54,14 @@ export default function DashboardPage() {
             {greeting}, <em className="not-italic font-serif italic text-brand">{name}</em>.
           </>
         }
-        subtitle={`${month} · Resumen del mes en curso`}
+        subtitle={`${PERIOD_LABELS[period]} · Resumen financiero`}
       />
 
       {data.loading ? (
         <div className="py-10 text-center text-text-muted">Cargando…</div>
       ) : (
       <div className="space-y-6">
+        <PeriodTabs value={period} onChange={setPeriod} />
         {/* Insight Banner */}
         {data.insight && <InsightBanner insight={data.insight} formatCop={formatCop} />}
 
@@ -238,7 +239,6 @@ function TitheCard({ breakdown, formatCop }: { breakdown: ReturnType<typeof useD
 function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
   const isIncome = tx.type === 'income'
   const dateLabel = format(parseISO(tx.date), 'dd MMM', { locale: es })
-  const tone = CATEGORY_TONE_MAP[tx.category.name] ?? 'gray'
   const hasInvoice = !!tx.invoiceId
   const hasAttachment = !!(tx.attachmentIds && tx.attachmentIds.length > 0)
 
@@ -256,7 +256,7 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <Badge tone={tone} className="hidden sm:inline-flex">{tx.category.name}</Badge>
+        <Badge tone="gray" color={tx.category.color} className="hidden sm:inline-flex">{tx.category.name}</Badge>
         <span className="shrink-0">
           <Money
             amount={isIncome ? tx.amount : -tx.amount}
@@ -269,6 +269,36 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
           <ChevronRight className="h-4 w-4 text-text-faint shrink-0" />
         )}
       </div>
+    </div>
+  )
+}
+
+const PERIOD_TABS: { value: DashboardPeriod; label: string }[] = [
+  { value: 'this-month', label: 'Mensual' },
+  { value: 'this-week', label: 'Semanal' },
+  { value: 'quarter', label: 'Trimestral' },
+  { value: 'semester', label: 'Semestral' },
+  { value: 'year', label: 'Anual' },
+  { value: 'all', label: 'Desde inicio' },
+]
+
+function PeriodTabs({ value, onChange }: { value: DashboardPeriod; onChange: (v: DashboardPeriod) => void }) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto">
+      {PERIOD_TABS.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          onClick={() => onChange(tab.value)}
+          className={`rounded-md px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
+            tab.value === value
+              ? 'bg-surface text-text font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-border'
+              : 'text-text-muted hover:bg-black/[0.03] hover:text-text'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
     </div>
   )
 }

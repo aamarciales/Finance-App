@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns'
 import { useApi } from '@/lib/api'
 import { calculateTitheForIncome } from '@/lib/tithe'
 import { useSettings } from '@/hooks/useSettings'
 import type { Category, Transaction } from '@/types/domain'
+
+export type DashboardPeriod = 'this-month' | 'last-month' | 'this-week' | 'quarter' | 'semester' | 'year' | 'all'
 
 export interface EnrichedTransaction extends Transaction {
   category: Category
@@ -57,15 +59,62 @@ function isKpiTransaction(tx: Transaction): boolean {
   return tx.type !== 'transfer'
 }
 
-export function useDashboard(): DashboardData {
+export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardData {
   const { settings } = useSettings()
 
   const now = new Date()
-  const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
-  const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd')
-  const trendStart = format(startOfMonth(subMonths(now, 5)), 'yyyy-MM-dd')
-  const prevMonthStart = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
-  const prevMonthEnd = format(endOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
+
+  const { periodStart, periodEnd, trendStart, prevPeriodStart, prevPeriodEnd } = useMemo(() => {
+    let ps: Date, pe: Date
+    switch (period) {
+      case 'this-week':
+        ps = startOfWeek(now, { weekStartsOn: 1 })
+        pe = endOfWeek(now, { weekStartsOn: 1 })
+        break
+      case 'last-month':
+        ps = startOfMonth(subMonths(now, 1))
+        pe = endOfMonth(subMonths(now, 1))
+        break
+      case 'quarter':
+        ps = startOfQuarter(now)
+        pe = endOfQuarter(now)
+        break
+      case 'semester': {
+        const m = now.getMonth()
+        ps = m < 6 ? new Date(now.getFullYear(), 0, 1) : new Date(now.getFullYear(), 6, 1)
+        pe = m < 6 ? new Date(now.getFullYear(), 5, 30) : new Date(now.getFullYear(), 11, 31)
+        break
+      }
+      case 'year':
+        ps = startOfYear(now)
+        pe = endOfYear(now)
+        break
+      case 'all':
+        ps = new Date('1970-01-01')
+        pe = now
+        break
+      default: // this-month
+        ps = startOfMonth(now)
+        pe = endOfMonth(now)
+    }
+
+    const durationDays = (pe.getTime() - ps.getTime()) / (1000 * 60 * 60 * 24)
+    const prevPe = new Date(ps.getTime() - 1)
+    const prevPs = new Date(prevPe.getTime() - durationDays * 1000 * 60 * 60 * 24)
+
+    return {
+      periodStart: format(ps, 'yyyy-MM-dd'),
+      periodEnd: format(pe, 'yyyy-MM-dd'),
+      trendStart: format(startOfMonth(subMonths(now, 5)), 'yyyy-MM-dd'),
+      prevPeriodStart: format(prevPs, 'yyyy-MM-dd'),
+      prevPeriodEnd: format(prevPe, 'yyyy-MM-dd'),
+    }
+  }, [period])
+
+  const monthStart = periodStart
+  const monthEnd = periodEnd
+  const prevMonthStart = prevPeriodStart
+  const prevMonthEnd = prevPeriodEnd
 
   const api = useApi()
 
@@ -310,5 +359,5 @@ export function useDashboard(): DashboardData {
       availableCapitalCop,
       loading: false,
     }
-  }, [transactions, categories, categoryMap, settings, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd])
+  }, [transactions, categories, categoryMap, settings, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period])
 }
