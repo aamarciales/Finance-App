@@ -6,19 +6,15 @@
 
 ## Bugs activos (ordenados por prioridad)
 
-### Bug D · Lista de transacciones no se refresca tras wizard de pago internacional
-**Síntoma**: completar wizard → la nueva transacción no aparece en `/transactions` sin F5.
-**Fix sugerido**: agregar `queryClient.invalidateQueries({ queryKey: ['transactions'] })` en el `onSuccess` del mutation del wizard.
+### Bug E · Colores editados de categorías no se reflejan en badges
+**Síntoma**: editar color de categoría → badges en `/transactions` siguen con color anterior incluso tras refresh.
+**Fix sugerido**: revisar cómo se construye la fila enriched en `useTransactions`. Probable lookup local con Map que no se actualiza.
 
 ### Bug C parte 2 · Defensiva titheConfig — no urgente
 **Síntoma**: si los IDs en titheConfig quedan huérfanos (categoría borrada), la app silenciosamente cae al default.
 **Fix**:
 1. `src/lib/tithe.ts`: `console.warn` en dev cuando se cae al default por ID huérfano (con Set para no spamear).
 2. `wipe-my-data` endpoint: ya borra settings, OK. Verificar que el seed después no deje IDs huérfanos en titheConfig.
-
-### Bug E · Colores editados de categorías no se reflejan en badges
-**Síntoma**: editar color de categoría → badges en `/transactions` siguen con color anterior incluso tras refresh.
-**Fix sugerido**: revisar cómo se construye la fila enriched en `useTransactions`. Probable lookup local con Map que no se actualiza.
 
 ---
 
@@ -28,8 +24,10 @@
 - [x] Bug H — cerrado sesión 6 (TRM corregida manualmente + guard backend)
 - [x] Bug G — cerrado sesión 6 (InvoiceQuickView ahora hace fetch real)
 - [x] Botón "Importar JSON" en /settings — cerrado sesión 6
-- [ ] Bug D — transacciones no refrescan tras wizard
-- [ ] Bugs C2/E si queda tiempo
+- [ ] Bug D — cerrado sesión 6 (invalidateQueries)
+- [x] Wizard UX — cerrado sesión 6 (back button en header, footer fijo, dialog centrado, botón confirmar acortado)
+- [ ] Bug E — colores de categorías en badges
+- [ ] Bug C2 — defensiva titheConfig
 
 ### Sesión 6.5 — Importar CSV a factura (importante, Andrés tiene varias facturas pendientes)
 - [ ] Botón "Importar CSV" en `/invoices` (o wizard)

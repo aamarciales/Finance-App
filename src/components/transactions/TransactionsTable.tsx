@@ -168,7 +168,7 @@ function TxRow({
               style={{ color: tx.category.color }}
             />
           )}
-          <Badge tone={getTone(tx.category.name)}>{tx.category.name}</Badge>
+          <Badge tone={getTone(tx.category.name)} color={tx.category.color}>{tx.category.name}</Badge>
           {tx.isRecurring && (
             <RotateCw className="h-3 w-3 text-text-faint" />
           )}
