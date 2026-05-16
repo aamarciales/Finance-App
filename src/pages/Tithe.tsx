@@ -12,6 +12,7 @@ import {
   Save,
   X,
   HandCoins,
+  Link,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -40,6 +41,7 @@ export default function TithePage() {
     registerPayment,
     registerDebtPayment,
     linkExistingTransaction,
+    linkDebtPayment,
   } = useTitheCommitments()
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -268,11 +270,13 @@ export default function TithePage() {
                     <th className="px-3 py-2 text-right font-medium">Ingreso</th>
                     <th className="px-3 py-2 text-center font-medium">%</th>
                     <th className="px-3 py-2 text-right font-medium">A apartar</th>
+                    <th className="px-3 py-2 text-right font-medium">Pagado</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingCommitments.map(c => {
                     const copEquivalent = Math.round(c.totalAmount * c.incomeTrm)
+                    const paidPct = c.totalAmount > 0 ? Math.round((c.amountPaidUsd / c.totalAmount) * 100) : 0
                     return (
                       <tr
                         key={c.id}
@@ -303,6 +307,21 @@ export default function TithePage() {
                           <div>USD {c.totalAmount.toFixed(2)}</div>
                           <div className="text-[11px] text-text-muted">${copEquivalent.toLocaleString('es-CO')} COP</div>
                         </td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {c.amountPaidUsd > 0 ? (
+                            <div>
+                              <div className="text-[12px]">USD {c.amountPaidUsd.toFixed(2)}</div>
+                              <div className="mt-0.5 h-1.5 w-full rounded-full bg-surface-2">
+                                <div
+                                  className={`h-1.5 rounded-full ${paidPct >= 100 ? 'bg-brand' : 'bg-gold'}`}
+                                  style={{ width: `${Math.min(paidPct, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-text-faint">—</span>
+                          )}
+                        </td>
                       </tr>
                     )
                   })}
@@ -310,10 +329,11 @@ export default function TithePage() {
                 <tfoot>
                   <tr className="border-t border-border font-medium bg-surface-2/40">
                     <td className="px-3 py-2" />
-                    <td className="px-3 py-2" colSpan={4}>Total seleccionado</td>
+                    <td className="px-3 py-2" colSpan={5}>Total seleccionado</td>
                     <td className="px-3 py-2 text-right font-mono">
-                      USD {selectedCommitments.reduce((s, c) => s + c.totalAmount, 0).toFixed(2)}
+                      USD {selectedCommitments.reduce((s, c) => s + c.totalAmount - c.amountPaidUsd, 0).toFixed(2)}
                     </td>
+                    <td />
                   </tr>
                 </tfoot>
               </table>
@@ -490,7 +510,27 @@ export default function TithePage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-end gap-2">
+                {unlinkedTxs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const tx = unlinkedTxs[0]
+                      if (!tx?.id) return
+                      try {
+                        await linkDebtPayment.mutateAsync({ transactionId: tx.id })
+                        toast.success('Transacción vinculada como abono a deuda espiritual')
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Error al vincular deuda')
+                      }
+                    }}
+                    disabled={linkDebtPayment.isPending || !unlinkedTxs[0]?.id}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 px-3 py-1.5 text-[12px] font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+                  >
+                    <Link className="h-3.5 w-3.5" />
+                    Vincular transacción
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setDebtPaymentOpen(true)}

@@ -42,6 +42,7 @@ export interface EnrichedTitheCommitment extends TitheCommitment {
   incomeConcept: string
   incomeCategory: number
   incomeOriginalAmount: number
+  amountPaidUsd: number
 }
 
 export interface MonthlyCompliance {
@@ -75,7 +76,7 @@ export function useTitheCommitments() {
   const payments = paymentsData ?? []
 
   const pendingCommitments = useMemo(
-    () => commitments.filter(c => c.status === 'pending'),
+    () => commitments.filter(c => c.status === 'pending' || c.status === 'partial'),
     [commitments],
   )
 
@@ -137,6 +138,17 @@ export function useTitheCommitments() {
     },
   })
 
+  const linkDebtPayment = useMutation({
+    mutationFn: (data: { transactionId: number; commitmentIds?: number[] }) =>
+      api.post('/tithe-payments/debt-link', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+      queryClient.invalidateQueries({ queryKey: ['tithe-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    },
+  })
+
   const titheDebtUsd = settings?.titheDebtUsd ?? 0
 
   return {
@@ -151,5 +163,6 @@ export function useTitheCommitments() {
     registerPayment,
     registerDebtPayment,
     linkExistingTransaction,
+    linkDebtPayment,
   }
 }

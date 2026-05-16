@@ -1,12 +1,46 @@
 import { Hono } from 'hono'
 import { getAuth } from '@hono/clerk-auth'
 import { drizzle } from 'drizzle-orm/d1'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import * as schema from '../schema'
 import { getEquivalentAmounts } from '../../lib/currency'
 import type { AppEnv } from '../types'
 
 export const tithePaymentsRouter = new Hono<AppEnv>()
+
+type DbClient = ReturnType<typeof drizzle<typeof schema>>
+
+async function findDiezmoCategories(db: DbClient, userId: string) {
+  return db.query.categories.findMany({
+    where: (cat, { eq, and, or }) => and(
+      eq(cat.userId, userId),
+      or(
+        eq(cat.name, 'Diezmo'),
+        eq(cat.name, 'Diezmo y Ofrenda'),
+        eq(cat.name, 'Ofrendas'),
+        eq(cat.name, 'Ofrenda'),
+      ),
+    ),
+  })
+}
+
+async function recalcCommitmentStatus(db: DbClient, commitmentId: number) {
+  const result = await db
+    .select({ totalPaid: sql<number>`COALESCE(SUM(${schema.commitmentPayments.amountUsd}), 0)` })
+    .from(schema.commitmentPayments)
+    .where(eq(schema.commitmentPayments.commitmentId, commitmentId))
+
+  const commitment = await db.query.titheCommitments.findFirst({
+    where: (tc, { eq }) => eq(tc.id, commitmentId),
+  })
+  if (!commitment) return
+
+  const totalPaid = result[0]?.totalPaid ?? 0
+  const newStatus = totalPaid >= commitment.totalAmount ? 'paid' : totalPaid > 0 ? 'partial' : 'pending'
+
+  await db.update(schema.titheCommitments).set({ status: newStatus })
+    .where(eq(schema.titheCommitments.id, commitmentId))
+}
 
 // GET /api/tithe-payments
 tithePaymentsRouter.get('/', async (c) => {
@@ -36,7 +70,7 @@ tithePaymentsRouter.post('/', async (c) => {
 
   const db = drizzle(c.env.DB, { schema })
 
-  // Validate commitments belong to user and are pending
+  // Validate commitments belong to user and are not fully paid
   const commitments = await db.query.titheCommitments.findMany({
     where: (tc, { eq, and, inArray }) => and(
       eq(tc.userId, auth.userId),
@@ -44,21 +78,17 @@ tithePaymentsRouter.post('/', async (c) => {
     ),
   })
 
-  const invalidCommitments = commitments.filter(tc => tc.status !== 'pending')
-  if (invalidCommitments.length > 0) {
-    return c.json({ error: 'Algunos compromisos ya fueron pagados' }, 400)
+  const alreadyPaid = commitments.filter(tc => tc.status === 'paid')
+  if (alreadyPaid.length > 0) {
+    return c.json({ error: 'Algunos compromisos ya fueron pagados completamente' }, 400)
   }
   if (commitments.length !== commitmentIds.length) {
     return c.json({ error: 'Algunos compromisos no existen o no te pertenecen' }, 400)
   }
 
-  // Find "Diezmo" or "Diezmo y Ofrenda" category for the expense transaction
-  const diezmoCat = await db.query.categories.findFirst({
-    where: (cat, { eq, and, or }) => and(
-      eq(cat.userId, auth.userId),
-      or(eq(cat.name, 'Diezmo'), eq(cat.name, 'Diezmo y Ofrenda')),
-    ),
-  })
+  // Find Diezmo/Ofrenda category
+  const diezmoCats = await findDiezmoCategories(db, auth.userId)
+  const diezmoCat = diezmoCats[0]
   if (!diezmoCat?.id) {
     return c.json({ error: 'No existe la categoría "Diezmo"' }, 400)
   }
@@ -98,12 +128,21 @@ tithePaymentsRouter.post('/', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  // Mark commitments as paid
+  // Distribute payment across commitments proportionally
+  const totalCommitmentAmount = commitments.reduce((s, c) => s + c.totalAmount, 0)
   for (const commitment of commitments) {
-    await db.update(schema.titheCommitments).set({
-      status: 'paid',
-      tithePaymentId: paymentResult[0].id,
-    }).where(eq(schema.titheCommitments.id, commitment.id))
+    const share = totalCommitmentAmount > 0
+      ? Math.round((commitment.totalAmount / totalCommitmentAmount) * amountUsd * 100) / 100
+      : commitment.totalAmount
+
+    await db.insert(schema.commitmentPayments).values({
+      commitmentId: commitment.id,
+      paymentId: paymentResult[0].id,
+      amountUsd: share,
+      createdAt: new Date().toISOString(),
+    })
+
+    await recalcCommitmentStatus(db, commitment.id)
   }
 
   return c.json({ payment: paymentResult[0], transaction: txResult[0], paidCount: commitments.length })
@@ -123,18 +162,12 @@ tithePaymentsRouter.post('/debt-payment', async (c) => {
 
   const db = drizzle(c.env.DB, { schema })
 
-  // Find Diezmo category
-  const diezmoCat = await db.query.categories.findFirst({
-    where: (cat, { eq, and, or }) => and(
-      eq(cat.userId, auth.userId),
-      or(eq(cat.name, 'Diezmo'), eq(cat.name, 'Diezmo y Ofrenda')),
-    ),
-  })
+  const diezmoCats = await findDiezmoCategories(db, auth.userId)
+  const diezmoCat = diezmoCats[0]
   if (!diezmoCat?.id) {
     return c.json({ error: 'No existe la categoría "Diezmo" ni "Diezmo y Ofrenda"' }, 400)
   }
 
-  // Create expense transaction
   const rates = { trm: trm || 1, eurToUsd: 1.05 }
   const { amountInBase, amountInSecondary } = getEquivalentAmounts(amountUsd, currency || 'USD', rates)
 
@@ -154,7 +187,6 @@ tithePaymentsRouter.post('/debt-payment', async (c) => {
     updatedAt: new Date().toISOString(),
   })
 
-  // Decrease titheDebtUsd in settings
   const debtSetting = await db.query.settings.findFirst({
     where: (s, { eq, and }) => and(eq(s.key, 'titheDebtUsd'), eq(s.userId, auth.userId)),
   })
@@ -190,7 +222,6 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
 
   const db = drizzle(c.env.DB, { schema })
 
-  // Verify the transaction belongs to user and is an expense in Diezmo/Ofrenda category
   const tx = await db.query.transactions.findFirst({
     where: (t, { eq, and }) => and(eq(t.id, transactionId), eq(t.userId, auth.userId)),
   })
@@ -199,25 +230,14 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     return c.json({ error: 'Transacción no encontrada' }, 404)
   }
 
-  // Find Diezmo/Ofrenda categories
-  const diezmoCats = await db.query.categories.findMany({
-    where: (cat, { eq, and, or }) => and(
-      eq(cat.userId, auth.userId),
-      or(
-        eq(cat.name, 'Diezmo'),
-        eq(cat.name, 'Diezmo y Ofrenda'),
-        eq(cat.name, 'Ofrendas'),
-        eq(cat.name, 'Ofrenda'),
-      ),
-    ),
-  })
+  const diezmoCats = await findDiezmoCategories(db, auth.userId)
   const diezmoCatIds = new Set(diezmoCats.map(c => c.id))
 
   if (!diezmoCatIds.has(tx.categoryId)) {
     return c.json({ error: 'La transacción no es de la categoría Diezmo u Ofrendas' }, 400)
   }
 
-  // Verify commitments
+  // Get commitments — allow pending AND partial
   const commitments = await db.query.titheCommitments.findMany({
     where: (tc, { eq, and, inArray }) => and(
       eq(tc.userId, auth.userId),
@@ -225,14 +245,12 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     ),
   })
 
-  // Filter to valid pending ones
-  const validCommitments = commitments.filter(tc => tc.status === 'pending')
+  const validCommitments = commitments.filter(tc => tc.status !== 'paid')
 
   if (validCommitments.length === 0) {
     return c.json({ error: 'No hay compromisos pendientes válidos' }, 400)
   }
 
-  // Create a tithe_payment record linking the existing transaction
   const paymentResult = await db.insert(schema.tithePayments).values({
     userId: auth.userId,
     date: tx.date,
@@ -246,18 +264,127 @@ tithePaymentsRouter.post('/link-existing', async (c) => {
     createdAt: new Date().toISOString(),
   }).returning()
 
-  // Mark commitments as paid
+  // Distribute payment amount across commitments proportionally
+  const totalCommitmentAmount = validCommitments.reduce((s, c) => s + c.totalAmount, 0)
+  const paymentAmount = tx.amountInBase
+
   for (const commitment of validCommitments) {
-    await db.update(schema.titheCommitments).set({
-      status: 'paid',
-      tithePaymentId: paymentResult[0].id,
-    }).where(eq(schema.titheCommitments.id, commitment.id))
+    const share = totalCommitmentAmount > 0
+      ? Math.round((commitment.totalAmount / totalCommitmentAmount) * paymentAmount * 100) / 100
+      : commitment.totalAmount
+
+    await db.insert(schema.commitmentPayments).values({
+      commitmentId: commitment.id,
+      paymentId: paymentResult[0].id,
+      amountUsd: share,
+      createdAt: new Date().toISOString(),
+    })
+
+    await recalcCommitmentStatus(db, commitment.id)
   }
 
   return c.json({
     payment: paymentResult[0],
     linkedCount: validCommitments.length,
     transactionId: tx.id,
+  })
+})
+
+// POST /api/tithe-payments/debt-link — link an existing transaction as debt payment + optionally cover commitments
+tithePaymentsRouter.post('/debt-link', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const body = await c.req.json()
+  const { transactionId, commitmentIds } = body
+
+  if (!transactionId) {
+    return c.json({ error: 'Selecciona una transacción' }, 400)
+  }
+
+  const db = drizzle(c.env.DB, { schema })
+
+  const tx = await db.query.transactions.findFirst({
+    where: (t, { eq, and }) => and(eq(t.id, transactionId), eq(t.userId, auth.userId)),
+  })
+
+  if (!tx) {
+    return c.json({ error: 'Transacción no encontrada' }, 404)
+  }
+
+  const diezmoCats = await findDiezmoCategories(db, auth.userId)
+  const diezmoCatIds = new Set(diezmoCats.map(c => c.id))
+  if (!diezmoCatIds.has(tx.categoryId)) {
+    return c.json({ error: 'La transacción no es de la categoría Diezmo u Ofrendas' }, 400)
+  }
+
+  // Decrease titheDebtUsd
+  const debtSetting = await db.query.settings.findFirst({
+    where: (s, { eq, and }) => and(eq(s.key, 'titheDebtUsd'), eq(s.userId, auth.userId)),
+  })
+
+  const currentDebt = debtSetting?.value != null ? Number(debtSetting.value) : 0
+  const newDebt = Math.max(0, currentDebt - tx.amountInBase)
+
+  if (debtSetting) {
+    await db.update(schema.settings).set({ value: newDebt })
+      .where(and(eq(schema.settings.key, 'titheDebtUsd'), eq(schema.settings.userId, auth.userId)))
+  } else {
+    await db.insert(schema.settings).values({
+      key: 'titheDebtUsd',
+      userId: auth.userId,
+      value: newDebt,
+    })
+  }
+
+  // Optionally link to commitments
+  let linkedCount = 0
+  if (commitmentIds?.length) {
+    const commitments = await db.query.titheCommitments.findMany({
+      where: (tc, { eq, and, inArray }) => and(
+        eq(tc.userId, auth.userId),
+        inArray(tc.id, commitmentIds),
+      ),
+    })
+    const validCommitments = commitments.filter(tc => tc.status !== 'paid')
+
+    const paymentResult = await db.insert(schema.tithePayments).values({
+      userId: auth.userId,
+      date: tx.date,
+      amountUsd: tx.amountInBase,
+      amountCop: tx.amountInSecondary || null,
+      currency: tx.currency,
+      paidTo: 'Deuda espiritual',
+      type: 'both',
+      notes: `Deuda espiritual — vinculado a tx #${tx.id}: ${tx.concept}`,
+      transactionId: tx.id,
+      createdAt: new Date().toISOString(),
+    }).returning()
+
+    const totalCommitmentAmount = validCommitments.reduce((s, c) => s + c.totalAmount, 0)
+    for (const commitment of validCommitments) {
+      const share = totalCommitmentAmount > 0
+        ? Math.round((commitment.totalAmount / totalCommitmentAmount) * tx.amountInBase * 100) / 100
+        : commitment.totalAmount
+
+      await db.insert(schema.commitmentPayments).values({
+        commitmentId: commitment.id,
+        paymentId: paymentResult[0].id,
+        amountUsd: share,
+        createdAt: new Date().toISOString(),
+      })
+
+      await recalcCommitmentStatus(db, commitment.id)
+    }
+
+    linkedCount = validCommitments.length
+  }
+
+  return c.json({
+    previousDebt: currentDebt,
+    amountUsed: tx.amountInBase,
+    remainingDebt: newDebt,
+    linkedCount,
   })
 })
 
@@ -269,7 +396,6 @@ tithePaymentsRouter.delete('/:id', async (c) => {
   const id = parseInt(c.req.param('id'), 10)
   const db = drizzle(c.env.DB, { schema })
 
-  // Find the payment
   const payment = await db.query.tithePayments.findFirst({
     where: (tp, { eq, and }) => and(eq(tp.id, id), eq(tp.userId, auth.userId)),
   })
@@ -278,13 +404,23 @@ tithePaymentsRouter.delete('/:id', async (c) => {
     return c.json({ error: 'Pago no encontrado' }, 404)
   }
 
-  // Revert linked commitments to pending
-  await db.update(schema.titheCommitments).set({
-    status: 'pending',
-    tithePaymentId: null,
-  }).where(eq(schema.titheCommitments.tithePaymentId, id))
+  // Find affected commitment IDs before deleting
+  const affectedLinks = await db.query.commitmentPayments.findMany({
+    where: (cp, { eq }) => eq(cp.paymentId, id),
+    columns: { commitmentId: true },
+  })
+  const affectedCommitmentIds = affectedLinks.map(l => l.commitmentId)
 
-  // Delete the associated transaction if exists
+  // Delete commitment_payments
+  await db.delete(schema.commitmentPayments)
+    .where(eq(schema.commitmentPayments.paymentId, id))
+
+  // Recalculate affected commitments
+  for (const cid of affectedCommitmentIds) {
+    await recalcCommitmentStatus(db, cid)
+  }
+
+  // Delete the associated transaction if it was created by us (not linked-existing)
   if (payment.transactionId) {
     await db.delete(schema.transactions).where(
       and(eq(schema.transactions.id, payment.transactionId), eq(schema.transactions.userId, auth.userId))

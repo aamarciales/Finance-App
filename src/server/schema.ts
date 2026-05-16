@@ -105,8 +105,16 @@ export const titheCommitments = sqliteTable('tithe_commitments', {
   titheAmount: real('tithe_amount').notNull(),
   offeringAmount: real('offering_amount').notNull(),
   totalAmount: real('total_amount').notNull(),
-  status: text('status', { enum: ['pending', 'paid'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'partial', 'paid'] }).notNull().default('pending'),
   tithePaymentId: integer('tithe_payment_id'),
+  createdAt: text('created_at').notNull(),
+})
+
+export const commitmentPayments = sqliteTable('commitment_payments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  commitmentId: integer('commitment_id').notNull(),
+  paymentId: integer('payment_id').notNull(),
+  amountUsd: real('amount_usd').notNull(),
   createdAt: text('created_at').notNull(),
 })
 
