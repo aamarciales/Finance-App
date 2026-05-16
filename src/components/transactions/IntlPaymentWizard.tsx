@@ -243,7 +243,10 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   })()
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => {
+      if (!v) setCustomPlatform(false)
+      onOpenChange(v)
+    }}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">

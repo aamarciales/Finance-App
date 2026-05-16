@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -115,12 +115,14 @@ export default function CategoriesPage() {
             items={expenseCategories}
             onEdit={setEditCategory}
             onDelete={setDeleteTarget}
+            onDuplicate={(c) => createMutation.mutate({ name: `${c.name} (copia)`, color: c.color, icon: c.icon, type: c.type })}
           />
           <CategoryGroup
             title="Ingresos"
             items={incomeCategories}
             onEdit={setEditCategory}
             onDelete={setDeleteTarget}
+            onDuplicate={(c) => createMutation.mutate({ name: `${c.name} (copia)`, color: c.color, icon: c.icon, type: c.type })}
           />
         </div>
       )}
@@ -157,11 +159,13 @@ function CategoryGroup({
   items,
   onEdit,
   onDelete,
+  onDuplicate,
 }: {
   title: string
   items: Category[]
   onEdit: (c: Category) => void
   onDelete: (c: Category) => void
+  onDuplicate: (c: Category) => void
 }) {
   return (
     <div>
@@ -186,6 +190,19 @@ function CategoryGroup({
               )}
             </span>
             <span className="inline-flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
+                    onClick={() => onDuplicate(c)}
+                    aria-label="Duplicar"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Duplicar categoría</TooltipContent>
+              </Tooltip>
               <button
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
