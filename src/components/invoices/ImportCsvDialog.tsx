@@ -204,7 +204,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories }: ImportCsvDia
       items: parsed.items.map(i => ({
         name: i.name,
         quantity: i.quantity,
-        unitPrice: i.unitPrice,
+        unitPrice: i.totalPrice > 0 && i.quantity > 0 ? i.totalPrice / i.quantity : i.unitPrice,
         ...(i.subCategory ? { subCategory: i.subCategory } : {}),
       })),
     }
