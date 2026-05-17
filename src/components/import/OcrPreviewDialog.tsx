@@ -57,6 +57,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const [saving, setSaving] = useState(false)
 
   const total = items.reduce((s, i) => s + i.quantity * i.price, 0)
+  const realConfidence = result.realConfidence ?? 'low'
 
   function updateItem(index: number, field: keyof OcrItem, value: string | number) {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item))
@@ -93,8 +94,12 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
     }
   }
 
-  const confidenceTone: 'green' | 'gold' | 'danger' = result.confidence > 0.9 ? 'green' : result.confidence > 0.7 ? 'gold' : 'danger'
-  const confidenceLabel = result.confidence > 0.9 ? 'Alta confianza' : result.confidence > 0.7 ? 'Revisar datos' : 'Baja confianza'
+  const confidenceBadge: { tone: 'green' | 'gold' | 'danger'; label: string } =
+    realConfidence === 'high'
+      ? { tone: 'green', label: 'Validado' }
+      : realConfidence === 'medium'
+        ? { tone: 'gold', label: 'Revisar montos' }
+        : { tone: 'danger', label: 'Revisión obligatoria' }
 
   const imageUrl = URL.createObjectURL(imageBlob)
 
@@ -108,7 +113,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <h2 className="font-serif text-xl">Resultado OCR</h2>
-                  <Badge tone={confidenceTone}>{confidenceLabel} ({(result.confidence * 100).toFixed(0)}%)</Badge>
+                  <Badge tone={confidenceBadge.tone}>{confidenceBadge.label}</Badge>
                 </div>
               </div>
             </div>
@@ -161,6 +166,13 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Validation warning */}
+                {realConfidence === 'low' && result.validation && (
+                  <div className="rounded-md border border-danger-strong/30 bg-danger-strong/5 px-4 py-3 text-[13px] text-danger-strong">
+                    <p className="font-medium">El total calculado ({formatMoney(result.validation.computedSubtotal, currency)}) no coincide con el total del recibo ({formatMoney(result.total, currency)}). Diferencia: {formatMoney(result.validation.subtotalDelta, currency)}. Revisa los items antes de guardar.</p>
+                  </div>
+                )}
 
                 {/* Items table */}
                 <div>
@@ -239,10 +251,24 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                   </div>
                 </div>
 
-                {/* Total */}
-                <div className="flex items-center justify-between rounded-md bg-surface-2 px-4 py-3">
-                  <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Total</span>
-                  <span className="font-mono text-[15px] font-medium">{formatMoney(total, currency)}</span>
+                {/* Totals */}
+                <div className="rounded-md bg-surface-2 px-4 py-3 space-y-1.5">
+                  {(result.subtotal != null && result.subtotal > 0) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Subtotal</span>
+                      <span className="font-mono text-[13px]">{formatMoney(result.subtotal, currency)}</span>
+                    </div>
+                  )}
+                  {(result.discount != null && result.discount > 0) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Descuento</span>
+                      <span className="font-mono text-[13px] text-brand">−{formatMoney(result.discount, currency)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                    <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Total</span>
+                    <span className="font-mono text-[15px] font-medium">{formatMoney(total, currency)}</span>
+                  </div>
                 </div>
 
                 {/* Actions */}

@@ -6,13 +6,26 @@ export interface OcrItem {
   category?: string
 }
 
+export interface OcrValidation {
+  computedSubtotal: number
+  subtotalDelta: number
+  subtotalDeltaPct: number
+  totalCheck: number
+  itemCountMatch: boolean
+}
+
 export interface OcrResult {
   merchant: string
   date: string
   items: OcrItem[]
+  subtotal?: number
+  discount?: number
   total: number
   currency?: string
   confidence: number
+  realConfidence: 'high' | 'medium' | 'low'
+  itemCountReported?: number
+  validation?: OcrValidation
   imageUrl?: string
 }
 

@@ -103,31 +103,118 @@ filesRouter.delete('/:key{.+}', async (c) => {
   return c.json({ success: true })
 })
 
-const OCR_PROMPT = `Analiza este recibo o factura. Extrae cada línea de producto exactamente como aparece.
+const OCR_PROMPT = `Eres un extractor de datos de recibos y facturas colombianas. Tu trabajo es leer la imagen y devolver JSON estructurado con CADA línea de producto del recibo.
 
-Responde ÚNICAMENTE con JSON (sin markdown ni backticks):
+RESPONDE ÚNICAMENTE CON JSON (sin markdown, sin backticks, sin explicación):
+
 {
-  "merchant": "nombre del comercio",
-  "date": "YYYY-MM-DD",
+  "merchant": "nombre del comercio o null",
+  "date": "YYYY-MM-DD o null",
   "items": [
-    {"description": "nombre", "quantity": 1, "price": 0, "lineTotal": 0}
+    {"description": "nombre del producto", "quantity": 1, "price": 0, "lineTotal": 0}
   ],
+  "subtotal": 0,
+  "discount": 0,
   "total": 0,
-  "currency": "COP o USD o EUR",
-  "confidence": 0.0
+  "currency": "COP",
+  "itemCountReported": 0
 }
 
-REGLAS:
-- "quantity": la cantidad exacta que aparece en la columna Cantidad.
-- "price": precio POR UNIDAD. Si quantity es 2 y el total de línea es 6980, entonces price = 3490.
-- "lineTotal": el MONTO TOTAL de esa línea (quantity × price). Es lo que aparece en la columna "Total" del recibo.
-- "total": la suma de todos los lineTotal. Debe coincidir con el total final del recibo.
+REGLAS DE EXTRACCIÓN
 
-FORMATO NUMÉRICO (COLOMBIANO): El punto es separador de MILES, NO decimal.
-$7.550 = 7550 | $32.200 = 32200 | $214.440 = 214440 | $1.150 = 1150
-NUNCA conviertas a dólares. Los montos son ENTEROS en la moneda original.
-"currency" = "COP" si es un recibo colombiano.
-Fecha en YYYY-MM-DD. Si no puedes leer algo, usa null.`
+1. ITEMS: extrae TODOS los items del recibo, sin saltarte ninguno. Si el recibo dice "31 items" o "NUM ART ENTREGADOS: 36" o "Nro Items: 7", debes extraer exactamente ese número de líneas.
+
+2. quantity = cantidad del item (columna CAN, CANT, Cant., o similar). Si no aparece, asume 1.
+
+3. lineTotal = monto total de esa línea (lo que el recibo pagó por esa línea). Es la cifra más a la derecha de cada item.
+
+4. price = lineTotal / quantity. Calcúlalo tú, no lo leas. Si quantity=2 y lineTotal=6980, entonces price=3490.
+
+5. description = nombre del producto tal como aparece, sin abreviar más de lo necesario. Si está truncado en el recibo ("TORTILLA BURR"), déjalo así.
+
+6. subtotal = suma de los lineTotal antes de descuentos. Si el recibo no muestra subtotal explícito, calcúlalo.
+
+7. discount = total de descuentos aplicados (positivo). Si el recibo tiene "Descuento A: 15% = -660" y "Descuento B: 20% = -1020", entonces discount = 1680. Si no hay descuentos, 0.
+
+8. total = monto final pagado (TOTAL del recibo, después de descuentos). Debe cumplir: total = subtotal - discount.
+
+9. itemCountReported = el número de items que el recibo mismo declara. Búscalo en lugares como "NUM ART ENTREGADOS", "Nro Items", "Cant Art", o la última línea numerada (ej "31 1 UN..." indica 31 items). Si no aparece, pon el número de items que extrajiste.
+
+FORMATO NUMÉRICO COLOMBIANO (CRÍTICO)
+
+En Colombia el punto es separador de MILES, no decimal. La coma es decimal.
+
+- "$7.550" significa 7550 (siete mil quinientos cincuenta)
+- "$214.440" significa 214440
+- "$1.150" significa 1150
+- "$12.490" significa 12490
+- "1,150.00" significa 1150 con dos decimales (formato USA, raro en recibos COP)
+
+Todos los montos en el JSON deben ser ENTEROS en la moneda original. NO conviertas a dólares. NO uses decimales en pesos colombianos.
+
+MONEDA
+
+- Si ves "$" o "COP" o nombres de comercios colombianos (D1, Mas x Menos, Éxito, Carulla, Olímpica, etc): currency = "COP"
+- Si ves "USD" o "US$" explícitamente: currency = "USD"
+- Si ves "EUR" o "€" explícitamente: currency = "EUR"
+- Por defecto: "COP"
+
+VALIDACIÓN ANTES DE RESPONDER
+
+Antes de responder, verifica internamente:
+1. ¿Tu sum(items[].lineTotal) es igual a subtotal? Si no, releé los items.
+2. ¿subtotal - discount es igual a total? Si no, releé los montos.
+3. ¿items.length coincide con itemCountReported? Si no, falta algún item — releé el recibo completo.
+
+Si después de re-leer no logras hacer cuadrar las cifras, devuelve los items que sí leíste con confianza y deja el total tal como aparece en el recibo. NO inventes items para cuadrar.
+
+CASOS ESPECIALES
+
+- Si el recibo está borroso o tiene partes ilegibles, extrae lo que sí puedas leer y deja null o 0 en lo que no.
+- Si es un recibo manuscrito (no impreso), haz tu mejor intento pero no inventes datos.
+- Si es una factura de servicio (Claro, EPM, agua, luz, gas), normalmente solo hay 1 item. Déjalo como un item único con description = nombre del servicio.
+- No incluyas líneas que no son productos (encabezados, totales, IVA, métodos de pago) en el array items.`
+
+type RealConfidence = 'high' | 'medium' | 'low'
+
+function computeRealConfidence(
+  subtotalDeltaPct: number,
+  totalCheck: number,
+  total: number,
+  itemCountMatch: boolean
+): RealConfidence {
+  const totalIsConsistent = total === 0 || totalCheck / Math.max(total, 1) < 0.01
+  if (subtotalDeltaPct < 0.01 && totalIsConsistent && itemCountMatch) return 'high'
+  if (subtotalDeltaPct < 0.05 && totalIsConsistent) return 'medium'
+  return 'low'
+}
+
+function validateOcrResult(result: any) {
+  const items: any[] = result.items ?? []
+  const subtotal = result.subtotal ?? result.total ?? 0
+  const discount = result.discount ?? 0
+  const total = result.total ?? 0
+  const itemCountReported = result.itemCountReported ?? items.length
+
+  const computedSubtotal = items.reduce((s: number, i: any) => s + (i.lineTotal ?? 0), 0)
+  const subtotalDelta = Math.abs(computedSubtotal - subtotal)
+  const subtotalDeltaPct = subtotal > 0 ? subtotalDelta / subtotal : (computedSubtotal > 0 ? 1 : 0)
+  const totalCheck = Math.abs((subtotal - discount) - total)
+  const itemCountMatch = !result.itemCountReported ? true : items.length === itemCountReported
+
+  // All items have zero lineTotal → low confidence
+  const allZero = items.length > 0 && items.every((i: any) => !(i.lineTotal > 0))
+
+  const realConfidence: RealConfidence = allZero
+    ? 'low'
+    : computeRealConfidence(subtotalDeltaPct, totalCheck, total, itemCountMatch)
+
+  result.realConfidence = realConfidence
+  result.subtotal ??= computedSubtotal
+  result.discount ??= 0
+  result.itemCountReported = itemCountReported
+  result.validation = { computedSubtotal, subtotalDelta, subtotalDeltaPct, totalCheck, itemCountMatch }
+}
 
 // POST /api/files/ocr — process receipt image
 filesRouter.post('/ocr', async (c) => {
@@ -176,8 +263,8 @@ filesRouter.post('/ocr', async (c) => {
         'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 1024,
+        model: 'gpt-4.1-mini',
+        max_tokens: 4096,
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -233,7 +320,7 @@ filesRouter.post('/ocr', async (c) => {
               { text: OCR_PROMPT },
             ],
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
         }),
       },
     )
@@ -275,7 +362,7 @@ filesRouter.post('/ocr', async (c) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [
           {
             role: 'user',
@@ -305,6 +392,9 @@ filesRouter.post('/ocr', async (c) => {
   }
 
   const ocrResult = JSON.parse(jsonMatch[0])
+
+  // Post-OCR validation
+  validateOcrResult(ocrResult)
 
   // Upload the file to R2 for storage
   const bucket = c.env.FILES
