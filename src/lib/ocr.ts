@@ -30,8 +30,12 @@ export interface OcrResult {
 }
 
 export async function processReceiptOCR(imageBlob: Blob): Promise<OcrResult> {
+  const ext = imageBlob.type === 'application/pdf' ? 'pdf'
+    : imageBlob.type === 'image/png' ? 'png'
+    : imageBlob.type === 'image/webp' ? 'webp'
+    : 'jpg'
   const formData = new FormData()
-  formData.append('file', imageBlob, 'receipt.jpg')
+  formData.append('file', imageBlob, `receipt.${ext}`)
 
   const response = await fetch('/api/files/ocr', {
     method: 'POST',

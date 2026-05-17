@@ -225,8 +225,9 @@ filesRouter.post('/ocr', async (c) => {
   const file = formData.get('file') as File | null
   if (!file) return c.json({ error: 'No file provided' }, 400)
 
-  if (!file.type.startsWith('image/')) {
-    return c.json({ error: 'Only images supported for OCR' }, 400)
+  const isPdf = file.type === 'application/pdf'
+  if (!file.type.startsWith('image/') && !isPdf) {
+    return c.json({ error: 'Solo se aceptan imágenes y PDFs para OCR' }, 400)
   }
 
   // Read user's OCR provider preference
@@ -270,7 +271,9 @@ filesRouter.post('/ocr', async (c) => {
           {
             role: 'user',
             content: [
-              { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}`, detail: 'high' } },
+              isPdf
+                ? { type: 'file', file: { filename: file.name || 'receipt.pdf', file_data: `data:${file.type};base64,${base64}` } }
+                : { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}`, detail: 'high' } },
               { type: 'text', text: OCR_PROMPT },
             ],
           },
@@ -367,7 +370,9 @@ filesRouter.post('/ocr', async (c) => {
           {
             role: 'user',
             content: [
-              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
+              isPdf
+                ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+                : { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
               { type: 'text', text: OCR_PROMPT },
             ],
           },
