@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { Plus, X, Upload, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@clerk/clerk-react'
+import { useQuery } from '@tanstack/react-query'
+import { useApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   Dialog,
@@ -24,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CURRENCIES } from '@/lib/validators'
-import type { Category } from '@/types/domain'
+import type { AppSettings, CapitalAccount, Category } from '@/types/domain'
 import type { EnrichedInvoice } from '@/hooks/useInvoices'
 
 const itemSchema = z.object({
@@ -41,6 +43,7 @@ const invoiceSchema = z.object({
   currency: z.enum(CURRENCIES),
   categoryId: z.number().positive(),
   items: z.array(itemSchema).min(1, 'Agrega al menos un ítem'),
+  accountId: z.string().nullable().optional(),
 })
 
 type InvoiceFormValues = z.infer<typeof invoiceSchema>
@@ -57,6 +60,7 @@ interface InvoiceFormDialogProps {
     items: Array<{ name: string; quantity: number; unitPrice: number; subCategory?: string }>
     categoryId: number
     attachmentUrl?: string
+    accountId?: string | null
   }) => Promise<void>
   editInvoice?: EnrichedInvoice
 }
@@ -64,9 +68,21 @@ interface InvoiceFormDialogProps {
 export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, editInvoice }: InvoiceFormDialogProps) {
 
   const { getToken } = useAuth()
+  const api = useApi()
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const isEditing = !!editInvoice
   const editCategoryId = editInvoice?.transactionCategoryId ?? 1
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const rows = await api.get<{ key: string; value: unknown }[]>('/settings')
+      const map: Record<string, unknown> = {}
+      for (const r of rows) map[r.key] = r.value
+      return map as Partial<AppSettings>
+    },
+  })
+  const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null)
@@ -89,6 +105,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       currency: 'COP',
       categoryId: 0,
       items: [{ name: '', quantity: 1, unitPrice: 0 }],
+      accountId: null,
     },
   })
 
@@ -108,6 +125,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
               subCategory: item.subCategory ?? undefined,
             }))
           : [{ name: '', quantity: 1, unitPrice: 0 }],
+        accountId: null,
       })
       setExistingAttachment(editInvoice.attachmentUrl ?? null)
       setPendingFile(null)
@@ -119,6 +137,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
         currency: 'COP',
         categoryId: 0,
         items: [{ name: '', quantity: 1, unitPrice: 0 }],
+        accountId: null,
       })
       setExistingAttachment(null)
       setPendingFile(null)
@@ -266,6 +285,34 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             )} />
             {errors.categoryId && <p className="text-[12px] text-danger-strong">{errors.categoryId.message}</p>}
           </div>
+
+          {capitalAccounts.length > 0 && (
+            <div className="grid gap-1.5">
+              <Label>Cuenta</Label>
+              <Controller
+                name="accountId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={(v) => field.onChange(v || null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Ninguna" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Ninguna</SelectItem>
+                      {capitalAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.currency})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-[1fr_240px] gap-6">
             {/* Left: items */}

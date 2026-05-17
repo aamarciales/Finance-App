@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Plus, Globe, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -28,7 +29,8 @@ import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
 
 import { resolveInternalType, type TxFormValues } from '@/lib/validators'
-import type { Transaction } from '@/types/domain'
+import { useApi } from '@/lib/api'
+import type { Transaction, AppSettings, CapitalAccount } from '@/types/domain'
 
 export default function TransactionsPage() {
   const [tab, setTab] = useState<TabFilter>('all')
@@ -43,6 +45,18 @@ export default function TransactionsPage() {
   const [viewingInvoiceId, setViewingInvoiceId] = useState<number | null>(null)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const ocr = useOcrFlow()
+  const api = useApi()
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const rows = await api.get<{ key: string; value: unknown }[]>('/settings')
+      const map: Record<string, unknown> = {}
+      for (const r of rows) map[r.key] = r.value
+      return map as Partial<AppSettings>
+    },
+  })
+  const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const dateRange = useMemo(() => periodToDates(period), [period])
   const { rate: trm } = useTRM()
@@ -150,7 +164,7 @@ export default function TransactionsPage() {
     ocr.reset()
   }
 
-  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[] }) {
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null }) {
     const cat = categories.find(c => c.id === data.categoryId)
     const internalType = resolveInternalType(cat?.name ?? '', 'expense')
     await addTransaction({
@@ -162,6 +176,7 @@ export default function TransactionsPage() {
       currency: data.currency,
       trm: rates.trm,
       attachments: data.attachments,
+      accountId: data.accountId ?? undefined,
     })
     toast.success('Transacción creada')
     ocr.reset()
@@ -277,6 +292,7 @@ export default function TransactionsPage() {
           result={ocr.ocrResult}
           imageBlob={ocr.imageFile}
           categories={categories}
+          capitalAccounts={capitalAccounts}
           onSaveInvoice={handleOcrInvoice}
           onSaveTransaction={handleOcrTransaction}
         />

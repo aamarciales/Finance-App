@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -29,7 +30,8 @@ import { useOcrFlow } from '@/hooks/useOcrFlow'
 import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
 import { resolveInternalType } from '@/lib/validators'
-import type { Invoice } from '@/types/domain'
+import { useApi } from '@/lib/api'
+import type { Invoice, AppSettings, CapitalAccount } from '@/types/domain'
 
 
 export default function InvoicesPage() {
@@ -45,6 +47,18 @@ export default function InvoicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const api = useApi()
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const rows = await api.get<{ key: string; value: unknown }[]>('/settings')
+      const map: Record<string, unknown> = {}
+      for (const r of rows) map[r.key] = r.value
+      return map as Partial<AppSettings>
+    },
+  })
+  const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   async function handleSelect(id: number) {
     const inv = invoices.find(i => i.id === id)
@@ -82,7 +96,7 @@ export default function InvoicesPage() {
     ocr.reset()
   }
 
-  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[] }) {
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null }) {
     const cat = categories.find(c => c.id === data.categoryId)
     const internalType = resolveInternalType(cat?.name ?? '', 'expense')
     await addTransaction({
@@ -94,6 +108,7 @@ export default function InvoicesPage() {
       currency: data.currency,
       trm: rates.trm,
       attachments: data.attachments,
+      accountId: data.accountId ?? undefined,
     })
     toast.success('Transacción creada')
     ocr.reset()
@@ -206,6 +221,7 @@ export default function InvoicesPage() {
           result={ocr.ocrResult}
           imageBlob={ocr.imageFile}
           categories={categories}
+          capitalAccounts={capitalAccounts}
           onSaveInvoice={handleOcrInvoice}
           onSaveTransaction={handleOcrTransaction}
         />

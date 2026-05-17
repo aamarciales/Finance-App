@@ -36,30 +36,6 @@
 
 ## Features (no críticas)
 
-### Mejora UX · Acceso a OCR desde puntos naturales (no en página separada)
-- Contexto: hoy el OCR vive solo en `/import`, escondido como destino aparte. El usuario que quiere agregar una factura escaneada tiene que salir del flujo natural ("Nueva factura") y navegar a otra página. Fricción innecesaria.
-- Decisiones de producto tomadas (2026-05-17):
-  1. `/import` se elimina del menú principal. La página queda viva temporalmente solo accesible por URL directa para CSV bulk import. Eliminar del todo cuando CSV tenga mejor flujo propio.
-  2. Modal con opciones grandes (no dropdown, no FAB). Mejor experiencia móvil. Cards tocables.
-  3. OCR en "Nueva transacción" pregunta tipo de guardado al final: después de escanear y revisar, modal "¿Cómo guardar esta info?" con 2 opciones:
-     - Como factura completa (invoice + items + transacción) → flujo actual
-     - Como transacción simple (solo monto, fecha, categoría, sin items) → nuevo flujo
-- Flujo final deseado:
-  - `/transactions` → botón `+ Nueva transacción` → modal con 3 cards:
-    - 📸 Tomar foto (camera capture, móvil)
-    - 🖼️ Subir imagen (file picker)
-    - ✏️ Entrada manual (form actual)
-  - `/invoices` → botón `+ Nueva factura` → mismo modal con mismas 3 opciones
-  - Foto/imagen → OCR → OcrPreviewDialog → pregunta tipo guardado → persiste según elección
-- Cambios técnicos:
-  - Nuevo componente `<CreateMenu>` reutilizable con las 3 cards (modal pequeño)
-  - Lifting de estado del OcrPreviewDialog desde Import.tsx hacia los dos puntos de entrada nuevos
-  - Nuevo paso al final del OCR dialog: "Guardar como factura / Guardar como transacción"
-  - Nuevo handler que crea solo transacción (sin invoice ni invoice_items) cuando aplica
-  - MainNav: quitar link a /import
-- Esfuerzo: 1.5-2h. Sesión dedicada.
-- Dependencias: ninguna.
-
 ### OCR centralizado con API key del owner (modelo híbrido)
 - Hoy cada usuario configura su propia API key de OpenAI / Gemini / Claude en Settings. Visión: que el usuario no sepa nada del OCR, solo escanear y funcione.
 - Modelo: híbrido. La key OpenAI del owner corre el OCR de todos por default. Opción BYOK queda como avanzado para power users.
@@ -146,4 +122,3 @@
 - **user_test en D1**: residuo de tests. Borrar con SQL directo cuando convenga.
 - **Categoría "Cobro deuda" (id 51) sin diezmo**: removida manualmente con SQL en sesión 3. Si se hace wipe + reseed, hay que volver a removerla. El warn defensivo en `tithe.ts` ya protege contra ID huérfano, pero no contra que vuelva a aparecer en titheConfig.
 - **Otra categoría custom "Iglesia" (id 55)**: sin uso. Borrar cuando convenga.
-- **Página `/import` accesible solo por URL después de UX rework**: cuando se implemente "Mejora UX · Acceso a OCR desde puntos naturales", esta página se queda solo para CSV bulk import. Plan futuro: rediseñarla solo para CSV o eliminarla del todo si CSV tiene mejor flujo propio.

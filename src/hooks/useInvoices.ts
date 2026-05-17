@@ -27,6 +27,7 @@ export interface InvoiceFormData {
   discount?: number
   total?: number
   attachmentUrl?: string
+  accountId?: string | null
 }
 
 export function useInvoices(rates: { trm: number; eurToUsd: number }) {
@@ -132,6 +133,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
       amountInBase,
       amountInSecondary,
       invoiceId: inv.id,
+      accountId: data.accountId ?? null,
     })
 
     // 4. Link invoice to transaction
@@ -185,6 +187,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
         trm,
         amountInBase,
         amountInSecondary,
+        accountId: data.accountId ?? null,
       })
     }
 

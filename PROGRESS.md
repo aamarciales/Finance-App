@@ -130,6 +130,46 @@ User `user_3DEHVwNjURaZfTfhcPTS0rNLOer`:
 
 ---
 
+## Sesión 2026-05-17 tarde · UX OCR + Vinculación de cuentas
+
+### Feature: Acceso a OCR desde puntos naturales ✅
+- Nuevo componente `CreateMenuDialog.tsx` con 3 cards (Tomar foto, Subir imagen, Entrada manual).
+- Nuevo hook `useOcrFlow.ts` para reutilizar lógica de captura/procesamiento OCR.
+- Integrado en `/transactions` y `/invoices` — botón "+" abre CreateMenuDialog.
+- `OcrPreviewDialog` modificado con doble opción de guardado:
+  - "Guardar como factura completa" (invoice + items + transaction)
+  - "Guardar como transacción simple" (solo transaction, sin invoice)
+- Handler `handleOcrTransaction` creado para persistir transacción simple desde OCR.
+- `/import` removido del menú principal (nav-items.ts). Página sigue accesible por URL para CSV bulk.
+- Bug fix: stale closure en `useOcrFlow` — `useRef` para que `processOCR` siempre lea el file más reciente.
+- Loading overlay con spinner añadido durante procesamiento OCR.
+
+### Feature: Vinculación de transacciones a cuentas ✅
+- Migración 0010: nueva columna `account_id` (text, nullable) en transactions.
+- Schema, tipos, validador y rutas POST/PUT actualizados.
+- `TxFormDialog` muestra dropdown "Cuenta" para gastos e ingresos (opciones de `settings.capitalAccounts`).
+- `useDashboard.ts`: balance real de cada cuenta = monto configurado - gastos vinculados + ingresos vinculados.
+- `CapitalDetailDialog.tsx`: muestra monto base → monto ajustado por cuenta.
+
+### Bug fix: attachments validation en edición ✅
+- Campo `attachments` podía ser `null` (desde BD) pero schema esperaba `array | undefined`.
+- Fix: `z.array(z.string()).nullable().optional()`.
+- Mensaje de error ahora lista campos específicos que fallan validación.
+- TRM fallback en `buildDefaults` cuando `rates.trm` es 0 (loading).
+
+### Feature: Soporte PDF en OCR ✅
+- OCR endpoint acepta `application/pdf` además de imágenes.
+- Claude API usa `document` type para PDFs, `image` type para imágenes.
+- OpenAI usa `file` type para PDFs, `image_url` para imágenes.
+- `ocr.ts` preserva extensión correcta (pdf/png/webp/jpg) al subir a R2.
+
+### Migraciones aplicadas
+```
+0010_account_id            → account_id en transactions (2026-05-17)
+```
+
+---
+
 ## Sesiones previas
 
 Las sesiones 1 a 3 cerraron Bugs A y B y dejaron la app funcional para uso diario. Detalles históricos en handoffs V1-V4 (archivados).

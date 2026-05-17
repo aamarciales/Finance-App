@@ -20,7 +20,7 @@ import { Lightbox } from '@/components/common/Lightbox'
 import { CURRENCIES } from '@/lib/validators'
 import { formatMoney } from '@/lib/format'
 import type { OcrResult, OcrItem } from '@/lib/ocr'
-import type { Category } from '@/types/domain'
+import type { Category, CapitalAccount } from '@/types/domain'
 
 export interface OcrInvoiceData {
   merchant: string
@@ -32,6 +32,7 @@ export interface OcrInvoiceData {
   discount?: number
   total: number
   attachmentUrl?: string
+  accountId?: string | null
 }
 
 export interface OcrTransactionData {
@@ -41,6 +42,7 @@ export interface OcrTransactionData {
   currency: 'COP' | 'USD' | 'EUR'
   categoryId: number
   attachments?: string[]
+  accountId?: string | null
 }
 
 interface OcrPreviewDialogProps {
@@ -49,11 +51,12 @@ interface OcrPreviewDialogProps {
   result: OcrResult
   imageBlob: Blob
   categories: Category[]
+  capitalAccounts?: CapitalAccount[]
   onSaveInvoice?: (data: OcrInvoiceData) => Promise<void>
   onSaveTransaction?: (data: OcrTransactionData) => Promise<void>
 }
 
-export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, onSaveInvoice, onSaveTransaction }: OcrPreviewDialogProps) {
+export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, capitalAccounts = [], onSaveInvoice, onSaveTransaction }: OcrPreviewDialogProps) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
   const [merchant, setMerchant] = useState(result.merchant)
@@ -61,6 +64,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const [date, setDate] = useState(parsedDate)
   const [currency, setCurrency] = useState<'COP' | 'USD' | 'EUR'>(result.currency === 'USD' ? 'USD' : result.currency === 'EUR' ? 'EUR' : 'COP')
   const [categoryId, setCategoryId] = useState<string>(String(expenseCategories[0]?.id ?? ''))
+  const [accountId, setAccountId] = useState<string | null>(null)
   const [items, setItems] = useState<OcrItem[]>(result.items.map(i => {
     // If OCR returned lineTotal, derive unit price from it
     if (i.lineTotal && i.quantity > 0) {
@@ -106,6 +110,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
         discount: discount || undefined,
         total,
         attachmentUrl: result.imageUrl,
+        accountId,
       })
       onOpenChange(false)
     } finally {
@@ -124,6 +129,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
         currency,
         categoryId: Number(categoryId),
         attachments: result.imageUrl ? [result.imageUrl] : undefined,
+        accountId,
       })
       onOpenChange(false)
     } finally {
@@ -203,6 +209,28 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                     </SelectContent>
                   </Select>
                 </div>
+
+                {capitalAccounts.length > 0 && (
+                  <div className="grid gap-1.5">
+                    <Label>Cuenta</Label>
+                    <Select
+                      value={accountId ?? ''}
+                      onValueChange={v => setAccountId(v || null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Ninguna" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Ninguna</SelectItem>
+                        {capitalAccounts.map(acc => (
+                          <SelectItem key={acc.id} value={acc.id}>
+                            {acc.name} ({acc.currency})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Validation warning */}
                 {realConfidence === 'low' && result.validation && (
