@@ -2,6 +2,7 @@ export interface OcrItem {
   description: string
   quantity: number
   price: number
+  lineTotal?: number
   category?: string
 }
 

@@ -46,7 +46,13 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const [date, setDate] = useState(parsedDate)
   const [currency, setCurrency] = useState<'COP' | 'USD' | 'EUR'>(result.currency === 'USD' ? 'USD' : result.currency === 'EUR' ? 'EUR' : 'COP')
   const [categoryId, setCategoryId] = useState<string>(String(expenseCategories[0]?.id ?? ''))
-  const [items, setItems] = useState<OcrItem[]>(result.items.map(i => ({ ...i })))
+  const [items, setItems] = useState<OcrItem[]>(result.items.map(i => {
+    // If OCR returned lineTotal, derive unit price from it
+    if (i.lineTotal && i.quantity > 0) {
+      return { ...i, price: Math.round(i.lineTotal / i.quantity) }
+    }
+    return { ...i }
+  }))
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 

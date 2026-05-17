@@ -103,24 +103,31 @@ filesRouter.delete('/:key{.+}', async (c) => {
   return c.json({ success: true })
 })
 
-const OCR_PROMPT = `Analiza este recibo o factura colombiana. Extrae la información y responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
+const OCR_PROMPT = `Analiza este recibo o factura. Extrae cada línea de producto exactamente como aparece.
+
+Responde ÚNICAMENTE con JSON (sin markdown ni backticks):
 {
   "merchant": "nombre del comercio",
   "date": "YYYY-MM-DD",
   "items": [
-    {"description": "nombre del producto", "quantity": 1, "price": 0}
+    {"description": "nombre", "quantity": 1, "price": 0, "lineTotal": 0}
   ],
   "total": 0,
   "currency": "COP o USD o EUR",
   "confidence": 0.0
 }
-REGLAS CRÍTICAS:
-- FORMATO NUMÉRICO: Los precios usan punto como separador de MILES (formato colombiano). "$7.550" = 7550. "$214.440" = 214440. "$1.150" = 1150. NUNCA uses decimales.
-- EJEMPLOS DE CONVERSIÓN: Si ves "$7.550" → price: 7550. Si ves "$32.200" → price: 32200. Si ves "$214.440" → price: 214440.
-- Los precios en el JSON deben ser números ENTEROS sin decimales ni puntos.
-- NO conviertas a dólares. NO dividas entre 1000. Los montos son en la moneda original.
-- El campo "currency" debe ser "COP" si es un recibo colombiano.
-- Si no puedes leer algo, usa null. La fecha debe estar en formato YYYY-MM-DD.`
+
+REGLAS:
+- "quantity": la cantidad exacta que aparece en la columna Cantidad.
+- "price": precio POR UNIDAD. Si quantity es 2 y el total de línea es 6980, entonces price = 3490.
+- "lineTotal": el MONTO TOTAL de esa línea (quantity × price). Es lo que aparece en la columna "Total" del recibo.
+- "total": la suma de todos los lineTotal. Debe coincidir con el total final del recibo.
+
+FORMATO NUMÉRICO (COLOMBIANO): El punto es separador de MILES, NO decimal.
+$7.550 = 7550 | $32.200 = 32200 | $214.440 = 214440 | $1.150 = 1150
+NUNCA conviertas a dólares. Los montos son ENTEROS en la moneda original.
+"currency" = "COP" si es un recibo colombiano.
+Fecha en YYYY-MM-DD. Si no puedes leer algo, usa null.`
 
 // POST /api/files/ocr — process receipt image
 filesRouter.post('/ocr', async (c) => {
