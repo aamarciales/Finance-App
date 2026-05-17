@@ -76,6 +76,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
     const safeCurrency = (CURRENCIES as readonly string[]).includes(source.currency)
       ? (source.currency as TxFormValues['currency'])
       : 'COP'
+    const safeTrm = rates.trm > 0 ? rates.trm : (source.trm || 4200)
     return {
       type: toVisibleType(source.type),
       date: prefillTx ? new Date().toISOString().slice(0, 10) : source.date,
@@ -83,7 +84,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       categoryId: source.categoryId,
       amount: source.amount,
       currency: safeCurrency,
-      trm: rates.trm,
+      trm: safeTrm,
       notes: source.notes ?? '',
       isRecurring: source.isRecurring ?? false,
       debtId: source.debtId,
@@ -648,9 +649,14 @@ export function TxFormDialog({
           </div>
 
           {Object.keys(errors).length > 0 && (
-            <p className="text-[12px] text-danger-strong">
-              Hay campos con errores. Revisa el formulario.
-            </p>
+            <div className="text-[12px] text-danger-strong">
+              <p>Campos con errores:</p>
+              <ul className="list-disc pl-4">
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>{field}: {error?.message || 'inválido'}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <DialogFooter className="gap-2 pt-2">
