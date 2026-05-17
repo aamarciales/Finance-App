@@ -90,7 +90,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       debtId: source.debtId,
       capitalAmount: source.capitalAmount ?? source.amount,
       interestAmount: source.interestAmount ?? 0,
-      attachments: editTx?.attachments,
+      attachments: editTx?.attachments ?? undefined,
     }
   }
   return {
