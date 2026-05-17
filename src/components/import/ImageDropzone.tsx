@@ -1,5 +1,5 @@
 import { useState, useRef, type DragEvent } from 'react'
-import { Upload, X, ImageIcon } from 'lucide-react'
+import { Upload, X, ImageIcon, Camera } from 'lucide-react'
 
 const MAX_SIZE = 5 * 1024 * 1024
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
@@ -14,6 +14,7 @@ export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzon
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   function validate(file: File): string | null {
     if (!ACCEPTED.includes(file.type)) return 'Formato no soportado. Usa JPG, PNG, WEBP o PDF.'
@@ -86,6 +87,26 @@ export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzon
         className="hidden"
         onChange={handleInputChange}
       />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleFile(file)
+          if (cameraRef.current) cameraRef.current.value = ''
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => cameraRef.current?.click()}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-[13px] text-text-muted transition-colors hover:border-brand/50 hover:text-brand"
+      >
+        <Camera className="h-4 w-4" />
+        Tomar foto
+      </button>
       {error && <p className="mt-2 text-[12px] text-danger-strong">{error}</p>}
     </div>
   )

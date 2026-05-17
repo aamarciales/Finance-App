@@ -179,7 +179,7 @@ export interface TaxProfile {
   validatedByAccountant: boolean
 }
 
-export type OcrProvider = 'claude' | 'tesseract' | 'off'
+export type OcrProvider = 'claude' | 'gemini' | 'tesseract' | 'off'
 
 export interface CapitalAccount {
   id: string
@@ -195,6 +195,7 @@ export interface AppSettings {
   titheConfig: TitheConfig
   taxProfile: TaxProfile
   ocrProvider: OcrProvider
+  geminiApiKey?: string
   autoCategorize: boolean
   monthlyTaxProvisionRate: number
   availableCapitalAmount?: number

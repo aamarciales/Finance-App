@@ -366,8 +366,8 @@ export default function SettingsPage() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
                     <SelectItem value="claude">Claude AI</SelectItem>
-                    <SelectItem value="tesseract">Tesseract</SelectItem>
                     <SelectItem value="off">Desactivado</SelectItem>
                   </SelectContent>
                 </Select>
@@ -385,6 +385,16 @@ export default function SettingsPage() {
                 </Select>
               </FieldGroup>
             </div>
+            {local.ocrProvider === 'gemini' && (
+              <FieldGroup label="API Key de Google Gemini">
+                <Input
+                  type="password"
+                  value={local.geminiApiKey ?? ''}
+                  onChange={(e) => updateLocal('geminiApiKey', e.target.value || undefined)}
+                  placeholder="AIza..."
+                />
+              </FieldGroup>
+            )}
 
             {dirty && (
               <Button

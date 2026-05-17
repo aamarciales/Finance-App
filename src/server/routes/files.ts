@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 import { getAuth } from '@hono/clerk-auth'
+import { drizzle } from 'drizzle-orm/d1'
+import * as schema from '../schema'
 import type { AppEnv } from '../types'
 
 export const filesRouter = new Hono<AppEnv>()
@@ -101,53 +103,7 @@ filesRouter.delete('/:key{.+}', async (c) => {
   return c.json({ success: true })
 })
 
-// POST /api/files/ocr — process receipt image with Claude Vision
-filesRouter.post('/ocr', async (c) => {
-  const auth = getAuth(c)
-  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-
-  const apiKey = c.env.ANTHROPIC_API_KEY
-  if (!apiKey) return c.json({ error: 'OCR not configured' }, 500)
-
-  const formData = await c.req.formData()
-  const file = formData.get('file') as File | null
-  if (!file) return c.json({ error: 'No file provided' }, 400)
-
-  if (!file.type.startsWith('image/')) {
-    return c.json({ error: 'Only images supported for OCR' }, 400)
-  }
-
-  const arrayBuffer = await file.arrayBuffer()
-  const base64 = btoa(
-    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-  )
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: file.type,
-                data: base64,
-              },
-            },
-            {
-              type: 'text',
-              text: `Analiza este recibo o factura. Extrae la información y responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
+const OCR_PROMPT = `Analiza este recibo o factura. Extrae la información y responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
 {
   "merchant": "nombre del comercio",
   "date": "YYYY-MM-DD",
@@ -158,37 +114,126 @@ filesRouter.post('/ocr', async (c) => {
   "currency": "COP o USD o EUR",
   "confidence": 0.0
 }
-Si no puedes leer algo, usa valores null. La fecha debe estar en formato YYYY-MM-DD. Los precios deben ser números decimales.`,
-            },
-          ],
-        },
-      ],
-    }),
-  })
+Si no puedes leer algo, usa valores null. La fecha debe estar en formato YYYY-MM-DD. Los precios deben ser números decimales.`
 
-  if (!response.ok) {
-    const err = await response.text()
-    console.error('Claude API error:', err)
-    return c.json({ error: 'OCR processing failed' }, 500)
+// POST /api/files/ocr — process receipt image
+filesRouter.post('/ocr', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const formData = await c.req.formData()
+  const file = formData.get('file') as File | null
+  if (!file) return c.json({ error: 'No file provided' }, 400)
+
+  if (!file.type.startsWith('image/')) {
+    return c.json({ error: 'Only images supported for OCR' }, 400)
   }
 
-  const data = await response.json() as any
-  const text = data.content?.[0]?.text ?? ''
+  // Read user's OCR provider preference
+  const db = drizzle(c.env.DB, { schema })
+  const providerRow = await db.query.settings.findFirst({
+    where: (s, { eq, and }) => and(eq(s.key, 'ocrProvider'), eq(s.userId, auth.userId)),
+  })
+  const provider = (typeof providerRow?.value === 'string' ? providerRow.value : providerRow?.value) ?? 'off'
 
-  // Parse JSON from Claude's response (handle possible markdown wrapping)
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (provider === 'off') {
+    return c.json({ error: 'OCR está desactivado. Actívalo en Ajustes.' }, 400)
+  }
+
+  const arrayBuffer = await file.arrayBuffer()
+  const base64 = btoa(
+    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+  )
+
+  let ocrText: string
+
+  if (provider === 'gemini') {
+    // Read Gemini API key from user settings
+    const keyRow = await db.query.settings.findFirst({
+      where: (s, { eq, and }) => and(eq(s.key, 'geminiApiKey'), eq(s.userId, auth.userId)),
+    })
+    const geminiKey = typeof keyRow?.value === 'string' ? keyRow.value : keyRow?.value as string | undefined
+    if (!geminiKey) {
+      return c.json({ error: 'Configura tu API Key de Google Gemini en Ajustes.' }, 400)
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: file.type, data: base64 } },
+              { text: OCR_PROMPT },
+            ],
+          }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const err = await response.text()
+      console.error('Gemini API error:', err)
+      return c.json({ error: 'Error al procesar con Gemini. Verifica tu API Key.' }, 500)
+    }
+
+    const data = await response.json() as any
+    ocrText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  } else {
+    // Claude (default)
+    const apiKey = c.env.ANTHROPIC_API_KEY
+    if (!apiKey) return c.json({ error: 'Claude OCR no configurado en el servidor.' }, 500)
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
+              { type: 'text', text: OCR_PROMPT },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      console.error('Claude API error:', err)
+      return c.json({ error: 'OCR processing failed' }, 500)
+    }
+
+    const data = await response.json() as any
+    ocrText = data.content?.[0]?.text ?? ''
+  }
+
+  // Parse JSON from response
+  const jsonMatch = ocrText.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     return c.json({ error: 'Could not parse OCR result' }, 500)
   }
 
   const ocrResult = JSON.parse(jsonMatch[0])
 
-  // Also upload the file to R2 for storage
+  // Upload the file to R2 for storage
   const bucket = c.env.FILES
   if (bucket) {
     const ext = file.name.split('.').pop() || 'jpg'
     const key = `${auth.userId}/ocr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`
-    await bucket.put(key, await file.arrayBuffer(), {
+    await bucket.put(key, arrayBuffer, {
       httpMetadata: { contentType: file.type },
       customMetadata: { originalName: file.name, userId: auth.userId },
     })
