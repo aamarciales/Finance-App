@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Plus, Receipt, Trash2, FileUp, Paperclip } from 'lucide-react'
+import { Plus, Receipt, Trash2, FileUp, Paperclip, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Money } from '@/components/common/Money'
@@ -66,7 +66,13 @@ export default function InvoicesPage() {
 
   // Auto-process OCR when file is selected
   useEffect(() => {
+    console.log('[InvPage] OCR useEffect fired', {
+      imageFile: ocr.imageFile ? `${ocr.imageFile.name} (${ocr.imageFile.size}b)` : null,
+      processing: ocr.processing,
+      ocrResult: !!ocr.ocrResult,
+    })
     if (ocr.imageFile && !ocr.ocrResult && !ocr.processing) {
+      console.log('[InvPage] Triggering processOCR...')
       ocr.processOCR()
     }
   }, [ocr.imageFile])
@@ -183,6 +189,15 @@ export default function InvoicesPage() {
         onManual={() => setFormOpen(true)}
         label="factura"
       />
+
+      {ocr.processing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-surface px-8 py-6 shadow-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-brand" />
+            <p className="text-[14px] font-medium">Procesando OCR…</p>
+          </div>
+        </div>
+      )}
 
       {ocr.ocrResult && ocr.imageFile && (
         <OcrPreviewDialog

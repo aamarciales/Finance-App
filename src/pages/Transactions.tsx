@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Globe } from 'lucide-react'
+import { Plus, Globe, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { TxTabs } from '@/components/transactions/TxTabs'
@@ -133,7 +133,13 @@ export default function TransactionsPage() {
 
   // Auto-process OCR when file is selected
   useEffect(() => {
+    console.log('[TxPage] OCR useEffect fired', {
+      imageFile: ocr.imageFile ? `${ocr.imageFile.name} (${ocr.imageFile.size}b)` : null,
+      processing: ocr.processing,
+      ocrResult: !!ocr.ocrResult,
+    })
     if (ocr.imageFile && !ocr.ocrResult && !ocr.processing) {
+      console.log('[TxPage] Triggering processOCR...')
       ocr.processOCR()
     }
   }, [ocr.imageFile])
@@ -253,6 +259,15 @@ export default function TransactionsPage() {
         onManual={() => setFormOpen(true)}
         label="transacción"
       />
+
+      {ocr.processing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-surface px-8 py-6 shadow-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-brand" />
+            <p className="text-[14px] font-medium">Procesando OCR…</p>
+          </div>
+        </div>
+      )}
 
       {ocr.ocrResult && ocr.imageFile && (
         <OcrPreviewDialog
