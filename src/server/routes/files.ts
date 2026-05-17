@@ -165,6 +165,7 @@ filesRouter.post('/ocr', async (c) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         max_tokens: 1024,
+        response_format: { type: 'json_object' },
         messages: [
           {
             role: 'user',
