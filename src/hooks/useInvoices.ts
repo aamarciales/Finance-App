@@ -100,6 +100,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
     queryClient.invalidateQueries({ queryKey: ['invoices'] })
     queryClient.invalidateQueries({ queryKey: ['invoiceItems'] })
     queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 
   const addInvoice = async (data: InvoiceFormData) => {
@@ -216,26 +217,15 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
   }
 
   const deleteInvoice = async (id: number) => {
-    const inv = rawInvoices?.find(i => i.id === id)
-    if (!inv) return
-
-    const items = rawItems?.filter(i => i.invoiceId === id) ?? []
-    
-    // Delete items
-    for (const item of items) {
-      if (item.id) await api.delete(`/invoice-items/${item.id}`)
-    }
-
-    // Delete transaction
-    if (inv.transactionId) {
-      await api.delete(`/transactions/${inv.transactionId}`)
-    }
-
-    // Delete invoice
-    await api.delete(`/invoices/${id}`)
-
+    const res = await api.delete<{ deleted: { invoice: number; transaction: number; items: string | number }; transactionOrphanedDueToTithe?: boolean }>(`/invoices/${id}`)
     invalidateAll()
-    toast.success('Factura eliminada')
+    if (res.transactionOrphanedDueToTithe) {
+      toast.warning('Factura borrada. La transacción se mantuvo porque tiene compromisos de diezmo asociados.')
+    } else if (res.deleted.transaction > 0) {
+      toast.success('Factura y transacción asociadas eliminadas')
+    } else {
+      toast.success('Factura eliminada')
+    }
   }
 
   return {

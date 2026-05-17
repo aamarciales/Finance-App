@@ -81,10 +81,57 @@ invoicesRouter.delete('/:id', async (c) => {
 
   const id = parseInt(c.req.param('id'), 10)
   const db = drizzle(c.env.DB, { schema })
+  const { invoices, invoiceItems, transactions } = schema
 
-  await db.delete(schema.invoices).where(
-    and(eq(schema.invoices.id, id), eq(schema.invoices.userId, auth.userId))
-  )
+  // 1. Find invoice (verify ownership)
+  const inv = await db.query.invoices.findFirst({
+    where: (i, { eq, and }) => and(eq(i.id, id), eq(i.userId, auth.userId)),
+  })
+  if (!inv) return c.json({ error: 'Not found' }, 404)
 
-  return c.json({ success: true })
+  // 2. Find associated transaction
+  const linkedTx = inv.transactionId
+    ? await db.query.transactions.findFirst({
+        where: (t, { eq, and }) => and(eq(t.id, inv.transactionId!), eq(t.userId, auth.userId)),
+      })
+    : null
+
+  // 3. Check if linked tx has commitment_payments
+  let canCascadeTransaction = true
+  if (linkedTx) {
+    const linkedCommitment = await db.query.titheCommitments.findFirst({
+      where: (tc, { eq }) => eq(tc.incomeTransactionId, linkedTx.id),
+    })
+    if (linkedCommitment) {
+      const linkedPayments = await db.query.commitmentPayments.findMany({
+        where: (cp, { eq }) => eq(cp.commitmentId, linkedCommitment.id),
+      })
+      if (linkedPayments.length > 0) canCascadeTransaction = false
+    }
+    // Also check tithe_payments
+    const tithePayment = await db.query.tithePayments.findFirst({
+      where: (tp, { eq }) => eq(tp.transactionId, linkedTx.id),
+    })
+    if (tithePayment) canCascadeTransaction = false
+  }
+
+  // 4. Build and execute batch
+  const deleteItems = db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, id))
+  const deleteInvoice = db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.userId, auth.userId)))
+
+  if (linkedTx && canCascadeTransaction) {
+    const deleteTx = db.delete(transactions).where(and(eq(transactions.id, linkedTx.id), eq(transactions.userId, auth.userId)))
+    await db.batch([deleteItems, deleteInvoice, deleteTx] as any)
+  } else {
+    await db.batch([deleteItems, deleteInvoice] as any)
+  }
+
+  return c.json({
+    deleted: {
+      invoice: 1,
+      transaction: linkedTx && canCascadeTransaction ? 1 : 0,
+      items: 'cascade',
+    },
+    transactionOrphanedDueToTithe: linkedTx ? !canCascadeTransaction : false,
+  })
 })

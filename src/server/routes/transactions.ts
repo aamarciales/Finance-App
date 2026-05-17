@@ -193,14 +193,20 @@ transactionsRouter.delete('/:id', async (c) => {
 
   const id = parseInt(c.req.param('id'), 10)
   const db = drizzle(c.env.DB, { schema })
+  const { transactions, invoices, invoiceItems, titheCommitments } = schema
 
-  // Check for linked tithe commitment
+  // 1. Find tx (verify ownership)
+  const tx = await db.query.transactions.findFirst({
+    where: (t, { eq, and }) => and(eq(t.id, id), eq(t.userId, auth.userId)),
+  })
+  if (!tx) return c.json({ error: 'Not found' }, 404)
+
+  // 2. PRESERVE existing commitment check — block if has commitment_payments
   const commitment = await db.query.titheCommitments.findFirst({
     where: (tc, { eq }) => eq(tc.incomeTransactionId, id),
   })
 
   if (commitment) {
-    // If commitment has linked payments, block deletion
     const linkedPayments = await db.query.commitmentPayments.findMany({
       where: (cp, { eq }) => eq(cp.commitmentId, commitment.id),
     })
@@ -210,7 +216,7 @@ transactionsRouter.delete('/:id', async (c) => {
     }
 
     // No payments yet — safe to cascade-delete the pending commitment
-    await db.delete(schema.titheCommitments).where(eq(schema.titheCommitments.id, commitment.id))
+    await db.delete(titheCommitments).where(eq(titheCommitments.id, commitment.id))
   }
 
   // Block deletion if linked to a tithe payment
@@ -222,9 +228,23 @@ transactionsRouter.delete('/:id', async (c) => {
     return c.json({ error: 'Esta transacción es un pago de diezmo/ofrenda registrado. Elimínalo desde la sección de Diezmos.' }, 400)
   }
 
-  await db.delete(schema.transactions).where(
-    and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId))
-  )
+  // 3. Cascade: delete associated invoice + items if linked
+  const invoiceId = tx.invoiceId
+  const deleteTx = db.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, auth.userId)))
 
-  return c.json({ success: true })
+  if (invoiceId) {
+    const deleteItems = db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId))
+    const deleteInv = db.delete(invoices).where(and(eq(invoices.id, invoiceId), eq(invoices.userId, auth.userId)))
+    await db.batch([deleteTx, deleteItems, deleteInv] as any)
+  } else {
+    await deleteTx
+  }
+
+  return c.json({
+    deleted: {
+      transaction: 1,
+      invoice: invoiceId ? 1 : 0,
+      items: invoiceId ? 'cascade' : 0,
+    },
+  })
 })

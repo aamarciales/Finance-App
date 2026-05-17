@@ -193,7 +193,8 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
           })
         }
       }
-      await api.delete(`/transactions/${id}`)
+      const res = await api.delete<{ deleted: { transaction: number; invoice: number; items: string | number } }>(`/transactions/${id}`)
+      return res
     },
     onSuccess: invalidateAll
   })
@@ -225,7 +226,7 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
   }
 
   const deleteTransaction = async (id: number) => {
-    await deleteTxMutate(id)
+    return deleteTxMutate(id)
   }
 
   return {

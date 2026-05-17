@@ -8,17 +8,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Money } from '@/components/common/Money'
 import { Badge } from '@/components/common/Badge'
+import { CascadeDeleteDialog } from '@/components/common/CascadeDeleteDialog'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog'
 import { InvoiceDetailModal } from '@/components/invoices/InvoiceDetailModal'
 import { ImportCsvDialog } from '@/components/invoices/ImportCsvDialog'
@@ -68,8 +59,12 @@ export default function InvoicesPage() {
 
   async function handleDelete() {
     if (!deleteTarget?.id) return
-    await deleteInvoice(deleteTarget.id)
-    setDeleteTarget(null)
+    try {
+      await deleteInvoice(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al eliminar la factura')
+    }
   }
 
   function handleEdit() {
@@ -181,20 +176,13 @@ export default function InvoicesPage() {
         />
       )}
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar factura de "{deleteTarget?.merchant}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se eliminarán los ítems, el attachment y la transacción asociada.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CascadeDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        entity="invoice"
+        hasLinked={!!deleteTarget?.transactionId}
+      />
 
       <ImportCsvDialog open={importOpen} onOpenChange={setImportOpen} categories={categories} rates={rates} />
 

@@ -11,17 +11,8 @@ import { IntlPaymentWizard } from '@/components/transactions/IntlPaymentWizard'
 import { InvoiceQuickView } from '@/components/invoices/InvoiceQuickView'
 import { OcrPreviewDialog } from '@/components/import/OcrPreviewDialog'
 import { CreateMenuDialog } from '@/components/common/CreateMenuDialog'
+import { CascadeDeleteDialog } from '@/components/common/CascadeDeleteDialog'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { useTransactions, type TabFilter, type EnrichedTransaction } from '@/hooks/useTransactions'
 import { useInvoices } from '@/hooks/useInvoices'
 import { useOcrFlow } from '@/hooks/useOcrFlow'
@@ -130,8 +121,12 @@ export default function TransactionsPage() {
   const handleDelete = useCallback(async () => {
     if (!deleteTarget?.id) return
     try {
-      await deleteTransaction(deleteTarget.id)
-      toast.success('Transacción eliminada')
+      const res = await deleteTransaction(deleteTarget.id) as { deleted: { transaction: number; invoice: number; items: string | number } }
+      if (res?.deleted.invoice > 0) {
+        toast.success('Transacción y factura asociadas eliminadas')
+      } else {
+        toast.success('Transacción eliminada')
+      }
       setDeleteTarget(null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al eliminar la transacción')
@@ -243,20 +238,13 @@ export default function TransactionsPage() {
         rates={rates}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar esta transacción?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CascadeDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        entity="transaction"
+        hasLinked={!!deleteTarget?.invoiceId}
+      />
 
       <IntlPaymentWizard
         open={wizardOpen}
