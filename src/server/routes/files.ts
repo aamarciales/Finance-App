@@ -114,7 +114,11 @@ const OCR_PROMPT = `Analiza este recibo o factura. Extrae la información y resp
   "currency": "COP o USD o EUR",
   "confidence": 0.0
 }
-Si no puedes leer algo, usa valores null. La fecha debe estar en formato YYYY-MM-DD. Los precios deben ser números decimales.`
+REGLAS IMPORTANTES:
+- Los precios deben ser EXACTAMENTE los que aparecen en la factura. NO conviertas monedas. Si dice $7.550, el precio es 7550. Si dice $15.200, es 15200.
+- NO dividas ni conviertas los montos a dólares u otra moneda.
+- El campo "currency" debe reflejar la moneda del documento (ej: si es Colombia, será COP).
+- Si no puedes leer algo, usa valores null. La fecha debe estar en formato YYYY-MM-DD.`
 
 // POST /api/files/ocr — process receipt image
 filesRouter.post('/ocr', async (c) => {
