@@ -190,6 +190,51 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Section: Capital disponible */}
+        <div className="rounded-[10px] border border-border bg-surface p-5">
+          <div className="mb-4">
+            <h3 className="text-[15px] font-medium">Capital disponible</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Saldo actual en efectivo o cuenta bancaria. Se muestra en el Dashboard.</p>
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="Monto">
+                <Input
+                  type="number"
+                  step="any"
+                  className="font-mono"
+                  value={local.availableCapitalAmount ?? ''}
+                  onChange={(e) => updateLocal('availableCapitalAmount', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="Ej. 5000000"
+                />
+              </FieldGroup>
+              <FieldGroup label="Moneda">
+                <Select
+                  value={local.availableCapitalCurrency ?? local.baseCurrency}
+                  onValueChange={(v) => updateLocal('availableCapitalCurrency', v as Currency)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COP">COP — Peso col.</SelectItem>
+                    <SelectItem value="USD">USD — Dólar</SelectItem>
+                    <SelectItem value="EUR">EUR — Euro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldGroup>
+            </div>
+            {dirty && (
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full gap-1.5"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            )}
+          </div>
+        </div>
+
         {/* Section 2: Diezmo & Ofrendas */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
@@ -205,18 +250,6 @@ export default function SettingsPage() {
                 }}
                 placeholder="Iglesia local"
               />
-            </FieldGroup>
-
-            <FieldGroup label="Deuda espiritual (USD)">
-              <Input
-                type="number"
-                step="any"
-                className="font-mono"
-                value={local.titheDebtUsd ?? 0}
-                onChange={(e) => updateLocal('titheDebtUsd', Number(e.target.value) || 0)}
-                placeholder="Ej. 300"
-              />
-              <p className="text-[11px] text-text-muted">Saldo de diezmo anterior a la app. Se irá debitando con cada abono.</p>
             </FieldGroup>
 
             {/* Stepper grid */}
