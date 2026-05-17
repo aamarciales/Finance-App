@@ -28,16 +28,16 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
   const api = useApi()
   const queryClient = useQueryClient()
 
-  const { data: settingsRows } = useQuery({
+  const { data: settingsData } = useQuery({
     queryKey: ['settings'],
-    queryFn: () => api.get<{ key: string; value: unknown }[]>('/settings'),
+    queryFn: async () => {
+      const rows = await api.get<{ key: string; value: unknown }[]>('/settings')
+      const map: Record<string, unknown> = {}
+      for (const r of rows) map[r.key] = r.value
+      return map as Record<string, unknown>
+    },
   })
-  const capitalAccounts: CapitalAccount[] = (() => {
-    if (!settingsRows) return []
-    const map: Record<string, unknown> = {}
-    for (const r of settingsRows) map[r.key] = r.value
-    return (map.capitalAccounts as CapitalAccount[] | undefined) ?? []
-  })()
+  const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const { data: rawTransactions, isLoading: loadingTxs } = useQuery({
     queryKey: ['transactions'],
