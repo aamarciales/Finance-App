@@ -33,8 +33,8 @@ interface OcrPreviewDialogProps {
     date: string
     currency: 'COP' | 'USD' | 'EUR'
     categoryId: number
-    items: Array<{ name: string; quantity: number; unitPrice: number; subCategory?: string }>
-    file: File
+    items: Array<{ name: string; quantity: number; unitPrice: number }>
+    attachmentUrl?: string
   }) => Promise<void>
 }
 
@@ -56,7 +56,9 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const total = items.reduce((s, i) => s + i.quantity * i.price, 0)
+  const itemsTotal = items.reduce((s, i) => s + i.quantity * i.price, 0)
+  const discount = result.discount ?? 0
+  const total = Math.max(0, itemsTotal - discount)
   const realConfidence = result.realConfidence ?? 'low'
 
   function updateItem(index: number, field: keyof OcrItem, value: string | number) {
@@ -74,7 +76,6 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   async function handleSave() {
     setSaving(true)
     try {
-      const file = new File([imageBlob], 'receipt.jpg', { type: imageBlob.type || 'image/jpeg' })
       await onSave({
         merchant,
         date,
@@ -84,9 +85,8 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
           name: i.description,
           quantity: i.quantity,
           unitPrice: i.price,
-          subCategory: i.category,
         })),
-        file,
+        attachmentUrl: result.imageUrl,
       })
       onOpenChange(false)
     } finally {
@@ -182,7 +182,6 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                       <thead>
                         <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-text-faint">
                           <th className="py-1.5 pl-3 pr-2 font-medium">Descripción</th>
-                          <th className="w-24 py-1.5 px-1 font-medium">Subcategoría</th>
                           <th className="w-16 py-1.5 px-1 text-center font-medium">Cant.</th>
                           <th className="w-24 py-1.5 px-1 text-right font-medium">Precio</th>
                           <th className="w-24 py-1.5 px-1 text-right font-medium">Subtotal</th>
@@ -197,14 +196,6 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                                 value={item.description}
                                 onChange={e => updateItem(i, 'description', e.target.value)}
                                 className="h-7 text-[13px]"
-                              />
-                            </td>
-                            <td className="py-1 px-1">
-                              <Input
-                                value={item.category ?? ''}
-                                onChange={e => updateItem(i, 'category', e.target.value)}
-                                className="h-7 text-[13px]"
-                                placeholder="—"
                               />
                             </td>
                             <td className="py-1 px-1">
@@ -253,19 +244,19 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
 
                 {/* Totals */}
                 <div className="rounded-md bg-surface-2 px-4 py-3 space-y-1.5">
-                  {(result.subtotal != null && result.subtotal > 0) && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Subtotal</span>
-                      <span className="font-mono text-[13px]">{formatMoney(result.subtotal, currency)}</span>
-                    </div>
+                  {discount > 0 && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Subtotal</span>
+                        <span className="font-mono text-[13px]">{formatMoney(itemsTotal, currency)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Descuento</span>
+                        <span className="font-mono text-[13px] text-brand">−{formatMoney(discount, currency)}</span>
+                      </div>
+                    </>
                   )}
-                  {(result.discount != null && result.discount > 0) && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Descuento</span>
-                      <span className="font-mono text-[13px] text-brand">−{formatMoney(result.discount, currency)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                  <div className={discount > 0 ? 'flex items-center justify-between pt-1 border-t border-border/50' : 'flex items-center justify-between'}>
                     <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Total</span>
                     <span className="font-mono text-[15px] font-medium">{formatMoney(total, currency)}</span>
                   </div>

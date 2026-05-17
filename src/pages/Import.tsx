@@ -83,7 +83,7 @@ export default function ImportPage() {
     }
   }
 
-  async function handleSaveInvoice(data: InvoiceFormData) {
+  async function handleSaveInvoice(data: InvoiceFormData & { attachmentUrl?: string }) {
     await addInvoice(data)
     clearImage()
   }

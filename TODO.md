@@ -165,3 +165,34 @@
 - **`.claude/` untracked**: ya en `.gitignore` (resuelto en sesión 3).
 - **Code splitting / chunk size**: Vite warnea bundle >500kB. Fase 8 del plan original.
 - **Categoría "Cobro deuda" (id 51) sin diezmo**: decisión de sesión 3. Cuando alguien le devuelve a Andrés un préstamo, no es ingreso nuevo. La categoría existe en D1 y se usa para registrar ingresos, pero NO debe estar en `tithePercentByIncomeCategory`. Hoy se removió manualmente con SQL directo. Si en el futuro se hace wipe + reseed de categorías sistema, hay que volver a removerla manualmente o automatizarlo (ver Bug C parte 2 pendiente para protección automática).
+
+---
+
+## Backlog · Subcategorías en /analisis (sesión dedicada futura)
+
+**Idea**: que la página /analisis use Categoría → Subcategoría para análisis
+granular (ej. Supermercado · Lácteos = $X/mes; Comida fuera · Almuerzo trabajo
+= $Y/mes). Hoy la columna `invoice_items.sub_category` existe pero está
+huérfana (OCR no la rellena, /analisis no la consume). La UI de Subcategoría
+se quitó del OCR dialog el 2026-05-17 para evitar confusión hasta que se
+implemente la feature completa.
+
+**Preguntas de producto antes de construir** (responder por escrito primero):
+1. ¿Subcategorías libres (texto que el usuario escribe) o catálogo fijo por
+   categoría (Supermercado → Lácteos/Aseo/Bebidas/...)?
+2. ¿El OCR debería sugerir subcategorías o deja vacío y el usuario completa?
+3. ¿La subcategoría aplica a invoice_items solamente o también a transacciones
+   sueltas (sin factura)?
+4. ¿/analisis muestra árbol jerárquico (Categoría que se expande a
+   Subcategorías) o gráfico aparte por Subcategoría?
+5. ¿Qué pasa con transacciones históricas sin subcategoría? ¿Quedan en
+   "Sin clasificar" o se omiten del análisis?
+
+**Cambios técnicos estimados**:
+- Prompt OCR ampliado para detectar subcategoría por item
+- Hook `useAnalytics` agrupa por categoría + subcategoría
+- UI nueva en /analisis (gráficos de doble nivel o drill-down)
+- Catálogo de subcategorías sistema si optas por catálogo fijo
+- Rehabilitar columna SUBCATEGORÍA en OcrPreviewDialog
+
+**Tiempo estimado**: 3-4 horas sesión dedicada.
