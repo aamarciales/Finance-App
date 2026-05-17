@@ -294,14 +294,14 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                 control={control}
                 render={({ field }) => (
                   <Select
-                    value={field.value ?? ''}
-                    onValueChange={(v) => field.onChange(v || null)}
+                    value={field.value ?? '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Ninguna" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Ninguna</SelectItem>
+                      <SelectItem value="__none__">Ninguna</SelectItem>
                       {capitalAccounts.map((acc) => (
                         <SelectItem key={acc.id} value={acc.id}>
                           {acc.name} ({acc.currency})

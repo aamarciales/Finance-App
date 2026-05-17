@@ -214,14 +214,14 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                   <div className="grid gap-1.5">
                     <Label>Cuenta</Label>
                     <Select
-                      value={accountId ?? ''}
-                      onValueChange={v => setAccountId(v || null)}
+                      value={accountId ?? '__none__'}
+                      onValueChange={v => setAccountId(v === '__none__' ? null : v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Ninguna" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Ninguna</SelectItem>
+                        <SelectItem value="__none__">Ninguna</SelectItem>
                         {capitalAccounts.map(acc => (
                           <SelectItem key={acc.id} value={acc.id}>
                             {acc.name} ({acc.currency})
