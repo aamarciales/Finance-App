@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2, FileUp, Save } from 'lucide-react'
+import { Download, Trash2, FileUp, Save, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/hooks/useSettings'
 import { useApi } from '@/lib/api'
 import { ImportJsonDialog } from '@/components/settings/ImportJsonDialog'
-import type { AppSettings, Category, Currency, OcrProvider } from '@/types/domain'
+import type { AppSettings, CapitalAccount, Category, Currency, OcrProvider } from '@/types/domain'
 
 export default function SettingsPage() {
   const { settings: serverSettings, loading, setSetting } = useSettings()
@@ -194,34 +194,80 @@ export default function SettingsPage() {
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
             <h3 className="text-[15px] font-medium">Capital disponible</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Saldo actual en efectivo o cuenta bancaria. Se muestra en el Dashboard.</p>
+            <p className="mt-1 text-[12.5px] text-text-muted">Cuentas bancarias y efectivo. El total se muestra en el Dashboard.</p>
           </div>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FieldGroup label="Monto">
-                <Input
-                  type="number"
-                  step="any"
-                  className="font-mono"
-                  value={local.availableCapitalAmount ?? ''}
-                  onChange={(e) => updateLocal('availableCapitalAmount', e.target.value ? Number(e.target.value) : undefined)}
-                  placeholder="Ej. 5000000"
-                />
-              </FieldGroup>
-              <FieldGroup label="Moneda">
-                <Select
-                  value={local.availableCapitalCurrency ?? local.baseCurrency}
-                  onValueChange={(v) => updateLocal('availableCapitalCurrency', v as Currency)}
+          <div className="space-y-3">
+            {(local.capitalAccounts ?? []).map((acc, idx) => (
+              <div key={acc.id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
+                <FieldGroup label={idx === 0 ? 'Nombre' : undefined}>
+                  <Input
+                    value={acc.name}
+                    onChange={(e) => {
+                      const accounts = [...(local.capitalAccounts ?? [])]
+                      accounts[idx] = { ...accounts[idx], name: e.target.value }
+                      updateLocal('capitalAccounts', accounts)
+                    }}
+                    placeholder="Ej. Bancolombia"
+                  />
+                </FieldGroup>
+                <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                  <FieldGroup label={idx === 0 ? 'Monto' : undefined}>
+                    <Input
+                      type="number"
+                      step="any"
+                      className="font-mono"
+                      value={acc.amount || ''}
+                      onChange={(e) => {
+                        const accounts = [...(local.capitalAccounts ?? [])]
+                        accounts[idx] = { ...accounts[idx], amount: e.target.value ? Number(e.target.value) : 0 }
+                        updateLocal('capitalAccounts', accounts)
+                      }}
+                      placeholder="0"
+                    />
+                  </FieldGroup>
+                  <FieldGroup label={idx === 0 ? 'Moneda' : undefined}>
+                    <Select
+                      value={acc.currency}
+                      onValueChange={(v) => {
+                        const accounts = [...(local.capitalAccounts ?? [])]
+                        accounts[idx] = { ...accounts[idx], currency: v as Currency }
+                        updateLocal('capitalAccounts', accounts)
+                      }}
+                    >
+                      <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="COP">COP</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldGroup>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-text-muted hover:text-danger-strong mb-0.5"
+                  onClick={() => {
+                    const accounts = (local.capitalAccounts ?? []).filter((_, i) => i !== idx)
+                    updateLocal('capitalAccounts', accounts)
+                  }}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="COP">COP — Peso col.</SelectItem>
-                    <SelectItem value="USD">USD — Dólar</SelectItem>
-                    <SelectItem value="EUR">EUR — Euro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FieldGroup>
-            </div>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                const accounts = [...(local.capitalAccounts ?? []), { id: crypto.randomUUID(), name: '', amount: 0, currency: local.baseCurrency } as CapitalAccount]
+                updateLocal('capitalAccounts', accounts)
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar cuenta
+            </Button>
             {dirty && (
               <Button
                 onClick={handleSave}
@@ -395,10 +441,10 @@ export default function SettingsPage() {
   )
 }
 
-function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldGroup({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label className="text-[12px]">{label}</Label>
+      {label && <Label className="text-[12px]">{label}</Label>}
       {children}
     </div>
   )

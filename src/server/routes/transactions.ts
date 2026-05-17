@@ -193,18 +193,22 @@ transactionsRouter.delete('/:id', async (c) => {
   const id = parseInt(c.req.param('id'), 10)
   const db = drizzle(c.env.DB, { schema })
 
-  // Check for linked tithe commitment
+  // Block deletion if linked to a tithe commitment
   const commitment = await db.query.titheCommitments.findFirst({
     where: (tc, { eq }) => eq(tc.incomeTransactionId, id),
   })
 
   if (commitment) {
-    // Delete any linked commitment_payments first
-    await db.delete(schema.commitmentPayments).where(
-      eq(schema.commitmentPayments.commitmentId, commitment.id)
-    )
-    // Delete the commitment itself (regardless of status)
-    await db.delete(schema.titheCommitments).where(eq(schema.titheCommitments.id, commitment.id))
+    return c.json({ error: 'Esta transacción de ingreso tiene un compromiso de diezmo asociado. Desvincula o elimina el compromiso primero desde la sección de Diezmos.' }, 400)
+  }
+
+  // Block deletion if linked to a tithe payment
+  const payment = await db.query.tithePayments.findFirst({
+    where: (tp, { eq }) => eq(tp.transactionId, id),
+  })
+
+  if (payment) {
+    return c.json({ error: 'Esta transacción es un pago de diezmo/ofrenda registrado. Elimínalo desde la sección de Diezmos.' }, 400)
   }
 
   await db.delete(schema.transactions).where(

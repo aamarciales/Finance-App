@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Money } from '@/components/common/Money'
 import { Badge } from '@/components/common/Badge'
+import { CapitalDetailDialog } from '@/components/common/CapitalDetailDialog'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { ExpensesByCategory } from '@/components/charts/ExpensesByCategory'
 import { MonthlyTrend } from '@/components/charts/MonthlyTrend'
@@ -19,6 +20,7 @@ import { useUser } from '@clerk/clerk-react'
 export default function DashboardPage() {
   const { settings } = useSettings()
   const [period, setPeriod] = useState<DashboardPeriod>('this-month')
+  const [capitalDetailOpen, setCapitalDetailOpen] = useState(false)
   const data = useDashboard(period)
   const { user } = useUser()
 
@@ -105,6 +107,7 @@ export default function DashboardPage() {
             secondary={data.availableCapital > 0 ? `USD ${data.availableCapital.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
             icon={Banknote}
             tone="brand"
+            onClick={() => setCapitalDetailOpen(true)}
           />
         </div>
 
@@ -155,6 +158,13 @@ export default function DashboardPage() {
         </div>
       </div>
       )}
+
+      <CapitalDetailDialog
+        open={capitalDetailOpen}
+        onOpenChange={setCapitalDetailOpen}
+        totalCop={data.availableCapitalCop}
+        totalUsd={data.availableCapital}
+      />
     </>
   )
 }

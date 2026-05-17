@@ -181,6 +181,13 @@ export interface TaxProfile {
 
 export type OcrProvider = 'claude' | 'tesseract' | 'off'
 
+export interface CapitalAccount {
+  id: string
+  name: string
+  amount: number
+  currency: Currency
+}
+
 export interface AppSettings {
   baseCurrency: Currency
   secondaryCurrency: Currency
@@ -192,6 +199,7 @@ export interface AppSettings {
   monthlyTaxProvisionRate: number
   availableCapitalAmount?: number
   availableCapitalCurrency?: Currency
+  capitalAccounts?: CapitalAccount[]
   titheCarryoverUsd?: number
   titheStartDate?: string
   titheDebtUsd?: number

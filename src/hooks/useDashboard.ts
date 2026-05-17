@@ -4,6 +4,8 @@ import { format, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, st
 import { useApi } from '@/lib/api'
 import { calculateTitheForIncome } from '@/lib/tithe'
 import { useSettings } from '@/hooks/useSettings'
+import { useTRM } from '@/hooks/useTRM'
+import { useForex } from '@/hooks/useForex'
 import type { Category, Transaction } from '@/types/domain'
 
 export type DashboardPeriod = 'this-month' | 'last-month' | 'this-week' | 'quarter' | 'semester' | 'year' | 'all'
@@ -61,6 +63,8 @@ function isKpiTransaction(tx: Transaction): boolean {
 
 export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardData {
   const { settings } = useSettings()
+  const { rate: trm } = useTRM()
+  const { eurToUsd } = useForex()
 
   const now = new Date()
 
@@ -306,10 +310,19 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       category: categoryMap.get(tx.categoryId)!,
     })).filter(tx => tx.category)
 
-    // Available capital from settings
+    // Available capital from settings (multi-account)
     let availableCapital = 0
     let availableCapitalCop = 0
-    if (settings?.availableCapitalAmount != null) {
+    const accounts = settings?.capitalAccounts ?? []
+    if (accounts.length > 0) {
+      for (const acc of accounts) {
+        let usdVal = acc.amount
+        if (acc.currency === 'COP') usdVal = trm > 0 ? acc.amount / trm : 0
+        else if (acc.currency === 'EUR') usdVal = acc.amount * eurToUsd
+        availableCapital += usdVal
+        availableCapitalCop += acc.currency === 'COP' ? acc.amount : acc.currency === 'USD' ? acc.amount * trm : acc.amount * eurToUsd * trm
+      }
+    } else if (settings?.availableCapitalAmount != null) {
       const capCurrency = settings.availableCapitalCurrency ?? 'COP'
       const capAmount = settings.availableCapitalAmount
       if (capCurrency === 'USD') {
