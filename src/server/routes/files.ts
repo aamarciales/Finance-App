@@ -176,12 +176,26 @@ filesRouter.post('/ocr', async (c) => {
 
     if (!response.ok) {
       const err = await response.text()
-      console.error('Gemini API error:', err)
-      return c.json({ error: 'Error al procesar con Gemini. Verifica tu API Key.' }, 500)
+      console.error('Gemini API error:', response.status, err)
+      try {
+        const errJson = JSON.parse(err)
+        const msg = errJson?.error?.message ?? ''
+        if (msg.includes('API key')) return c.json({ error: 'API Key de Gemini inválida. Verifica en Ajustes.' }, 400)
+        if (msg.includes('quota')) return c.json({ error: 'Cuota de Gemini agotada. Intenta más tarde.' }, 429)
+        return c.json({ error: `Error Gemini: ${msg || response.statusText}` }, 500)
+      } catch {
+        return c.json({ error: 'Error al procesar con Gemini. Verifica tu API Key.' }, 500)
+      }
     }
 
     const data = await response.json() as any
     ocrText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+
+    if (!ocrText) {
+      const blockReason = data.candidates?.[0]?.finishReason
+      if (blockReason === 'SAFETY') return c.json({ error: 'Gemini bloqueó la imagen por políticas de seguridad.' }, 400)
+      return c.json({ error: 'Gemini no pudo extraer texto de la imagen.' }, 500)
+    }
   } else {
     // Claude (default)
     const apiKey = c.env.ANTHROPIC_API_KEY

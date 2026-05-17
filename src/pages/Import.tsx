@@ -76,8 +76,8 @@ export default function ImportPage() {
     try {
       const result = await processReceiptOCR(imageFile)
       setOcrResult(result)
-    } catch {
-      toast.error('Error al procesar la imagen')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al procesar la imagen')
     } finally {
       setProcessing(false)
     }

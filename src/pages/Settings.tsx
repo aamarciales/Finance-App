@@ -268,16 +268,14 @@ export default function SettingsPage() {
               <Plus className="h-3.5 w-3.5" />
               Agregar cuenta
             </Button>
-            {dirty && (
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full gap-1.5"
-              >
-                <Save className="h-4 w-4" />
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </Button>
-            )}
+            <Button
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="w-full gap-1.5"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
           </div>
         </div>
 
@@ -338,16 +336,14 @@ export default function SettingsPage() {
             </div>
 
             {/* Save button */}
-            {dirty && (
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full gap-1.5"
-              >
-                <Save className="h-4 w-4" />
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </Button>
-            )}
+            <Button
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="w-full gap-1.5"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
           </div>
         </div>
 
@@ -396,16 +392,14 @@ export default function SettingsPage() {
               </FieldGroup>
             )}
 
-            {dirty && (
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full gap-1.5"
-              >
-                <Save className="h-4 w-4" />
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </Button>
-            )}
+            <Button
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="w-full gap-1.5"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
           </div>
         </div>
 
