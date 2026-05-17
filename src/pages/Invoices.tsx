@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
 import { Plus, Receipt, Trash2, FileUp, Paperclip } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -20,9 +21,14 @@ import {
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog'
 import { InvoiceDetailModal } from '@/components/invoices/InvoiceDetailModal'
 import { ImportCsvDialog } from '@/components/invoices/ImportCsvDialog'
+import { OcrPreviewDialog } from '@/components/import/OcrPreviewDialog'
+import { CreateMenuDialog } from '@/components/common/CreateMenuDialog'
 import { useInvoices, type EnrichedInvoice } from '@/hooks/useInvoices'
+import { useTransactions } from '@/hooks/useTransactions'
+import { useOcrFlow } from '@/hooks/useOcrFlow'
 import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
+import { resolveInternalType } from '@/lib/validators'
 import type { Invoice } from '@/types/domain'
 
 
@@ -31,11 +37,14 @@ export default function InvoicesPage() {
   const { eurToUsd } = useForex()
   const rates = { trm, eurToUsd }
   const { invoices, categories, loading, addInvoice, updateInvoice, deleteInvoice } = useInvoices(rates)
+  const { addTransaction } = useTransactions({ tab: 'all' }, rates)
+  const ocr = useOcrFlow()
   const [formOpen, setFormOpen] = useState(false)
   const [editInvoice, setEditInvoice] = useState<EnrichedInvoice | null>(null)
   const [detailData, setDetailData] = useState<EnrichedInvoice | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
 
   async function handleSelect(id: number) {
     const inv = invoices.find(i => i.id === id)
@@ -55,6 +64,35 @@ export default function InvoicesPage() {
     setDetailData(null)
   }
 
+  // Auto-process OCR when file is selected
+  useEffect(() => {
+    if (ocr.imageFile && !ocr.ocrResult && !ocr.processing) {
+      ocr.processOCR()
+    }
+  }, [ocr.imageFile])
+
+  async function handleOcrInvoice(data: Parameters<typeof addInvoice>[0]) {
+    await addInvoice(data)
+    ocr.reset()
+  }
+
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[] }) {
+    const cat = categories.find(c => c.id === data.categoryId)
+    const internalType = resolveInternalType(cat?.name ?? '', 'expense')
+    await addTransaction({
+      date: data.date,
+      type: internalType,
+      concept: data.concept,
+      categoryId: data.categoryId,
+      amount: data.amount,
+      currency: data.currency,
+      trm: rates.trm,
+      attachments: data.attachments,
+    })
+    toast.success('Transacción creada')
+    ocr.reset()
+  }
+
   return (
     <>
       <PageHeader
@@ -66,7 +104,7 @@ export default function InvoicesPage() {
               <FileUp className="h-4 w-4" />
               Importar CSV
             </Button>
-            <Button onClick={() => setFormOpen(true)} className="gap-1.5">
+            <Button onClick={() => setCreateMenuOpen(true)} className="gap-1.5">
               <Plus className="h-4 w-4" />
               Nueva factura
             </Button>
@@ -137,6 +175,26 @@ export default function InvoicesPage() {
       </AlertDialog>
 
       <ImportCsvDialog open={importOpen} onOpenChange={setImportOpen} categories={categories} rates={rates} />
+
+      <CreateMenuDialog
+        open={createMenuOpen}
+        onOpenChange={setCreateMenuOpen}
+        onImageSelected={ocr.handleFileAccepted}
+        onManual={() => setFormOpen(true)}
+        label="factura"
+      />
+
+      {ocr.ocrResult && ocr.imageFile && (
+        <OcrPreviewDialog
+          open={!!ocr.ocrResult}
+          onOpenChange={(open) => { if (!open) ocr.reset() }}
+          result={ocr.ocrResult}
+          imageBlob={ocr.imageFile}
+          categories={categories}
+          onSaveInvoice={handleOcrInvoice}
+          onSaveTransaction={handleOcrTransaction}
+        />
+      )}
     </>
   )
 }

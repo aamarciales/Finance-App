@@ -10,7 +10,6 @@ import {
   Settings,
   Shield,
   Target,
-  Upload,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -33,7 +32,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: '/', label: 'Dashboard', icon: Activity, end: true },
       { to: '/transactions', label: 'Transacciones', icon: Receipt },
       { to: '/invoices', label: 'Facturas', icon: ScrollText },
-      { to: '/import', label: 'Importar', icon: Upload },
     ],
   },
   {

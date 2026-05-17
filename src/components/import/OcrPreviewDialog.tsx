@@ -22,26 +22,38 @@ import { formatMoney } from '@/lib/format'
 import type { OcrResult, OcrItem } from '@/lib/ocr'
 import type { Category } from '@/types/domain'
 
+export interface OcrInvoiceData {
+  merchant: string
+  date: string
+  currency: 'COP' | 'USD' | 'EUR'
+  categoryId: number
+  items: Array<{ name: string; quantity: number; unitPrice: number }>
+  subtotal?: number
+  discount?: number
+  total: number
+  attachmentUrl?: string
+}
+
+export interface OcrTransactionData {
+  concept: string
+  date: string
+  amount: number
+  currency: 'COP' | 'USD' | 'EUR'
+  categoryId: number
+  attachments?: string[]
+}
+
 interface OcrPreviewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   result: OcrResult
   imageBlob: Blob
   categories: Category[]
-  onSave: (data: {
-    merchant: string
-    date: string
-    currency: 'COP' | 'USD' | 'EUR'
-    categoryId: number
-    items: Array<{ name: string; quantity: number; unitPrice: number }>
-    subtotal?: number
-    discount?: number
-    total: number
-    attachmentUrl?: string
-  }) => Promise<void>
+  onSaveInvoice?: (data: OcrInvoiceData) => Promise<void>
+  onSaveTransaction?: (data: OcrTransactionData) => Promise<void>
 }
 
-export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, onSave }: OcrPreviewDialogProps) {
+export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, onSaveInvoice, onSaveTransaction }: OcrPreviewDialogProps) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
   const [merchant, setMerchant] = useState(result.merchant)
@@ -76,10 +88,11 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
     setItems(prev => [...prev, { description: '', quantity: 1, price: 0 }])
   }
 
-  async function handleSave() {
+  async function handleSaveInvoice() {
+    if (!onSaveInvoice) return
     setSaving(true)
     try {
-      await onSave({
+      await onSaveInvoice({
         merchant,
         date,
         currency,
@@ -93,6 +106,24 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
         discount: discount || undefined,
         total,
         attachmentUrl: result.imageUrl,
+      })
+      onOpenChange(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveTransaction() {
+    if (!onSaveTransaction) return
+    setSaving(true)
+    try {
+      await onSaveTransaction({
+        concept: merchant,
+        date,
+        amount: total,
+        currency,
+        categoryId: Number(categoryId),
+        attachments: result.imageUrl ? [result.imageUrl] : undefined,
       })
       onOpenChange(false)
     } finally {
@@ -269,11 +300,25 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                   <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                  <Button onClick={handleSave} disabled={saving || !categoryId || items.length === 0}>
-                    {saving ? 'Guardando…' : 'Guardar factura'}
-                  </Button>
+                  {onSaveTransaction && (
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveTransaction}
+                      disabled={saving || !categoryId}
+                    >
+                      {saving ? 'Guardando…' : 'Guardar como transacción'}
+                    </Button>
+                  )}
+                  {onSaveInvoice && (
+                    <Button
+                      onClick={handleSaveInvoice}
+                      disabled={saving || !categoryId || items.length === 0}
+                    >
+                      {saving ? 'Guardando…' : 'Guardar como factura'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

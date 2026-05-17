@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Plus, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -8,6 +8,8 @@ import { TransactionsTable } from '@/components/transactions/TransactionsTable'
 import { TxFormDialog } from '@/components/transactions/TxFormDialog'
 import { IntlPaymentWizard } from '@/components/transactions/IntlPaymentWizard'
 import { InvoiceQuickView } from '@/components/invoices/InvoiceQuickView'
+import { OcrPreviewDialog } from '@/components/import/OcrPreviewDialog'
+import { CreateMenuDialog } from '@/components/common/CreateMenuDialog'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -20,6 +22,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useTransactions, type TabFilter, type EnrichedTransaction } from '@/hooks/useTransactions'
+import { useInvoices } from '@/hooks/useInvoices'
+import { useOcrFlow } from '@/hooks/useOcrFlow'
 import { useTRM } from '@/hooks/useTRM'
 import { useForex } from '@/hooks/useForex'
 
@@ -37,6 +41,8 @@ export default function TransactionsPage() {
   const [duplicateTx, setDuplicateTx] = useState<Transaction | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<EnrichedTransaction | null>(null)
   const [viewingInvoiceId, setViewingInvoiceId] = useState<number | null>(null)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const ocr = useOcrFlow()
 
   const dateRange = useMemo(() => periodToDates(period), [period])
   const { rate: trm } = useTRM()
@@ -53,6 +59,7 @@ export default function TransactionsPage() {
     },
     rates,
   )
+  const { addInvoice } = useInvoices(rates)
 
   const handleCreate = useCallback(
     async (values: TxFormValues) => {
@@ -124,6 +131,35 @@ export default function TransactionsPage() {
     setDuplicateTx(undefined)
   }
 
+  // Auto-process OCR when file is selected
+  useEffect(() => {
+    if (ocr.imageFile && !ocr.ocrResult && !ocr.processing) {
+      ocr.processOCR()
+    }
+  }, [ocr.imageFile])
+
+  async function handleOcrInvoice(data: Parameters<typeof addInvoice>[0]) {
+    await addInvoice(data)
+    ocr.reset()
+  }
+
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[] }) {
+    const cat = categories.find(c => c.id === data.categoryId)
+    const internalType = resolveInternalType(cat?.name ?? '', 'expense')
+    await addTransaction({
+      date: data.date,
+      type: internalType,
+      concept: data.concept,
+      categoryId: data.categoryId,
+      amount: data.amount,
+      currency: data.currency,
+      trm: rates.trm,
+      attachments: data.attachments,
+    })
+    toast.success('Transacción creada')
+    ocr.reset()
+  }
+
   return (
     <>
       <PageHeader
@@ -135,7 +171,7 @@ export default function TransactionsPage() {
               <Globe className="h-4 w-4" />
               Pago internacional
             </Button>
-            <Button onClick={() => setFormOpen(true)} className="gap-1.5">
+            <Button onClick={() => setCreateMenuOpen(true)} className="gap-1.5">
               <Plus className="h-4 w-4" />
               Nueva transacción
             </Button>
@@ -209,6 +245,26 @@ export default function TransactionsPage() {
         onOpenChange={(open) => { if (!open) setViewingInvoiceId(null) }}
         invoiceId={viewingInvoiceId}
       />
+
+      <CreateMenuDialog
+        open={createMenuOpen}
+        onOpenChange={setCreateMenuOpen}
+        onImageSelected={ocr.handleFileAccepted}
+        onManual={() => setFormOpen(true)}
+        label="transacción"
+      />
+
+      {ocr.ocrResult && ocr.imageFile && (
+        <OcrPreviewDialog
+          open={!!ocr.ocrResult}
+          onOpenChange={(open) => { if (!open) ocr.reset() }}
+          result={ocr.ocrResult}
+          imageBlob={ocr.imageFile}
+          categories={categories}
+          onSaveInvoice={handleOcrInvoice}
+          onSaveTransaction={handleOcrTransaction}
+        />
+      )}
     </>
   )
 }

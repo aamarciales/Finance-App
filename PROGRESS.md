@@ -6,7 +6,7 @@
 
 ## Fase de estabilización post-handoff V4 (2026-05-15 → 2026-05-17)
 
-57+ commits entre `4765463` (cierre handoff V4) y `1f41dbe`.
+60+ commits entre `4765463` (cierre handoff V4) y `5ed39cf`.
 
 ### Bugs cerrados
 
@@ -29,11 +29,25 @@
 **Bug H · TRM validation guard para COP**
 - Commit `8692c59`.
 
-**Bugs OCR (descuento + soporte + subcategoría)** (2026-05-17)
+**Bugs OCR (descuento + soporte + subcategoría)** (2026-05-17 mañana)
 - Tres fixes en una iteración:
-  - Total de la factura ahora resta el descuento. Antes `total = sum(items.quantity * items.price)` ignoraba `result.discount`. Ahora `total = Math.max(0, itemsTotal - discount)`.
-  - Soporte de la factura se adjunta correctamente. El OCR endpoint ya subía la imagen a R2 (`files.ts:404`), ahora la URL fluye al invoice vía `attachmentUrl` en lugar de re-upload del blob desde `OcrPreviewDialog`. `Import.tsx → handleSaveInvoice` ahora recibe y pasa attachmentUrl a addInvoice.
+  - Total de la factura en OcrPreviewDialog ahora resta el descuento. Antes `total = sum(items.quantity * items.price)` ignoraba `result.discount`. Ahora `total = Math.max(0, itemsTotal - discount)`.
+  - Soporte de la factura se adjunta correctamente. El OCR endpoint ya subía la imagen a R2 (`files.ts:404`), ahora la URL fluye al invoice vía `attachmentUrl` en lugar de re-upload del blob desde `OcrPreviewDialog`. `Import.tsx → handleSaveInvoice` recibe y pasa attachmentUrl a addInvoice.
   - Columna SUBCATEGORÍA quitada del OCR dialog. Feature parcial (la columna en BD existe, CSV import y InvoiceDetailModal la usan; el OCR nunca la llenaba). Hoy oculta solo en OCR dialog. Backlog para sesión dedicada de Subcategorías en /analisis.
+
+**Bug · Descuento no se persistía en BD (factura guardada mostraba mal el total)** (2026-05-17 tarde)
+- Síntoma: en MXM Florida, OCR detectaba subtotal $35.350 y descuento $1.680 correctamente, dialog mostraba total $33.670, pero al guardar y abrir QuickView aparecía $35.350. El descuento se perdía porque la tabla `invoices` no tenía dónde guardarlo.
+- Fix: migración 0009 agregó columnas `subtotal` y `discount` a `invoices`. Backend POST/PUT aceptan los nuevos campos. `handleSave` del OCR pasa subtotal, discount y total explícitos. `addInvoice` calcula total = subtotal - discount con fallback defensivo. InvoiceQuickView muestra breakdown Subtotal/Descuento/Total cuando discount > 0.
+- Decisión clave: items se guardan con sus precios reales del recibo (galleta $1.900 sigue siendo $1.900). El descuento vive en el invoice, no se distribuye en los items. Fidelidad del recibo preservada.
+
+### OCR · Upgrade significativo (2026-05-17)
+
+- Modelo OpenAI cambiado de `gpt-4o-mini` a `gpt-4.1-mini` (mejor extracción densa, sigue instrucciones más estrictamente).
+- `max_tokens` subido de 1024 a 4096 (antes truncaba recibos largos: el recibo D1 de 31 items perdía ~8 items por truncamiento).
+- Prompt OCR reescrito completo: manejo explícito de formato colombiano (punto como miles), descuentos (Descuento A 15% + Descuento B 20%), casos especiales (recibos manuscritos, facturas de servicio, IVA), validación interna antes de responder, regla de no inventar items para cuadrar totales.
+- Post-validation server-side: helper `validateOcrResult` calcula `realConfidence` ('high' / 'medium' / 'low') independiente de lo que diga el modelo. Compara `sum(items.lineTotal)` vs `subtotal`, `(subtotal - discount)` vs `total`, y `items.length` vs `itemCountReported`.
+- UI con badge basado en realConfidence (Validado / Revisar montos / Revisión obligatoria) + banner de warning rojo si low confidence mostrando la discrepancia exacta en pesos.
+- Tipo `OcrResult` extendido con `subtotal`, `discount`, `itemCountReported`, `realConfidence`, `validation`.
 
 ### Features grandes implementadas
 
@@ -57,11 +71,8 @@
 **OCR de tickets con 3 providers** (commits `56ddf6f`, `8df1d4c`, `ccf2d60`, `243b323`, `1effc80`, `819d370`, `ba5cf7a`, fixes 2026-05-17)
 - Claude Sonnet 4 (default server-side, ANTHROPIC_API_KEY).
 - Google Gemini 2.0 Flash (user API key).
-- OpenAI gpt-4.1-mini (user API key, actualizado 2026-05-17 desde gpt-4o-mini).
-- max_tokens subido a 4096 (antes 1024 truncaba recibos largos de 30+ items).
-- Prompt actualizado con manejo de formato colombiano (punto como miles), descuentos, validación interna, casos especiales (manuscritos, servicios, IVA).
-- Post-validation server-side calcula `realConfidence` independiente de lo que diga el modelo. Tres niveles: high / medium / low.
-- UI con badge basado en realConfidence (Validado / Revisar montos / Revisión obligatoria) + banner de warning si low confidence.
+- OpenAI gpt-4.1-mini (user API key).
+- Detalle completo del upgrade del 2026-05-17 ver sección "OCR · Upgrade significativo" arriba.
 
 **Camera Capture** (commit `8df1d4c`)
 - Input separado con `capture="environment"` para móvil. Permite tomar foto del recibo directamente.
@@ -105,14 +116,15 @@
 0006_missing_columns       → is_recurring, capital_amount, interest_amount en transactions; is_paid en debts
 0007_goals_columns         → description, monthly_contribution en goals
 0008_debts_updated_at      → updated_at en debts
+0009_invoice_discount      → subtotal, discount en invoices (2026-05-17)
 ```
 
 ### Estado en producción al cierre (2026-05-17)
 
 User `user_3DEHVwNjURaZfTfhcPTS0rNLOer`:
-- 80 transacciones (antes: 9)
+- 80+ transacciones (antes: 9)
 - 23 categorías (antes: ~12)
-- 12 facturas + 114 invoice_items
+- 12+ facturas + 114+ invoice_items
 - 14 tithe_commitments + 3 tithe_payments + 9 commitment_payments
 - 3 debts, 1 goal, 6 settings rows (added: ocrProvider, geminiApiKey/openaiApiKey, capitalAccounts)
 
