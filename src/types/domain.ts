@@ -179,7 +179,7 @@ export interface TaxProfile {
   validatedByAccountant: boolean
 }
 
-export type OcrProvider = 'claude' | 'gemini' | 'tesseract' | 'off'
+export type OcrProvider = 'openai' | 'gemini' | 'claude' | 'tesseract' | 'off'
 
 export interface CapitalAccount {
   id: string
@@ -196,6 +196,7 @@ export interface AppSettings {
   taxProfile: TaxProfile
   ocrProvider: OcrProvider
   geminiApiKey?: string
+  openaiApiKey?: string
   autoCategorize: boolean
   monthlyTaxProvisionRate: number
   availableCapitalAmount?: number

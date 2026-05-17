@@ -147,7 +147,57 @@ filesRouter.post('/ocr', async (c) => {
 
   let ocrText: string
 
-  if (provider === 'gemini') {
+  if (provider === 'openai') {
+    const keyRow = await db.query.settings.findFirst({
+      where: (s, { eq, and }) => and(eq(s.key, 'openaiApiKey'), eq(s.userId, auth.userId)),
+    })
+    const openaiKey = typeof keyRow?.value === 'string' ? keyRow.value : keyRow?.value as string | undefined
+    if (!openaiKey) {
+      return c.json({ error: 'Configura tu API Key de OpenAI en Ajustes.' }, 400)
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64}`, detail: 'high' } },
+              { type: 'text', text: OCR_PROMPT },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      console.error('OpenAI API error:', response.status, err)
+      try {
+        const errJson = JSON.parse(err)
+        const msg = errJson?.error?.message ?? ''
+        if (msg.includes('API key') || msg.includes('Incorrect API')) return c.json({ error: 'API Key de OpenAI inválida. Verifica en Ajustes.' }, 400)
+        if (msg.includes('quota') || msg.includes('billing')) return c.json({ error: 'Cuota de OpenAI agotada o sin facturación activa.' }, 429)
+        return c.json({ error: `Error OpenAI: ${msg || response.statusText}` }, 500)
+      } catch {
+        return c.json({ error: 'Error al procesar con OpenAI. Verifica tu API Key.' }, 500)
+      }
+    }
+
+    const data = await response.json() as any
+    ocrText = data.choices?.[0]?.message?.content ?? ''
+
+    if (!ocrText) {
+      return c.json({ error: 'OpenAI no pudo extraer texto de la imagen.' }, 500)
+    }
+  } else if (provider === 'gemini') {
     // Read Gemini API key from user settings
     const keyRow = await db.query.settings.findFirst({
       where: (s, { eq, and }) => and(eq(s.key, 'geminiApiKey'), eq(s.userId, auth.userId)),

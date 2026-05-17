@@ -362,6 +362,7 @@ export default function SettingsPage() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="gemini">Google Gemini</SelectItem>
                     <SelectItem value="claude">Claude AI</SelectItem>
                     <SelectItem value="off">Desactivado</SelectItem>
@@ -381,15 +382,29 @@ export default function SettingsPage() {
                 </Select>
               </FieldGroup>
             </div>
-            {local.ocrProvider === 'gemini' && (
-              <FieldGroup label="API Key de Google Gemini">
-                <Input
-                  type="password"
-                  value={local.geminiApiKey ?? ''}
-                  onChange={(e) => updateLocal('geminiApiKey', e.target.value || undefined)}
-                  placeholder="AIza..."
-                />
-              </FieldGroup>
+            {(local.ocrProvider === 'gemini' || local.ocrProvider === 'openai') && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {local.ocrProvider === 'openai' && (
+                  <FieldGroup label="API Key de OpenAI">
+                    <Input
+                      type="password"
+                      value={local.openaiApiKey ?? ''}
+                      onChange={(e) => updateLocal('openaiApiKey', e.target.value || undefined)}
+                      placeholder="sk-..."
+                    />
+                  </FieldGroup>
+                )}
+                {local.ocrProvider === 'gemini' && (
+                  <FieldGroup label="API Key de Google Gemini">
+                    <Input
+                      type="password"
+                      value={local.geminiApiKey ?? ''}
+                      onChange={(e) => updateLocal('geminiApiKey', e.target.value || undefined)}
+                      placeholder="AIza..."
+                    />
+                  </FieldGroup>
+                )}
+              </div>
             )}
 
             <Button
