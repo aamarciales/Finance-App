@@ -25,6 +25,7 @@ export interface Transaction {
   capitalAmount?: number
   interestAmount?: number
   transferGroupId?: string
+  accountId?: string
   createdAt: string
   updatedAt: string
 }

@@ -65,6 +65,7 @@ transactionsRouter.post('/', async (c) => {
     isRecurring: body.isRecurring ?? false,
     capitalAmount: body.capitalAmount ?? null,
     interestAmount: body.interestAmount ?? null,
+    accountId: body.accountId ?? null,
     isTitheCalculated: false,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
@@ -140,7 +141,7 @@ transactionsRouter.put('/:id', async (c) => {
   const db = drizzle(c.env.DB, { schema })
 
   const updates: Record<string, any> = { updatedAt: new Date().toISOString() }
-  const allowedFields = ['date', 'type', 'concept', 'categoryId', 'amount', 'currency', 'trm', 'amountInBase', 'amountInSecondary', 'notes', 'attachments', 'invoiceId', 'debtId', 'isRecurring', 'capitalAmount', 'interestAmount']
+  const allowedFields = ['date', 'type', 'concept', 'categoryId', 'amount', 'currency', 'trm', 'amountInBase', 'amountInSecondary', 'notes', 'attachments', 'invoiceId', 'debtId', 'isRecurring', 'capitalAmount', 'interestAmount', 'accountId']
   for (const key of allowedFields) {
     if (body[key] !== undefined) updates[key] = body[key]
   }

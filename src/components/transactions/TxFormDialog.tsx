@@ -22,7 +22,7 @@ import {
   VISIBLE_TYPE_LABELS,
   CURRENCIES,
 } from '@/lib/validators'
-import type { Category, Debt, Transaction } from '@/types/domain'
+import type { Category, Debt, Transaction, AppSettings, CapitalAccount } from '@/types/domain'
 
 import {
   Dialog,
@@ -91,6 +91,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       capitalAmount: source.capitalAmount ?? source.amount,
       interestAmount: source.interestAmount ?? 0,
       attachments: editTx?.attachments ?? undefined,
+      accountId: source.accountId ?? null,
     }
   }
   return {
@@ -103,6 +104,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
     trm: rates.trm,
     notes: '',
     isRecurring: false,
+    accountId: null,
   }
 }
 
@@ -128,6 +130,17 @@ export function TxFormDialog({
     queryFn: () => api.get<Debt[]>('/debts'),
   })
   const activeDebts = debtsData?.filter(d => d.currentBalance > 0) ?? []
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const rows = await api.get<{ key: string; value: unknown }[]>('/settings')
+      const map: Record<string, unknown> = {}
+      for (const r of rows) map[r.key] = r.value
+      return map as Partial<AppSettings>
+    },
+  })
+  const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const defaults = useMemo(() => buildDefaults(editTx, rates, prefillTx), [editTx, rates, prefillTx])
 
@@ -460,6 +473,35 @@ export function TxFormDialog({
               <p className="text-[12px] text-danger-strong">{errors.categoryId.message}</p>
             )}
           </div>
+
+          {/* Account */}
+          {capitalAccounts.length > 0 && (
+            <div className="grid gap-1.5">
+              <Label>Cuenta</Label>
+              <Controller
+                name="accountId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={(v) => field.onChange(v || null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Ninguna" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Ninguna</SelectItem>
+                      {capitalAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.currency})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
 
           {/* Debt fields — only when category = "Deuda" */}
           {showDebtFields && (

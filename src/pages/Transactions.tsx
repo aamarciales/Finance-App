@@ -79,6 +79,7 @@ export default function TransactionsPage() {
         capitalAmount: values.capitalAmount ?? undefined,
         interestAmount: values.interestAmount ?? undefined,
         attachments: values.attachments ?? undefined,
+        accountId: values.accountId ?? undefined,
       })
       toast.success('Transacción creada')
     },
@@ -103,8 +104,8 @@ export default function TransactionsPage() {
         debtId: values.debtId ?? undefined,
         capitalAmount: values.capitalAmount ?? undefined,
         interestAmount: values.interestAmount ?? undefined,
+        accountId: values.accountId ?? undefined,
       })
-      toast.success('Transacción actualizada')
       setEditTx(undefined)
     },
     [editTx, updateTransaction, categories],
