@@ -310,17 +310,29 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       category: categoryMap.get(tx.categoryId)!,
     })).filter(tx => tx.category)
 
-    // Available capital from settings (multi-account)
+    // Available capital from settings (multi-account) with linked tx adjustments
     let availableCapital = 0
     let availableCapitalCop = 0
     const accounts = settings?.capitalAccounts ?? []
     if (accounts.length > 0) {
+      // Pre-compute net tx flow per account (in account's own currency)
+      const accountFlows = new Map<string, number>()
+      for (const tx of kpiTxs) {
+        if (!tx.accountId) continue
+        const flow = accountFlows.get(tx.accountId) ?? 0
+        const sign = tx.type === 'income' ? 1 : -1
+        // Use the amount in the tx's own currency for fidelity
+        accountFlows.set(tx.accountId, flow + sign * tx.amount)
+      }
+
       for (const acc of accounts) {
-        let usdVal = acc.amount
-        if (acc.currency === 'COP') usdVal = trm > 0 ? acc.amount / trm : 0
-        else if (acc.currency === 'EUR') usdVal = acc.amount * eurToUsd
+        const flow = accountFlows.get(acc.id) ?? 0
+        const realAmount = acc.amount + flow
+        let usdVal = realAmount
+        if (acc.currency === 'COP') usdVal = trm > 0 ? realAmount / trm : 0
+        else if (acc.currency === 'EUR') usdVal = realAmount * eurToUsd
         availableCapital += usdVal
-        availableCapitalCop += acc.currency === 'COP' ? acc.amount : acc.currency === 'USD' ? acc.amount * trm : acc.amount * eurToUsd * trm
+        availableCapitalCop += acc.currency === 'COP' ? realAmount : acc.currency === 'USD' ? realAmount * trm : realAmount * eurToUsd * trm
       }
     } else if (settings?.availableCapitalAmount != null) {
       const capCurrency = settings.availableCapitalCurrency ?? 'COP'
@@ -351,5 +363,5 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       availableCapitalCop,
       loading: false,
     }
-  }, [transactions, categories, categoryMap, settings, titheSummary, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period])
+  }, [transactions, categories, categoryMap, settings, titheSummary, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period, trm, eurToUsd])
 }
