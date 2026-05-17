@@ -151,6 +151,15 @@ export function TxFormDialog({
     }
   }, [editTx, prefillTx, open, reset, rates])
 
+  // Debug: log form validation errors
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('[TxForm] Validation errors:', Object.fromEntries(
+        Object.entries(errors).map(([k, v]) => [k, v.message])
+      ))
+    }
+  }, [errors])
+
   const selectedType = watch('type')
   const selectedCategoryId = watch('categoryId')
   const existingAttachments = watch('attachments') ?? []
