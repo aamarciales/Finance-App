@@ -278,6 +278,7 @@ export default function ImportPage() {
           result={ocrResult}
           imageBlob={imageFile}
           categories={categories}
+          officialTrm={trm}
           onSaveInvoice={handleSaveInvoice}
         />
       )}

@@ -94,6 +94,7 @@ export default function TransactionsPage() {
         interestAmount: values.interestAmount ?? undefined,
         attachments: values.attachments ?? undefined,
         accountId: values.accountId ?? undefined,
+        actualAmount: values.actualAmount,
       })
       toast.success('Transacción creada')
     },
@@ -119,6 +120,7 @@ export default function TransactionsPage() {
         capitalAmount: values.capitalAmount ?? undefined,
         interestAmount: values.interestAmount ?? undefined,
         accountId: values.accountId ?? undefined,
+        actualAmount: values.actualAmount,
       })
       setEditTx(undefined)
     },
@@ -164,7 +166,7 @@ export default function TransactionsPage() {
     ocr.reset()
   }
 
-  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null }) {
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null; actualAmount?: number | null }) {
     const cat = categories.find(c => c.id === data.categoryId)
     const internalType = resolveInternalType(cat?.name ?? '', 'expense')
     await addTransaction({
@@ -177,6 +179,7 @@ export default function TransactionsPage() {
       trm: rates.trm,
       attachments: data.attachments,
       accountId: data.accountId ?? undefined,
+      actualAmount: data.actualAmount,
     })
     toast.success('Transacción creada')
     ocr.reset()
@@ -293,6 +296,7 @@ export default function TransactionsPage() {
           imageBlob={ocr.imageFile}
           categories={categories}
           capitalAccounts={capitalAccounts}
+          officialTrm={trm}
           onSaveInvoice={handleOcrInvoice}
           onSaveTransaction={handleOcrTransaction}
         />

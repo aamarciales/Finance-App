@@ -33,6 +33,7 @@ export interface OcrInvoiceData {
   total: number
   attachmentUrl?: string
   accountId?: string | null
+  actualAmount?: number | null
 }
 
 export interface OcrTransactionData {
@@ -43,6 +44,7 @@ export interface OcrTransactionData {
   categoryId: number
   attachments?: string[]
   accountId?: string | null
+  actualAmount?: number | null
 }
 
 interface OcrPreviewDialogProps {
@@ -52,11 +54,12 @@ interface OcrPreviewDialogProps {
   imageBlob: Blob
   categories: Category[]
   capitalAccounts?: CapitalAccount[]
+  officialTrm?: number
   onSaveInvoice?: (data: OcrInvoiceData) => Promise<void>
   onSaveTransaction?: (data: OcrTransactionData) => Promise<void>
 }
 
-export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, capitalAccounts = [], onSaveInvoice, onSaveTransaction }: OcrPreviewDialogProps) {
+export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, categories, capitalAccounts = [], officialTrm = 0, onSaveInvoice, onSaveTransaction }: OcrPreviewDialogProps) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
   const [merchant, setMerchant] = useState(result.merchant)
@@ -65,6 +68,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
   const [currency, setCurrency] = useState<'COP' | 'USD' | 'EUR'>(result.currency === 'USD' ? 'USD' : result.currency === 'EUR' ? 'EUR' : 'COP')
   const [categoryId, setCategoryId] = useState<string>(String(expenseCategories[0]?.id ?? ''))
   const [accountId, setAccountId] = useState<string | null>(null)
+  const [actualAmount, setActualAmount] = useState<number | null>(null)
   const [items, setItems] = useState<OcrItem[]>(result.items.map(i => {
     // If OCR returned lineTotal, derive unit price from it
     if (i.lineTotal && i.quantity > 0) {
@@ -111,6 +115,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
         total,
         attachmentUrl: result.imageUrl,
         accountId,
+        actualAmount,
       })
       onOpenChange(false)
     } finally {
@@ -130,6 +135,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
         categoryId: Number(categoryId),
         attachments: result.imageUrl ? [result.imageUrl] : undefined,
         accountId,
+        actualAmount,
       })
       onOpenChange(false)
     } finally {
@@ -229,6 +235,25 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {(() => {
+                  const selAcc = capitalAccounts.find(a => a.id === accountId)
+                  return selAcc && currency !== selAcc.currency
+                })() && (
+                  <div className="grid gap-1.5">
+                    <Label>Monto real debitado en {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder={`Opcional · TRM oficial: ${officialTrm.toLocaleString()}`}
+                      value={actualAmount ?? ''}
+                      onChange={(e) => setActualAmount(e.target.value === '' ? null : Number(e.target.value))}
+                    />
+                    <p className="text-[11px] text-text-muted">
+                      Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+                    </p>
                   </div>
                 )}
 

@@ -40,6 +40,7 @@ export const txFormSchema = z.object({
   interestAmount: z.number().min(0).nullable().optional(),
   attachments: z.array(z.string()).nullable().optional(),
   accountId: z.string().nullable().optional(),
+  actualAmount: z.number().nullable().optional(),
 })
 
 export type TxFormValues = z.infer<typeof txFormSchema>

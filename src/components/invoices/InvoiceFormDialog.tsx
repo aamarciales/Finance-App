@@ -28,6 +28,7 @@ import {
 import { CURRENCIES } from '@/lib/validators'
 import type { AppSettings, CapitalAccount, Category } from '@/types/domain'
 import type { EnrichedInvoice } from '@/hooks/useInvoices'
+import { useTRM } from '@/hooks/useTRM'
 
 const itemSchema = z.object({
   name: z.string().min(1, 'Nombre obligatorio'),
@@ -44,6 +45,7 @@ const invoiceSchema = z.object({
   categoryId: z.number().positive(),
   items: z.array(itemSchema).min(1, 'Agrega al menos un ítem'),
   accountId: z.string().nullable().optional(),
+  actualAmount: z.number().nullable().optional(),
 })
 
 type InvoiceFormValues = z.infer<typeof invoiceSchema>
@@ -61,6 +63,7 @@ interface InvoiceFormDialogProps {
     categoryId: number
     attachmentUrl?: string
     accountId?: string | null
+    actualAmount?: number | null
   }) => Promise<void>
   editInvoice?: EnrichedInvoice
 }
@@ -72,6 +75,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const isEditing = !!editInvoice
   const editCategoryId = editInvoice?.transactionCategoryId ?? 1
+  const { rate: trm } = useTRM()
 
   const { data: settingsData } = useQuery({
     queryKey: ['settings'],
@@ -106,6 +110,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       categoryId: 0,
       items: [{ name: '', quantity: 1, unitPrice: 0 }],
       accountId: null,
+      actualAmount: null,
     },
   })
 
@@ -126,6 +131,13 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             }))
           : [{ name: '', quantity: 1, unitPrice: 0 }],
         accountId: null,
+        actualAmount: (() => {
+          // Heuristic: if stored trm differs from official by >0.5%, treat as user-entered
+          const storedTrm = editInvoice.transactionTrm ?? trm
+          if (!trm || !editInvoice.transactionAmountInSecondary) return null
+          const diff = Math.abs(storedTrm - trm) / trm
+          return diff > 0.005 ? editInvoice.transactionAmountInSecondary : null
+        })(),
       })
       setExistingAttachment(editInvoice.attachmentUrl ?? null)
       setPendingFile(null)
@@ -138,6 +150,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
         categoryId: 0,
         items: [{ name: '', quantity: 1, unitPrice: 0 }],
         accountId: null,
+        actualAmount: null,
       })
       setExistingAttachment(null)
       setPendingFile(null)
@@ -146,6 +159,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
   const items = watch('items')
   const currency = watch('currency')
+  const accountId = watch('accountId')
   const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0)
 
   async function uploadFile(file: File): Promise<string> {
@@ -311,6 +325,31 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                   </Select>
                 )}
               />
+            </div>
+          )}
+
+          {(() => {
+            const selAcc = capitalAccounts.find(a => a.id === accountId)
+            return selAcc && currency !== selAcc.currency
+          })() && (
+            <div className="grid gap-1.5">
+              <Label>Monto real debitado en {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
+              <Controller
+                name="actualAmount"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder={`Opcional · TRM oficial: ${trm.toLocaleString()}`}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                  />
+                )}
+              />
+              <p className="text-[11px] text-text-muted">
+                Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+              </p>
             </div>
           )}
 

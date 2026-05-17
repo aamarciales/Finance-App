@@ -33,12 +33,20 @@ export function CapitalDetailDialog({ open, onOpenChange, totalCop, totalUsd }: 
     if (transactions) {
       for (const tx of transactions) {
         if (!tx.accountId || tx.type === 'transfer') continue
+        const account = accounts.find(a => a.id === tx.accountId)
+        if (!account) continue
         const flow = flows.get(tx.accountId) ?? 0
-        flows.set(tx.accountId, flow + (tx.type === 'income' ? 1 : -1) * tx.amount)
+        const sign = tx.type === 'income' ? 1 : -1
+        const amountInAccountCurrency =
+          tx.currency === account.currency ? tx.amount
+            : account.currency === 'COP' ? (tx.amountInSecondary ?? tx.amount)
+              : account.currency === 'USD' ? (tx.amountInBase ?? tx.amount)
+                : tx.amount
+        flows.set(tx.accountId, flow + sign * amountInAccountCurrency)
       }
     }
     return flows
-  }, [transactions])
+  }, [transactions, accounts])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

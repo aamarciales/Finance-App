@@ -319,10 +319,17 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       const accountFlows = new Map<string, number>()
       for (const tx of kpiTxs) {
         if (!tx.accountId) continue
+        const account = accounts.find(a => a.id === tx.accountId)
+        if (!account) continue
         const flow = accountFlows.get(tx.accountId) ?? 0
         const sign = tx.type === 'income' ? 1 : -1
-        // Use the amount in the tx's own currency for fidelity
-        accountFlows.set(tx.accountId, flow + sign * tx.amount)
+        // Use amount in the account's currency when currencies differ
+        const amountInAccountCurrency =
+          tx.currency === account.currency ? tx.amount
+            : account.currency === 'COP' ? (tx.amountInSecondary ?? tx.amount)
+              : account.currency === 'USD' ? (tx.amountInBase ?? tx.amount)
+                : tx.amount
+        accountFlows.set(tx.accountId, flow + sign * amountInAccountCurrency)
       }
 
       for (const acc of accounts) {

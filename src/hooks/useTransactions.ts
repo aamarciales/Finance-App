@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
-import { getEquivalentAmounts } from '@/lib/currency'
-import type { Category, Transaction, Debt } from '@/types/domain'
+import { getEquivalentAmounts, computeAmountsWithActual } from '@/lib/currency'
+import type { Transaction, Category, CapitalAccount, Debt } from '@/types/domain'
 
 export type TabFilter = 'all' | 'income' | 'expense' | 'recurring'
 
@@ -27,6 +27,17 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
   const { tab, periodStart, periodEnd, categoryId, search } = filters
   const api = useApi()
   const queryClient = useQueryClient()
+
+  const { data: settingsRows } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<{ key: string; value: unknown }[]>('/settings'),
+  })
+  const capitalAccounts: CapitalAccount[] = (() => {
+    if (!settingsRows) return []
+    const map: Record<string, unknown> = {}
+    for (const r of settingsRows) map[r.key] = r.value
+    return (map.capitalAccounts as CapitalAccount[] | undefined) ?? []
+  })()
 
   const { data: rawTransactions, isLoading: loadingTxs } = useQuery({
     queryKey: ['transactions'],
@@ -187,22 +198,30 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
     onSuccess: invalidateAll
   })
 
-  const addTransaction = async (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'amountInBase' | 'amountInSecondary'>) => {
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, data.currency, rates)
-    const tx = await addTxMutate({ ...data, amountInBase, amountInSecondary })
+  const addTransaction = async (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'amountInBase' | 'amountInSecondary'> & { actualAmount?: number | null }) => {
+    const account = capitalAccounts.find(a => a.id === data.accountId)
+    const { amountInBase, amountInSecondary, trm } = computeAmountsWithActual(
+      data.amount, data.currency, account, data.actualAmount, rates,
+    )
+    const { actualAmount: _, ...txData } = data
+    const tx = await addTxMutate({ ...txData, trm, amountInBase, amountInSecondary })
     return tx.id
   }
 
-  const updateTransaction = async (id: number, data: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
+  const updateTransaction = async (id: number, data: Partial<Omit<Transaction, 'id' | 'createdAt'>> & { actualAmount?: number | null }) => {
     const update = { ...data }
     if (data.amount !== undefined || data.currency !== undefined) {
       const tx = rawTransactions?.find(t => t.id === id)
       const amount = data.amount ?? tx?.amount ?? 0
       const currency = data.currency ?? tx?.currency ?? 'COP'
-      const equiv = getEquivalentAmounts(amount, currency, rates)
-      Object.assign(update, { amountInBase: equiv.amountInBase, amountInSecondary: equiv.amountInSecondary })
+      const account = capitalAccounts.find(a => a.id === (data.accountId ?? tx?.accountId))
+      const { amountInBase, amountInSecondary, trm } = computeAmountsWithActual(
+        amount, currency, account, data.actualAmount, rates,
+      )
+      Object.assign(update, { trm, amountInBase, amountInSecondary })
     }
-    await updateTxMutate({ id, data: update })
+    const { actualAmount: _, ...updateClean } = update
+    await updateTxMutate({ id, data: updateClean })
   }
 
   const deleteTransaction = async (id: number) => {

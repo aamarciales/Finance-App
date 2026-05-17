@@ -2,13 +2,15 @@ import { useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
-import { getEquivalentAmounts } from '@/lib/currency'
-import type { Invoice, InvoiceItem, Category, Transaction } from '@/types/domain'
+import { computeAmountsWithActual } from '@/lib/currency'
+import type { Invoice, InvoiceItem, Category, Transaction, CapitalAccount } from '@/types/domain'
 
 export interface EnrichedInvoice extends Invoice {
   items: InvoiceItem[]
   transactionConcept?: string
   transactionCategoryId?: number
+  transactionTrm?: number
+  transactionAmountInSecondary?: number
 }
 
 export interface InvoiceFormData {
@@ -28,11 +30,23 @@ export interface InvoiceFormData {
   total?: number
   attachmentUrl?: string
   accountId?: string | null
+  actualAmount?: number | null
 }
 
 export function useInvoices(rates: { trm: number; eurToUsd: number }) {
   const api = useApi()
   const queryClient = useQueryClient()
+
+  const { data: settingsRows } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<{ key: string; value: unknown }[]>('/settings'),
+  })
+  const capitalAccounts: CapitalAccount[] = (() => {
+    if (!settingsRows) return []
+    const map: Record<string, unknown> = {}
+    for (const r of settingsRows) map[r.key] = r.value
+    return (map.capitalAccounts as CapitalAccount[] | undefined) ?? []
+  })()
 
   const { data: rawInvoices, isLoading: loadingInv } = useQuery({
     queryKey: ['invoices'],
@@ -76,6 +90,8 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
         items,
         transactionConcept: tx?.concept,
         transactionCategoryId: tx?.categoryId,
+        transactionTrm: tx?.trm,
+        transactionAmountInSecondary: tx?.amountInSecondary,
       }
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [rawInvoices, rawItems, transactions])
@@ -91,8 +107,10 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
     const discount = data.discount ?? 0
     const total = data.total ?? Math.max(0, itemsTotal - discount)
     const subtotal = data.subtotal ?? itemsTotal
-    const { trm } = rates
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
+    const account = capitalAccounts.find(a => a.id === data.accountId)
+    const { trm, amountInBase, amountInSecondary } = computeAmountsWithActual(
+      total, data.currency, account, data.actualAmount, rates,
+    )
 
     // 1. Create invoice
     const inv = await api.post<Invoice>('/invoices', {
@@ -145,8 +163,10 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
 
   const updateInvoice = async (id: number, data: InvoiceFormData, existing: EnrichedInvoice) => {
     const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-    const trm = existing.trm || rates.trm
-    const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, { ...rates, trm })
+    const account = capitalAccounts.find(a => a.id === data.accountId)
+    const { trm, amountInBase, amountInSecondary } = computeAmountsWithActual(
+      total, data.currency, account, data.actualAmount, rates,
+    )
 
     // Update invoice
     await api.put(`/invoices/${id}`, {

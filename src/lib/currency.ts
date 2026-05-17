@@ -42,3 +42,45 @@ export function getEquivalentAmounts(
 
   return { amountInBase, amountInSecondary }
 }
+
+interface AccountLike { currency: string }
+
+/**
+ * When the user provides an actualAmount (real debit in account currency),
+ * compute effective TRM and adjusted amounts. Falls back to official rates otherwise.
+ */
+export function computeAmountsWithActual(
+  amount: number,
+  currency: Currency,
+  account: AccountLike | undefined,
+  actualAmount: number | null | undefined,
+  rates: { trm: number; eurToUsd: number },
+): { amountInBase: number; amountInSecondary: number; trm: number } {
+  // No cross-currency scenario — use official rates
+  if (!account || !actualAmount || account.currency === currency) {
+    const eq = getEquivalentAmounts(amount, currency, rates)
+    return { ...eq, trm: rates.trm }
+  }
+
+  // USD tx → COP account: user provides the actual COP debited
+  if (currency === 'USD' && account.currency === 'COP') {
+    return {
+      amountInBase: amount,
+      amountInSecondary: actualAmount,
+      trm: actualAmount / amount,
+    }
+  }
+
+  // COP tx → USD account: user provides the actual USD debited
+  if (currency === 'COP' && account.currency === 'USD') {
+    return {
+      amountInBase: actualAmount,
+      amountInSecondary: amount,
+      trm: amount / actualAmount,
+    }
+  }
+
+  // Other combos (EUR, etc.) — fall back to official
+  const eq = getEquivalentAmounts(amount, currency, rates)
+  return { ...eq, trm: rates.trm }
+}

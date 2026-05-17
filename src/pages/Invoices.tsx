@@ -96,7 +96,7 @@ export default function InvoicesPage() {
     ocr.reset()
   }
 
-  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null }) {
+  async function handleOcrTransaction(data: { concept: string; date: string; amount: number; currency: 'COP' | 'USD' | 'EUR'; categoryId: number; attachments?: string[]; accountId?: string | null; actualAmount?: number | null }) {
     const cat = categories.find(c => c.id === data.categoryId)
     const internalType = resolveInternalType(cat?.name ?? '', 'expense')
     await addTransaction({
@@ -109,6 +109,7 @@ export default function InvoicesPage() {
       trm: rates.trm,
       attachments: data.attachments,
       accountId: data.accountId ?? undefined,
+      actualAmount: data.actualAmount,
     })
     toast.success('Transacción creada')
     ocr.reset()
@@ -222,6 +223,7 @@ export default function InvoicesPage() {
           imageBlob={ocr.imageFile}
           categories={categories}
           capitalAccounts={capitalAccounts}
+          officialTrm={trm}
           onSaveInvoice={handleOcrInvoice}
           onSaveTransaction={handleOcrTransaction}
         />

@@ -92,6 +92,13 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       interestAmount: source.interestAmount ?? 0,
       attachments: editTx?.attachments ?? undefined,
       accountId: source.accountId ?? null,
+      actualAmount: (() => {
+        // Heuristic: if stored trm differs from official by >0.5%, treat as user-entered
+        if (!rates.trm || !source.amountInSecondary) return null
+        const storedTrm = source.trm ?? rates.trm
+        const diff = Math.abs(storedTrm - rates.trm) / rates.trm
+        return diff > 0.005 ? source.amountInSecondary : null
+      })(),
     }
   }
   return {
@@ -105,6 +112,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
     notes: '',
     isRecurring: false,
     accountId: null,
+    actualAmount: null,
   }
 }
 
@@ -177,6 +185,8 @@ export function TxFormDialog({
   const selectedType = watch('type')
   const selectedCategoryId = watch('categoryId')
   const existingAttachments = watch('attachments') ?? []
+  const selectedAccountId = watch('accountId')
+  const selectedCurrency = watch('currency')
 
   const handleCreateCategory = useCallback(async () => {
     if (!newCatName?.trim()) return
@@ -500,6 +510,31 @@ export function TxFormDialog({
                   </Select>
                 )}
               />
+            </div>
+          )}
+
+          {(() => {
+            const selAcc = capitalAccounts.find(a => a.id === selectedAccountId)
+            return selAcc && selectedCurrency !== selAcc.currency
+          })() && (
+            <div className="grid gap-1.5">
+              <Label>Monto real debitado en {capitalAccounts.find(a => a.id === selectedAccountId)!.currency}</Label>
+              <Controller
+                name="actualAmount"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder={`Opcional · TRM oficial: ${rates.trm.toLocaleString()}`}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                  />
+                )}
+              />
+              <p className="text-[11px] text-text-muted">
+                Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+              </p>
             </div>
           )}
 
