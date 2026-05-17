@@ -105,9 +105,13 @@ export default function TransactionsPage() {
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget?.id) return
-    await deleteTransaction(deleteTarget.id)
-    toast.success('Transacción eliminada')
-    setDeleteTarget(null)
+    try {
+      await deleteTransaction(deleteTarget.id)
+      toast.success('Transacción eliminada')
+      setDeleteTarget(null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al eliminar la transacción')
+    }
   }, [deleteTarget, deleteTransaction])
 
   function openEdit(tx: EnrichedTransaction) {

@@ -199,10 +199,11 @@ transactionsRouter.delete('/:id', async (c) => {
   })
 
   if (commitment) {
-    if (commitment.status === 'paid') {
-      return c.json({ error: 'Esta transacción tiene un compromiso de diezmo ya pagado. Revierte el pago primero.' }, 400)
-    }
-    // Delete pending commitment
+    // Delete any linked commitment_payments first
+    await db.delete(schema.commitmentPayments).where(
+      eq(schema.commitmentPayments.commitmentId, commitment.id)
+    )
+    // Delete the commitment itself (regardless of status)
     await db.delete(schema.titheCommitments).where(eq(schema.titheCommitments.id, commitment.id))
   }
 
