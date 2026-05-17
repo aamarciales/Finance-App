@@ -35,7 +35,7 @@ invoicesRouter.post('/', async (c) => {
     userId: auth.userId,
     createdAt: new Date().toISOString(),
   }
-  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
+  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'subtotal', 'discount', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
   for (const key of allowedFields) {
     if (body[key] !== undefined) values[key] = body[key]
   }
@@ -58,7 +58,7 @@ invoicesRouter.put('/:id', async (c) => {
   const db = drizzle(c.env.DB, { schema })
 
   const updates: Record<string, any> = {}
-  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
+  const allowedFields = ['transactionId', 'date', 'merchant', 'branch', 'subtotal', 'discount', 'total', 'currency', 'trm', 'itemCount', 'ocrConfidence', 'attachmentUrl']
   for (const key of allowedFields) {
     if (body[key] !== undefined) updates[key] = body[key]
   }

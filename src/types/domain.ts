@@ -36,6 +36,8 @@ export interface Invoice {
   branch?: string
   date: string
   total: number
+  subtotal?: number
+  discount?: number
   currency: Currency
   trm: number
   itemCount: number

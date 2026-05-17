@@ -23,6 +23,9 @@ export interface InvoiceFormData {
     subCategory?: string
   }>
   categoryId: number
+  subtotal?: number
+  discount?: number
+  total?: number
   attachmentUrl?: string
 }
 
@@ -83,7 +86,10 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
   }
 
   const addInvoice = async (data: InvoiceFormData) => {
-    const total = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    const itemsTotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    const discount = data.discount ?? 0
+    const total = data.total ?? Math.max(0, itemsTotal - discount)
+    const subtotal = data.subtotal ?? itemsTotal
     const { trm } = rates
     const { amountInBase, amountInSecondary } = getEquivalentAmounts(total, data.currency, rates)
 
@@ -93,6 +99,8 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
       merchant: data.merchant,
       branch: data.branch,
       date: data.date,
+      subtotal,
+      discount: discount || undefined,
       total,
       currency: data.currency,
       trm,

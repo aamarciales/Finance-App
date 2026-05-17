@@ -78,7 +78,20 @@ export function InvoiceQuickView({ open, onOpenChange, invoiceId }: InvoiceQuick
               </div>
 
               <div className="space-y-5 p-6">
-                <div className="rounded-md bg-surface-2 px-4 py-3 text-center">
+                <div className="rounded-md bg-surface-2 px-4 py-3 text-center space-y-1">
+                  {invoice.discount != null && invoice.discount > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="uppercase tracking-[0.06em] text-text-muted">Subtotal</span>
+                        <span className="font-mono">{formatMoney(invoice.subtotal ?? invoice.items.reduce((s, i) => s + i.totalPrice, 0), invoice.currency)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="uppercase tracking-[0.06em] text-text-muted">Descuento</span>
+                        <span className="font-mono text-brand">−{formatMoney(invoice.discount, invoice.currency)}</span>
+                      </div>
+                      <div className="border-t border-border/50 my-1" />
+                    </>
+                  )}
                   <Money amount={invoice.total} currency={invoice.currency} variant="kpi" />
                 </div>
 

@@ -42,6 +42,8 @@ export const invoices = sqliteTable('invoices', {
   merchant: text('merchant').notNull(),
   branch: text('branch'),
   total: real('total').notNull(),
+  subtotal: real('subtotal'),
+  discount: real('discount').default(0),
   currency: text('currency', { enum: ['COP', 'USD', 'EUR'] }).notNull(),
   trm: real('trm').notNull(),
   itemCount: integer('item_count').notNull(),

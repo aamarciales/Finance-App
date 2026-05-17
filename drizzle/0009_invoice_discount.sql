@@ -1,0 +1,2 @@
+ALTER TABLE invoices ADD COLUMN subtotal REAL;
+ALTER TABLE invoices ADD COLUMN discount REAL DEFAULT 0;

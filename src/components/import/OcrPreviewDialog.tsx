@@ -34,6 +34,9 @@ interface OcrPreviewDialogProps {
     currency: 'COP' | 'USD' | 'EUR'
     categoryId: number
     items: Array<{ name: string; quantity: number; unitPrice: number }>
+    subtotal?: number
+    discount?: number
+    total: number
     attachmentUrl?: string
   }) => Promise<void>
 }
@@ -86,6 +89,9 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
           quantity: i.quantity,
           unitPrice: i.price,
         })),
+        subtotal: itemsTotal,
+        discount: discount || undefined,
+        total,
         attachmentUrl: result.imageUrl,
       })
       onOpenChange(false)

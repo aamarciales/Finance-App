@@ -36,6 +36,41 @@
       "when": 1778929996092,
       "tag": "0004_conscious_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779000000000,
+      "tag": "0005_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779000000000,
+      "tag": "0006_missing_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779000000000,
+      "tag": "0007_goals_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1779000000000,
+      "tag": "0008_debts_updated_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1779100000000,
+      "tag": "0009_invoice_discount",
+      "breakpoints": true
     }
   ]
 }
