@@ -1,330 +1,123 @@
-# Patrimonio · bitácora de implementación
+# Patrimonio · PROGRESS
 
-Bitácora por fase: qué quedó completo, qué decisiones técnicas se tomaron sin
-consultar (con su justificación) y qué quedó explícitamente pendiente.
-
----
-
-## Fase 1 — Fundación · _completada_
-
-### Completado
-
-- **Scaffold Vite + React 19 + TS strict** en la raíz del proyecto, sin tocar
-  `README.md` ni `design-reference/` (Vite generado en `/tmp` y movido).
-- **Git inicializado** en `main` con `.gitignore` extendido (`.env*`).
-- **Dependencias core instaladas**: dexie, @tanstack/react-query, zustand,
-  react-router-dom, react-hook-form, zod, @hookform/resolvers, recharts,
-  lucide-react, date-fns, papaparse, dinero.js, framer-motion. DevDeps:
-  tailwindcss + @tailwindcss/vite (v4), vitest, @vitest/ui, jsdom,
-  @types/papaparse.
-- **Tailwind v4 configurado** vía plugin oficial `@tailwindcss/vite`. Tokens
-  del README mapeados en `src/index.css` con CSS variables (`--bg`,
-  `--surface`, `--brand`, `--gold`, etc.) y expuestos como utilidades de
-  Tailwind vía `@theme inline` (`bg-bg`, `text-text-muted`, `bg-brand-soft`,
-  `text-gold`, etc.). Fuentes Fraunces / Geist / JetBrains Mono cargadas
-  desde Google Fonts en `index.html`.
-- **shadcn/ui inicializado** con preset `nova` (radix base, lucide icons),
-  Tailwind v4. CSS variables ON. `components/ui/button.tsx` y `lib/utils.ts`
-  generados. Las CSS vars de shadcn (`--primary`, `--muted`, etc.) están
-  remapeadas a mis tokens — `--primary` apunta a `--brand` (verde profundo).
-- **AppShell + Sidebar + MobileNav + TopBar**:
-  - Sidebar 240px fija (≥768px) con secciones Resumen / Análisis /
-    Compromisos / Configuración, replicando el HTML reference.
-  - MobileNav con drawer slide-in (framer-motion, `cubic-bezier(0.2,0.8,0.2,1)`,
-    overlay 0.4 con backdrop-blur, touch targets ≥44px).
-  - TopBar mobile con brand + hamburguesa.
-  - Footer del sidebar con TRM (placeholder hardcodeada — ver decisiones).
-- **React Router v7** con las 11 rutas (Dashboard, Transactions, Invoices,
-  Invoices/:id placeholder, Import, Categories, Tithe, Goals, Debts, Taxes,
-  Settings) y catch-all `/*` → home. Cada página renderiza `PageHeader` +
-  `EmptyState` con el subtítulo del HTML reference.
-- **Dexie schema v1** completo (11 tablas) en `src/db/schema.ts`,
-  alineado con el README.
-- **Seed idempotente** (`ensureSeed`) que poblar las 15 categorías por
-  defecto y los settings iniciales (USD base, COP secundaria, titheConfig
-  10/10/10/5, displayName "Andrés", taxProfile, ocrProvider claude,
-  monthlyTaxProvisionRate 0.02). Marca de versión en `__seedVersion`
-  para futuras migraciones.
-- **`useSettings()` hook** que lee/escribe la tabla `settings` reactivamente.
-- **Componentes comunes**: `<Money>` (3 variantes: inline / kpi / tabular),
-  `<Badge>` (6 tonos del HTML), `<EmptyState>`, `<PageHeader>`.
-- **TanStack Query** wired en `main.tsx` con `QueryClientProvider`.
-- `npm run build` ✓ limpio (TS sin errores, Vite OK).
-- `npm run dev` ✓ arranca en ~300ms.
-
-### Decisiones aprobadas por Andrés en Fase 1
-
-1. **Tailwind v4 en lugar de v3.** El stack del README dice "Tailwind" sin
-   versión; v4 es la última estable y `@tailwindcss/vite` es el plugin
-   recomendado. shadcn/ui ya soporta v4. Modelo de configuración sin
-   `tailwind.config.ts`, tokens via `@theme` en CSS.
-
-2. **shadcn preset `nova` (radix base, lucide).** Equivalente moderno al
-   style "new-york" con Lucide icons. No cambia nada visible.
-
-3. **`baseUrl` removido del tsconfig.** TS 6+ lo marca como deprecated.
-   El alias `@/*` se resuelve relativo al tsconfig (`./src/*`).
-
-4. **React Router v7** (en lugar de v6). Paquete unificado, API compatible
-   con v6 más loaders y futureFlags.
-
-5. **TRM hardcodeada** en el sidebar (`$4.087,30 COP, +0.42%`). Mock para
-   Fases 1-3; se conecta a la API de Banrep en Fase 3.
-
-6. **`Money` con 3 variantes** (`inline` / `kpi` / `tabular`). El HTML
-   reference muestra montos en tres contextos visuales distintos.
-
-### Pendiente / convertido en TODOs para fases siguientes
-
-- Reactivar `useSettings` con `dexie-react-hooks` + `useLiveQuery` (Fase 2).
-- TRM real (Fase 3): probar llamada directa a Banrep API desde el browser.
-  Si hay CORS, se mueve al Worker.
-- Splittear bundle (warning de Vite por >500kB): Fase 8 con `lazy()`.
-- Prettier: Fase 8.
-- **Verificación visual en browser**: ✓ aprobada por Andrés — sidebar,
-  tipografías, 10 rutas y drawer mobile verificados.
+> Bitácora de avances. Items resueltos se mueven aquí desde TODO.md.
 
 ---
 
-## Fase 2 — Datos básicos · _completada_
+## Fase de estabilización post-handoff V4 (2026-05-15 → 2026-05-17)
 
-### Completado
+57+ commits entre `4765463` (cierre handoff V4) y `1f41dbe`.
 
-- **`dexie-react-hooks`** instalado. Todos los hooks migrados a `useLiveQuery`.
-- **`useSettings` migrado** a `useLiveQuery`: eliminado polling manual y
-  `refresh()`. API publica se mantiene (`settings`, `loading`, `setSetting`).
-- **`useTRM` hook** creado (mock Phase 2): lee/escribe `db.trmRecords`, retorna
-  `{ rate, date, source, loading }`. TRMFooter actualizado para consumirlo.
-- **`useTransactions` hook** creado: filtros por tab/periodo/categoria/busqueda,
-  join con categorias, funciones CRUD (`addTransaction`, `updateTransaction`,
-  `deleteTransaction`). Calcula `amountInBase`/`amountInSecondary` automaticamente.
-- **`src/lib/currency.ts`** creado: `convertAmount`, `getEquivalentAmounts`,
-  `calculateEffectiveRate`.
-- **`src/lib/validators.ts`** creado: schemas zod v4 para transaccion y categoria.
-  Nota: zod v4 usa `{ message }` en lugar de `{ required_error }`.
-- **10 componentes shadcn** instalados: dialog, select, input, textarea, tabs,
-  label, popover, calendar, scroll-area, separator.
-- **TxFormDialog**: formulario completo con react-hook-form + zodResolver,
-  tipo/fecha(con calendar)/concepto/monto+moneda/categoria(filtrada por tipo)/
-  TRM(notas/editable)/notas. Calcula equivalentes on submit.
-- **TransactionsTable**: tabla con columnas Fecha/Concepto/Categoria(Badge)/
-  Monto/Equivalente/TRM. Ingresos en verde, gastos en rojo. Hover bg-surface-2.
-- **TxFilters**: periodo/categoria/busqueda con conversion a rango de fechas.
-- **TxTabs**: 4 tabs (Todas/Ingresos/Gastos/Recurrentes) estilo design reference.
-- **Transactions page**: reescrita con filtros + tabs + tabla + dialog.
-- **CategoryFormDialog**: dialog simple para agregar categorias personalizadas.
-- **Categories page**: lista agrupada por tipo con color dot + badge "Sistema".
-- **Seed expandido** (v2): 32 transacciones realistas (15 abr - 2 may 2026),
-  3 facturas con items (Exito, D1), 2 deudas (tarjeta Bancolombia, prestamo
-  familiar), 3 metas (fondo emergencia, viaje Europa, MacBook). TRM variada
-  por fecha (4069-4087). Idempotente: solo re-seed si version < 2.
-- `npm run build` ✓ limpio.
+### Bugs cerrados
 
-### Decisiones
+**Bug C parte 2 · IDs huérfanos en titheConfig**
+- Antes: si se hacía wipe + reseed, los IDs en titheConfig quedaban huérfanos y la app caía silenciosamente al default sin avisar.
+- Después: `src/lib/tithe.ts:3` set de IDs ya warneados (dedup), `:32-47` console.warn defensivo solo en dev cuando categoryId no está en config pero el config no está vacío. `wipe-my-data` ahora borra también `titheConfig` para evitar el problema en wipe + reseed.
 
-- **Amounts en unidades de display** (no en cents). COP = pesos enteros,
-  USD = dolares con decimales. Siguiendo `format.ts` existente. La migracion
-  a cents con dinero.js queda para Fase 3 cuando se necesiten sumatorias.
-- **zod v4 error params**: usa `{ message }` en lugar de `{ required_error }`.
-  `@hookform/resolvers/zod` v5.2 soporta zod v4 sin subpath especial.
-- **Filtros en `useTransactions`**: client-side filtering sobre el resultado
-  ordenado de Dexie. Suficiente para 30-100 transacciones. Para >100, se puede
-  migrar a Dexie `where()` clauses en Fase 3.
+**Bug D · Lista de transacciones no se refresca tras wizard**
+- Commit `d62ad3a`. Evidencia: `IntlPaymentWizard.tsx:25` (import useQueryClient), `:174` (instancia), `:207` (invalidateQueries en onSuccess).
 
----
+**Bug E · Colores de categorías no se reflejan en badges**
+- Commit `42bbf5d`. Evidencia: `Badge.tsx:28-52` (hexToSoftBg helper + color prop con inline styles), `TransactionsTable.tsx:183` (pasa tx.category.color).
 
-## Pulido Fase 2 · _completada_
+**Bug F · Settings export JSON labels mal alineados**
+- Commit `814f75f`.
 
-### Completado
+**Bug G · Invoice QuickView con datos stub**
+- Commit `cd48b99`.
 
-- **Modelo simplificado**: `TxType` reducido de 6 a 4 valores
-  (`expense | income | debt_payment | transfer`). Categorías ya distinguen
-  freelance/sueldo. Diezmo/ofrenda son `expense` con categoría dedicada.
-- **EUR como tercera moneda**: `Currency = 'USD' | 'COP' | 'EUR'`. EUR→USD vía
-  frankfurter.app (cache en tabla `forexRates`), EUR→COP = EUR→USD × TRM.
-- **Dexie schema v2**: tabla `forexRates` con índice compuesto `[pair+date]`.
-  IndexedDB `debtId` agregado a transacciones.
-- **`src/lib/currency.ts`** actualizado: `getEquivalentAmounts` maneja 3 monedas.
-- **`src/lib/validators.ts`** actualizado: 4 TxTypes, 3 Currencies, `debtId` opcional.
-- **`src/lib/tithe.ts`** creado: cálculo por categoría (`tithePercentByIncomeCategory`)
-  con fallback a `defaultTithe`/`defaultOffering`.
-- **`src/hooks/useForex.ts`** creado: fetch EUR/USD de frankfurter.app, fallback 1.08.
-- **Seed v3**: 55+ transacciones incluyendo 20 recurrentes (5 series × 4 meses),
-  2 EUR (Hetzner, Namecheap), `debt_payment` con `debtId` FK, TitheConfig por
-  categoría. Migración automática de tipos viejos.
-- **Color picker** (CategoryFormDialog): grid 12 swatches con Check icon y ring.
-- **Icon picker** (CategoryFormDialog): grid 20 íconos lucide visuales con tinte.
-- **Category icons en tabla** (TransactionsTable): ícono lucide + color al lado del Badge.
-- **Edit/delete transacciones**: botones Pencil/Trash2 con hover en desktop,
-  AlertDialog de confirmación, toast sonner.
-- **Edit/delete categorías**: botones edit/trash por fila, isSystem protegido con
-  Tooltip, reasignación de transacciones a "Otros" al eliminar.
-- **isRecurring checkbox** en TxFormDialog.
-- **debtId selector** en TxFormDialog cuando tipo = debt_payment. Lista deudas
-  activas, empty state con link a /debts.
-- **Adjuntos (attachments)**: dropzone drag-and-drop en TxFormDialog (JPG/PNG/HEIC/PDF,
-  máx 5 archivos, 10MB c/u), thumbnails, Blob storage en IndexedDB.
-- **Paperclip + RotateCw** en TransactionsTable para adjuntos y recurrentes.
-- `npm run build` ✓ limpio.
+**Bug H · TRM validation guard para COP**
+- Commit `8692c59`.
 
-### Decisiones
+**Bugs OCR (descuento + soporte + subcategoría)** (2026-05-17)
+- Tres fixes en una iteración:
+  - Total de la factura ahora resta el descuento. Antes `total = sum(items.quantity * items.price)` ignoraba `result.discount`. Ahora `total = Math.max(0, itemsTotal - discount)`.
+  - Soporte de la factura se adjunta correctamente. El OCR endpoint ya subía la imagen a R2 (`files.ts:404`), ahora la URL fluye al invoice vía `attachmentUrl` en lugar de re-upload del blob desde `OcrPreviewDialog`. `Import.tsx → handleSaveInvoice` ahora recibe y pasa attachmentUrl a addInvoice.
+  - Columna SUBCATEGORÍA quitada del OCR dialog. Feature parcial (la columna en BD existe, CSV import y InvoiceDetailModal la usan; el OCR nunca la llenaba). Hoy oculta solo en OCR dialog. Backlog para sesión dedicada de Subcategorías en /analisis.
 
-- **diezmo por categoría en lugar de por tipo**: Permite configurar % diferente
-  para Freelance vs Sueldo en vez de hardcodear por TxType. Estructura:
-  `TitheConfig.tithePercentByIncomeCategory[categoryId]`.
-- **EUR rate cache en IndexedDB**: Mismo patrón que TRM. Tabla `forexRates`
-  con `pair+date` como índice único. Auto-fetch al cargar si no está cacheado hoy.
-- **Adjuntos como Blobs en IndexedDB**: Sin Storage API externa. Máximo 5 archivos
-  por transacción, 10MB cada uno. Suficiente para fotos de facturas.
-- **isSystem categorías no eliminables**: Tooltip explicativo en lugar de ocultar
-  el botón. Transacciones de categorías eliminadas se reasignan a "Otros".
+### Features grandes implementadas
 
-### Pendiente / convertido en TODOs para fases siguientes
+**Sistema F2 · Diezmos & Ofrendas operativo** (commits `f935570` + 13 más)
+- Tabla `tithe_commitments` creada (migración 0002).
+- Tabla `commitment_payments` para multi-payment support (migración 0001).
+- Generación automática de compromisos al crear ingreso.
+- Página /diezmos con checklist de pendientes.
+- Modal "registrar entrega" con multi-select, soporte adjunto, generación automática de transacción de gasto.
+- Status dinámico: pending / partial / paid / debt.
+- Link existing transactions a compromisos.
+- Cascade delete: borrar income con compromisos pending cascadea limpiamente (commit `ce286f9`).
+- Bloqueo de delete cuando commitment ya tiene linked payments (commit `747f7af`).
 
-- Dashboard con KPIs reales y gráficas (Fase 3).
-- Página Facturas con grid y drill-down (Fase 4).
-- Diezmo, metas, deudas páginas completas (Fase 5).
-- OCR con Cloudflare Worker (Fase 6).
-- Impuestos (Fase 7).
-- Splittear bundle (warning >500kB): Fase 8 con `lazy()`.
-- Prettier: Fase 8.
+**R2 File Storage & Attachments** (commits `56ddf6f`, `f5da239`, `addb011`, `cc2f893`, `e9dafcd`, `c7613ad`)
+- Bucket R2 `patrimonio-files`.
+- XHR upload con progress bar.
+- Soportes visibles en InvoiceQuickView con paperclip indicator.
+- Attachment support en invoice form, CSV import, transaction form.
 
----
+**OCR de tickets con 3 providers** (commits `56ddf6f`, `8df1d4c`, `ccf2d60`, `243b323`, `1effc80`, `819d370`, `ba5cf7a`, fixes 2026-05-17)
+- Claude Sonnet 4 (default server-side, ANTHROPIC_API_KEY).
+- Google Gemini 2.0 Flash (user API key).
+- OpenAI gpt-4.1-mini (user API key, actualizado 2026-05-17 desde gpt-4o-mini).
+- max_tokens subido a 4096 (antes 1024 truncaba recibos largos de 30+ items).
+- Prompt actualizado con manejo de formato colombiano (punto como miles), descuentos, validación interna, casos especiales (manuscritos, servicios, IVA).
+- Post-validation server-side calcula `realConfidence` independiente de lo que diga el modelo. Tres niveles: high / medium / low.
+- UI con badge basado en realConfidence (Validado / Revisar montos / Revisión obligatoria) + banner de warning si low confidence.
 
-## Pulido grande post-Fase 2 · _completada_
+**Camera Capture** (commit `8df1d4c`)
+- Input separado con `capture="environment"` para móvil. Permite tomar foto del recibo directamente.
 
-### Completado
+**Dashboard tabs temporales** (commit `57af53a`)
+- Monthly (default) / Weekly / Quarterly / Semester / Yearly / All-time.
 
-- **Modelo: 2 tipos visibles, lógica por categoría**: El formulario muestra solo
-  "Gasto" e "Ingreso". La categoría seleccionada determina el tipo interno:
-  "Deuda" → `debt_payment`, "Transferencias" → `transfer`, resto directo.
-  Helper `resolveInternalType(categoryName, visibleType)`.
-- **3 categorías sistema nuevas**: Transferencias (#16), Comisiones bancarias (#17),
-  Intereses bancarios (#18). Total: 18 categorías.
-- **Dexie schema v3**: tabla `audit_log`, índice `transferGroupId` en transactions.
-- **Transaction +3 campos**: `capitalAmount?`, `interestAmount?`, `transferGroupId?`.
-- **Debt +isPaid**: campo booleano para marcar deudas saldadas.
-- **AuditLogEntry**: nueva interfaz + tabla `audit_log`.
-- **Bug fix: alineación categorías**: Layout fijo con `flex-1` spacer entre nombre y
-  acciones, eliminado doble `ml-auto`.
-- **Bug fix: editar transacción vacío**: `useEffect([editTx, open])` que llama
-  `reset(newValues)` explícitamente. react-hook-form ignora defaultValues post-mount.
-- **Auto-débito deudas**: Al crear `debt_payment`, resta capital del saldo, incrementa
-  cuotas pagadas, marca isPaid si saldo ≤ 0 con toast. Al editar/eliminar revierte
-  el delta. Intereses crean tx separada en categoría "Intereses bancarios".
-- **Audit log + /historial**: Hook `useAuditLog` con `logChange`, `revertEntry`.
-  Página `/historial` con filtros (tipo/período/entidad), lista cronológica, botón
-  Revertir solo para el último cambio. Wired en transactions + categories CRUD.
-  Nav item bajo Configuración.
-- **Wizard "Recibir pago internacional"**: Dialog 5 pasos (pago bruto → comisiones
-  origen → plataforma intermedia → cambio moneda → resumen). Crea múltiples txs
-  atómicamente con `transferGroupId`. Incluye txs de diezmo + ofrenda automáticas.
-  Comisiones como txs separadas. Comparación con TRM oficial.
-- **Seed v4**: 65+ transacciones incluyendo 2 debt_payments con capital/intereses,
-  1 grupo de pago internacional (8 txs con transferGroupId compartido),
-  2-3 transferencias internas USD→COP, 3 categorías nuevas.
-- **Iconos nuevos**: ArrowRightLeft, Landmark, Percent en TransactionsTable y
-  CategoryFormDialog.
-- `npm run build` ✓ limpio.
+**CSV Invoice Import** (commits `0883ba3`, `b876d71`, `7f4bb74`, `e9dafcd`)
+- Soporta facturas de producto y bills de servicio (Claro, EPM).
+- File attachment upload durante import.
 
-### Decisiones
+**Inline Category Creation** (commit `b88ab64`)
+- Crear categorías directo desde el form de transacción.
 
-- **2 tipos visibles (no 4)**: El usuario nunca ve `debt_payment` ni `transfer` en
-  el formulario. Se infieren de la categoría. Simplifica la UX.
-- **Detección por nombre de categoría**: `resolveInternalType` usa el nombre, no
-  IDs hardcodeados. Más robusto ante re-seeds.
-- **capitalAmount/interestAmount en unidades de display** (no cents): Consistente
-  con el resto de la app.
-- **Transferencias excluidas de KPIs**: `isKpiTransaction()` filtra `type !== 'transfer'`.
-  No suman a gastos ni ingresos.
-- **Reseed completo**: Seed v3→v4 clear IndexedDB y regenera. Sin datos reales que
-  preservar.
-- **Diezmo en wizard crea txs automáticamente**: Usa `calculateTitheForIncome` con
-  la categoría de ingreso seleccionada. Cada una (diezmo + ofrenda) como tx separada.
-- **Audit log FIFO 1000**: Auto-prune al insertar entry 1001. Solo el último cambio
-  por entidad es revertible.
+**Duplicate Transaction** (commit `6b1a367`)
+- Botón duplicar con pre-fill del form.
 
-### Pendiente / convertido en TODOs para fases siguientes
+**Import JSON · restauración completa** (commit `144da23`)
+- Preview + validación antes de importar.
 
-- Dashboard con KPIs reales y gráficas (Fase 3).
-- Página Facturas con grid y drill-down (Fase 4).
-- Diezmo, metas, deudas páginas completas (Fase 5).
-- OCR con Cloudflare Worker (Fase 6).
-- Impuestos (Fase 7).
-- Splittear bundle (warning >500kB): Fase 8 con `lazy()`.
-- Prettier: Fase 8.
+**Multi-account capital** (commits `a8a55ae`, `5caf73f`)
+- Sección "Capital disponible" en Settings.
+- Deuda espiritual queda fuera del modelo MVP (decisión: ver TODO sección F2 si se rehabilita).
+
+### Mejoras UX
+
+- Wizard pago internacional: botón atrás como ícono superior izquierdo, dialog positioning fix (commits `c2c52fc`, `914a35e`).
+- Plenti agregado como plataforma de pago internacional + input custom "Otro" (commit `e5ac58b`).
+- Color picker nativo para categorías + PUT endpoint (commit `7ead8aa`).
+- Bundle splitting: framer-motion reemplazado por CSS transitions (−126KB, commit `5dbd9a4`).
+- Vendor bundle splitting (commit `1992c9a`).
+
+### Migraciones aplicadas
+
+```
+0001_handy_black_cat       → commitment_payments table + migrate tithe_payment_id
+0002_certain_felicia       → tithe_commitments table + amount_cop, currency, attachment_url en tithe_payments
+0003_motionless_triathlon  → barcode en invoice_items + invoice_number, payment_method, location, notes, attachment_url en invoices
+0004_conscious_shotgun     → notes, attachments en transactions
+0005_attachments           → goals table
+0006_missing_columns       → is_recurring, capital_amount, interest_amount en transactions; is_paid en debts
+0007_goals_columns         → description, monthly_contribution en goals
+0008_debts_updated_at      → updated_at en debts
+```
+
+### Estado en producción al cierre (2026-05-17)
+
+User `user_3DEHVwNjURaZfTfhcPTS0rNLOer`:
+- 80 transacciones (antes: 9)
+- 23 categorías (antes: ~12)
+- 12 facturas + 114 invoice_items
+- 14 tithe_commitments + 3 tithe_payments + 9 commitment_payments
+- 3 debts, 1 goal, 6 settings rows (added: ocrProvider, geminiApiKey/openaiApiKey, capitalAccounts)
 
 ---
 
-## 2026-05-07 · Fase de estabilización (sesión 3)
+## Sesiones previas
 
-Sesión enfocada en cerrar Bug A. **Cerrado oficialmente.** App ahora puede editar cualquier transacción sin fallos silenciosos.
-
-### Bug A — Modal "Editar transacción" no guarda ✅
-
-Resolución más laberíntica de lo esperado, en 3 commits sucesivos:
-
-1. **Commit `4f71347`** — `fix(tx-form): sanitize invalid currency on edit + show validation errors`
-   - Sanitizar `editTx.currency` con fallback a `'COP'` si no está en `CURRENCIES`.
-   - Renderizar `errors.currency` debajo del Select de moneda (antes era silencioso).
-   - Agregar catch-all "Hay campos con errores" sobre el botón Guardar (defense in depth).
-   - **Esto solo no resolvió el bug**: aunque la moneda PEN era el síntoma reportado, no era la causa raíz.
-
-2. **Commit `1c0c311`** — `fix(tx-form): allow null for optional fields returned by D1 (debtId, notes, capitalAmount, interestAmount, isRecurring)`
-   - Diagnóstico vía instrumentación temporal del catch-all (mostraba `errors` como JSON en UI).
-   - Reveló que el campo realmente fallando era `debtId: "Invalid input"`.
-   - Causa raíz: D1 retorna `null` para campos opcionales no seteados (toda transacción sin deuda asociada). El schema zod los marcaba `.optional()` que solo acepta `undefined`, no `null`. **Cualquier transacción sin deuda fallaba al guardar**, independiente del PEN.
-   - Fix: agregar `.nullable()` a los 5 campos opcionales en `txFormSchema`.
-
-3. **Commit `85a429c`** — `fix(transactions): use ?? for nullable form fields to satisfy types after schema widened`
-   - El cambio anterior rompió el build TS de `Transactions.tsx`: la inferencia de `TxFormValues` ahora incluía `null`, pero `addTransaction`/`updateTransaction` esperan `number | undefined`.
-   - Ya había coerción con `||`, pero `||` no narrows `null | undefined` a `undefined` en TypeScript.
-   - Fix: cambiar `||` a `??` en los 5 campos en ambos handlers (`handleAdd` y `handleEdit`).
-   - Bonus: `??` evita un bug latente futuro donde `0` falsy se coercería a undefined incorrectamente.
-
-### Verificación end-to-end (todos pasaron)
-
-- **Test 1**: editar transacción normal → guarda OK.
-- **Test 2**: editar fila id=362 (forzada con `currency='PEN'` vía SQL para reproducir el escenario) → modal abrió con Moneda en COP (fallback), Guardar la dejó en COP en D1. Confirmado con `SELECT id, concept, currency FROM transactions WHERE id=362` → `currency=COP`.
-- **Test 3**: borrar campo Concepto a propósito → aparecen ambos mensajes de error (inline + catch-all) como esperado.
-
-### Lecciones para futuro
-
-- **Schemas zod necesitan `.nullable()` cuando consumen datos de D1**, no solo `.optional()`. SQLite retorna `null` para columnas no seteadas, no `undefined`. Los demás formularios de la app (categorías, deudas, metas, settings) deberían auditarse con el mismo criterio si se reportan bugs similares.
-- **`??` es preferible a `||` en coerciones de tipos opcionales**: `||` colapsa todos los falsy (incluido `0` y `""`), `??` solo `null`/`undefined`.
-- **Diagnóstico vía instrumentación temporal en UI** funcionó muy bien: agregar `<pre>{JSON.stringify(errors, ...)}</pre>` en el catch-all reveló la causa raíz en una sola iteración. Útil para futuros fallos silenciosos de `react-hook-form`.
-
-### Bugs vivos al cerrar sesión
-
-- **Bug B** (crash en pago internacional, `r.trm.toFixed is not a function`) sigue pendiente. No se tocó en esta sesión.
-- **Deuda técnica enum runtime** (PEN aceptado en INSERT pese al enum de Drizzle) sigue documentada en TODO.md. Mientras tanto el fallback en frontend lo cubre defensivamente.
-
-## 2026-05-07 (continuación) · Cierre de sesión 3 con Bug A y Bug B
-
-Continuación inmediata de la sesión 3. Cerrados ambos bugs bloqueantes que quedaron de sesión 2.
-
-### Bug B — Crash en wizard de pago internacional ✅
-
-Causa raíz: `useTRM.ts` retornaba `rate` como string. El API público de datos abiertos de Colombia (`datos.gov.co`) serializa el campo `valor` como string (`"3723.33"`), comportamiento típico de Socrata Open Data API. El resto de la app trabajaba con esa string sin notar nada porque JavaScript hace coerción automática en operadores aritméticos (`*`, `/`). Solo `.toFixed()` falla, y solo se usa en el `useMemo` de `trmDelta` del wizard que depende de `conversion.enabled === true`. Por eso el crash era esquina y específico al paso 4.
-
-Fix en commit `35091f1`: coerción a number en la fuente (`useTRM.ts` y `useForex.ts`) con guard defensivo (`typeof === 'string' ? parseFloat : passthrough` + `Number.isFinite` fallback). Toda la cadena de consumidores queda blindada porque TypeScript ya tipaba `trm: number` en todos lados — el único punto débil era el hook que sembraba string sin que TS lo detectara (data viene de `await res.json()` que es `any`).
-
-### Verificación end-to-end del wizard
-
-Wizard completado paso 1 al paso 5 con datos reales (Designstream USD 148, transferencia bancaria, conversión a COP). Paso 4 avanzó sin crash. Paso 5 mostró cálculos correctos (TRM aplicada, conversión USD→COP, diezmo del 10% sobre USD 148 = USD 14.80). Transacción real creada y persistida en D1.
-
-### Lecciones para futuro
-
-- **APIs públicos pueden devolver números como strings**: Socrata, ciertos bancos, algunos forex. La defensa correcta es coerción en el hook que envuelve el fetch, no en cada consumidor downstream.
-- **TypeScript no protege contra `any` que viene de `res.json()`**: el bug pasó desapercibido durante meses porque el tipo se asumía `number` desde el primer asignamiento. La línea `const rate = data?.[0]?.valor ?? FALLBACK` parece inocente pero `data` es `any`. Vale considerar zod en la frontera para parsear y validar respuestas externas.
-- **`.toFixed()` es el método más sensible para detectar este tipo de bugs**: si funciona la aritmética pero `.toFixed()` rompe, casi seguro es string disfrazado de number.
-
-### Sesión cerrada
-
-App funcional para uso diario:
-- Editar transacciones (cualquier tipo, cualquier estado de campos opcionales).
-- Recibir pagos internacionales con cálculo correcto de TRM, comisiones, conversión y diezmo.
-- Validación visible en formularios (no más fallos silenciosos).
-
-Bugs nuevos detectados durante verificación quedan documentados en `TODO.md` para próximas sesiones — no se atacaron para evitar scope creep en sesión de estabilización.
-
+Las sesiones 1 a 3 cerraron Bugs A y B y dejaron la app funcional para uso diario. Detalles históricos en handoffs V1-V4 (archivados).
