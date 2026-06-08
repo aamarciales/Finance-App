@@ -30,6 +30,9 @@ export const transactions = sqliteTable('transactions', {
   capitalAmount: real('capital_amount'),
   interestAmount: real('interest_amount'),
   isTitheCalculated: integer('is_tithe_calculated', { mode: 'boolean' }).default(false),
+  titheExemption: text('tithe_exemption', {
+    enum: ['exempt', 'already_tithed', 'loan_proceeds'],
+  }),
   accountId: text('account_id'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),

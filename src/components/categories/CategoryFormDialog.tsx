@@ -168,7 +168,7 @@ export function CategoryFormDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
-            {editCategory ? 'Editar categoría' : 'Nueva categoría'}
+            {editCategory ? 'Edit category' : 'New category'}
           </DialogTitle>
         </DialogHeader>
 
@@ -178,8 +178,8 @@ export function CategoryFormDialog({
           className="grid gap-4 py-2"
         >
           <div className="grid gap-1.5">
-            <Label>Nombre</Label>
-            <Input {...register('name')} placeholder="Ej. Suscripciones" />
+            <Label>Name</Label>
+            <Input {...register('name')} placeholder="E.g. Subscriptions" />
             {errors.name && (
               <p className="text-[12px] text-danger-strong">{errors.name.message}</p>
             )}
@@ -187,7 +187,7 @@ export function CategoryFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Tipo</Label>
+              <Label>Type</Label>
               <Controller
                 name="type"
                 control={control}
@@ -197,8 +197,8 @@ export function CategoryFormDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="expense">Gasto</SelectItem>
-                      <SelectItem value="income">Ingreso</SelectItem>
+                      <SelectItem value="expense">Expense</SelectItem>
+                      <SelectItem value="income">Income</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -283,10 +283,10 @@ export function CategoryFormDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando…' : 'Guardar'}
+              {isSubmitting ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { computeAmountsWithActual } from '@/lib/currency'
 import type { Invoice, InvoiceItem, Category, Transaction, CapitalAccount } from '@/types/domain'
 
@@ -35,6 +36,7 @@ export interface InvoiceFormData {
 
 export function useInvoices(rates: { trm: number; eurToUsd: number }) {
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
 
   const { data: settingsData } = useQuery({
@@ -45,27 +47,32 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
       for (const r of rows) map[r.key] = r.value
       return map as Record<string, unknown>
     },
+    enabled: authReady,
   })
   const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const { data: rawInvoices, isLoading: loadingInv } = useQuery({
     queryKey: ['invoices'],
     queryFn: () => api.get<Invoice[]>('/invoices'),
+    enabled: authReady,
   })
 
   const { data: rawItems, isLoading: loadingItems } = useQuery({
     queryKey: ['invoiceItems'],
     queryFn: () => api.get<InvoiceItem[]>('/invoice-items'),
+    enabled: authReady,
   })
 
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
   const { data: transactions } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get<Transaction[]>('/transactions'),
+    enabled: authReady,
   })
 
   const categoryMap = useMemo(() => {
@@ -159,7 +166,7 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
     await api.put(`/invoices/${inv.id}`, { transactionId: tx.id })
 
     invalidateAll()
-    toast.success('Factura creada')
+    toast.success('Invoice created')
   }
 
   const updateInvoice = async (id: number, data: InvoiceFormData, existing: EnrichedInvoice) => {
@@ -213,18 +220,18 @@ export function useInvoices(rates: { trm: number; eurToUsd: number }) {
     }
 
     invalidateAll()
-    toast.success('Factura actualizada')
+    toast.success('Invoice updated')
   }
 
   const deleteInvoice = async (id: number) => {
     const res = await api.delete<{ deleted: { invoice: number; transaction: number; items: string | number }; transactionOrphanedDueToTithe?: boolean }>(`/invoices/${id}`)
     invalidateAll()
     if (res.transactionOrphanedDueToTithe) {
-      toast.warning('Factura borrada. La transacción se mantuvo porque tiene compromisos de diezmo asociados.')
+      toast.warning('Invoice deleted. The linked transaction was kept because it has associated tithe commitments.')
     } else if (res.deleted.transaction > 0) {
-      toast.success('Factura y transacción asociadas eliminadas')
+      toast.success('Invoice and linked transaction deleted')
     } else {
-      toast.success('Factura eliminada')
+      toast.success('Invoice deleted')
     }
   }
 

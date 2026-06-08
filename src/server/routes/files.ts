@@ -227,7 +227,7 @@ filesRouter.post('/ocr', async (c) => {
 
   const isPdf = file.type === 'application/pdf'
   if (!file.type.startsWith('image/') && !isPdf) {
-    return c.json({ error: 'Solo se aceptan imágenes y PDFs para OCR' }, 400)
+    return c.json({ error: 'Only images and PDFs are accepted for OCR' }, 400)
   }
 
   // Read user's OCR provider preference
@@ -238,7 +238,7 @@ filesRouter.post('/ocr', async (c) => {
   const provider = (typeof providerRow?.value === 'string' ? providerRow.value : providerRow?.value) ?? 'off'
 
   if (provider === 'off') {
-    return c.json({ error: 'OCR está desactivado. Actívalo en Ajustes.' }, 400)
+    return c.json({ error: 'OCR is disabled. Enable it in Settings.' }, 400)
   }
 
   const arrayBuffer = await file.arrayBuffer()
@@ -254,7 +254,7 @@ filesRouter.post('/ocr', async (c) => {
     })
     const openaiKey = typeof keyRow?.value === 'string' ? keyRow.value : keyRow?.value as string | undefined
     if (!openaiKey) {
-      return c.json({ error: 'Configura tu API Key de OpenAI en Ajustes.' }, 400)
+      return c.json({ error: 'Set your OpenAI API key in Settings.' }, 400)
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -287,11 +287,11 @@ filesRouter.post('/ocr', async (c) => {
       try {
         const errJson = JSON.parse(err)
         const msg = errJson?.error?.message ?? ''
-        if (msg.includes('API key') || msg.includes('Incorrect API')) return c.json({ error: 'API Key de OpenAI inválida. Verifica en Ajustes.' }, 400)
-        if (msg.includes('quota') || msg.includes('billing')) return c.json({ error: 'Cuota de OpenAI agotada o sin facturación activa.' }, 429)
+        if (msg.includes('API key') || msg.includes('Incorrect API')) return c.json({ error: 'Invalid OpenAI API key. Check Settings.' }, 400)
+        if (msg.includes('quota') || msg.includes('billing')) return c.json({ error: 'OpenAI quota exceeded or billing inactive.' }, 429)
         return c.json({ error: `Error OpenAI: ${msg || response.statusText}` }, 500)
       } catch {
-        return c.json({ error: 'Error al procesar con OpenAI. Verifica tu API Key.' }, 500)
+        return c.json({ error: 'Could not process with OpenAI. Check your API key.' }, 500)
       }
     }
 
@@ -299,7 +299,7 @@ filesRouter.post('/ocr', async (c) => {
     ocrText = data.choices?.[0]?.message?.content ?? ''
 
     if (!ocrText) {
-      return c.json({ error: 'OpenAI no pudo extraer texto de la imagen.' }, 500)
+      return c.json({ error: 'OpenAI could not extract text from the image.' }, 500)
     }
   } else if (provider === 'gemini') {
     // Read Gemini API key from user settings
@@ -308,7 +308,7 @@ filesRouter.post('/ocr', async (c) => {
     })
     const geminiKey = typeof keyRow?.value === 'string' ? keyRow.value : keyRow?.value as string | undefined
     if (!geminiKey) {
-      return c.json({ error: 'Configura tu API Key de Google Gemini en Ajustes.' }, 400)
+      return c.json({ error: 'Set your Google Gemini API key in Settings.' }, 400)
     }
 
     const response = await fetch(
@@ -334,11 +334,11 @@ filesRouter.post('/ocr', async (c) => {
       try {
         const errJson = JSON.parse(err)
         const msg = errJson?.error?.message ?? ''
-        if (msg.includes('API key')) return c.json({ error: 'API Key de Gemini inválida. Verifica en Ajustes.' }, 400)
-        if (msg.includes('quota')) return c.json({ error: 'Cuota de Gemini agotada. Intenta más tarde.' }, 429)
+        if (msg.includes('API key')) return c.json({ error: 'Invalid Gemini API key. Check Settings.' }, 400)
+        if (msg.includes('quota')) return c.json({ error: 'Gemini quota exceeded. Try again later.' }, 429)
         return c.json({ error: `Error Gemini: ${msg || response.statusText}` }, 500)
       } catch {
-        return c.json({ error: 'Error al procesar con Gemini. Verifica tu API Key.' }, 500)
+        return c.json({ error: 'Could not process with Gemini. Check your API key.' }, 500)
       }
     }
 
@@ -347,13 +347,13 @@ filesRouter.post('/ocr', async (c) => {
 
     if (!ocrText) {
       const blockReason = data.candidates?.[0]?.finishReason
-      if (blockReason === 'SAFETY') return c.json({ error: 'Gemini bloqueó la imagen por políticas de seguridad.' }, 400)
-      return c.json({ error: 'Gemini no pudo extraer texto de la imagen.' }, 500)
+      if (blockReason === 'SAFETY') return c.json({ error: 'Gemini blocked the image due to safety policies.' }, 400)
+      return c.json({ error: 'Gemini could not extract text from the image.' }, 500)
     }
   } else {
     // Claude (default)
     const apiKey = c.env.ANTHROPIC_API_KEY
-    if (!apiKey) return c.json({ error: 'Claude OCR no configurado en el servidor.' }, 500)
+    if (!apiKey) return c.json({ error: 'Claude OCR is not configured on the server.' }, 500)
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

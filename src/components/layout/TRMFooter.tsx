@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import { cn } from '@/lib/utils'
 import { formatTRM } from '@/lib/format'
 import { useTRM } from '@/hooks/useTRM'
@@ -12,7 +12,7 @@ interface TRMFooterProps {
 export function TRMFooter({ className }: TRMFooterProps) {
   const { rate, source, loading } = useTRM()
   const { eurToUsd } = useForex()
-  const today = format(new Date(), "d MMM", { locale: es })
+  const today = format(new Date(), "d MMM", { locale: displayLocale })
   const isOffline = source === 'manual'
 
   return (
@@ -23,10 +23,10 @@ export function TRMFooter({ className }: TRMFooterProps) {
       )}
     >
       <div className="mb-1 text-[10.5px] uppercase tracking-[0.08em] text-text-faint">
-        TRM hoy · {today}
+        FX rate today · {today}
       </div>
       <div className={cn('font-mono text-[14px]', isOffline && 'text-text-muted')}>
-        {loading ? 'Cargando…' : `${formatTRM(rate)} COP`}
+        {loading ? 'Loading…' : `${formatTRM(rate)} COP`}
         {isOffline && !loading && (
           <span className="ml-1 text-[11px] text-text-faint">(offline)</span>
         )}

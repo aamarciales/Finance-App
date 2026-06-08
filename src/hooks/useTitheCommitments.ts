@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { useSettings } from '@/hooks/useSettings'
 import type { Currency, TitheCommitment } from '@/types/domain'
 
@@ -22,10 +23,12 @@ export interface TithePaymentRecord {
 export interface RegisterPaymentData {
   date: string
   commitmentIds: number[]
-  amountUsd: number
-  amountCop?: number
+  /** Actual amount paid in the selected currency. */
+  amount: number
   currency: Currency
   trm: number
+  /** User confirms full tithe even if USD equivalent differs slightly (TRM drift). */
+  markAsComplete?: boolean
   destination: string
   attachmentUrl?: string
   notes?: string
@@ -55,22 +58,26 @@ export interface MonthlyCompliance {
 
 export function useTitheCommitments() {
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
   const { settings } = useSettings()
 
   const { data: commitmentsData, isLoading: loadingCommitments } = useQuery({
     queryKey: ['tithe-commitments'],
     queryFn: () => api.get<EnrichedTitheCommitment[]>('/tithe-commitments'),
+    enabled: authReady,
   })
 
   const { data: paymentsData, isLoading: loadingPayments } = useQuery({
     queryKey: ['tithe-payments'],
     queryFn: () => api.get<TithePaymentRecord[]>('/tithe-payments'),
+    enabled: authReady,
   })
 
   const { data: pendingSummary } = useQuery({
     queryKey: ['tithe-commitments', 'pending-summary'],
     queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number; totalDebt: number; debtCount: number }>('/tithe-commitments/pending-summary'),
+    enabled: authReady,
   })
 
   const commitments: EnrichedTitheCommitment[] = commitmentsData ?? []
@@ -168,11 +175,28 @@ export function useTitheCommitments() {
     },
   })
 
+  const markAsPaid = useMutation({
+    mutationFn: (commitmentIds: number[]) =>
+      api.post<{ markedCount: number }>('/tithe-commitments/mark-as-paid', { commitmentIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments', 'pending-summary'] })
+    },
+  })
+
   const deletePayment = useMutation({
     mutationFn: (id: number) => api.delete(`/tithe-payments/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
       queryClient.invalidateQueries({ queryKey: ['tithe-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+
+  const deleteCommitment = useMutation({
+    mutationFn: (id: number) => api.delete(`/tithe-commitments/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tithe-commitments'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
   })
@@ -195,6 +219,8 @@ export function useTitheCommitments() {
     linkExistingTransaction,
     linkDebtPayment,
     markAsDebt,
+    markAsPaid,
     deletePayment,
+    deleteCommitment,
   }
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import { useAuth } from '@clerk/clerk-react'
 import {
   CalendarIcon,
@@ -22,7 +22,9 @@ import {
   VISIBLE_TYPE_LABELS,
   CURRENCIES,
 } from '@/lib/validators'
-import type { Category, Debt, Transaction, AppSettings, CapitalAccount } from '@/types/domain'
+import type { Category, Debt, Transaction, AppSettings, CapitalAccount, TitheExemption } from '@/types/domain'
+import { TITHE_EXEMPTION_AUTO, TITHE_EXEMPTION_OPTIONS } from '@/lib/tithe-exemption'
+import { displayTransactionConcept } from '@/lib/category-display'
 
 import {
   Dialog,
@@ -80,7 +82,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
     return {
       type: toVisibleType(source.type),
       date: prefillTx ? new Date().toISOString().slice(0, 10) : source.date,
-      concept: source.concept,
+      concept: displayTransactionConcept(source.concept),
       categoryId: source.categoryId,
       amount: source.amount,
       currency: safeCurrency,
@@ -92,6 +94,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
       interestAmount: source.interestAmount ?? 0,
       attachments: editTx?.attachments ?? undefined,
       accountId: source.accountId ?? null,
+      titheExemption: source.titheExemption ?? null,
       actualAmount: (() => {
         // Heuristic: if stored trm differs from official by >0.5%, treat as user-entered
         if (!rates.trm || !source.amountInSecondary) return null
@@ -112,6 +115,7 @@ function buildDefaults(editTx: Transaction | undefined, rates: { trm: number }, 
     notes: '',
     isRecurring: false,
     accountId: null,
+    titheExemption: null,
     actualAmount: null,
   }
 }
@@ -210,7 +214,7 @@ export function TxFormDialog({
     [categories, selectedCategoryId],
   )
 
-  const showDebtFields = selectedCategory?.name === 'Deuda' && selectedType === 'expense'
+  const showDebtFields = (selectedCategory?.name === 'Deuda' || selectedCategory?.name === 'Debt') && selectedType === 'expense'
   const isTransfer = selectedCategory?.name === 'Transferencias' && selectedType === 'expense'
 
   const filteredCategories = useMemo(() => {
@@ -281,8 +285,8 @@ export function TxFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">
-            {editTx ? 'Editar transacción' : 'Nueva transacción'}
+          <DialogTitle className="text-xl font-bold tracking-[-0.02em]">
+            {editTx ? 'Edit transaction' : 'New transaction'}
           </DialogTitle>
         </DialogHeader>
 
@@ -292,7 +296,7 @@ export function TxFormDialog({
         >
           {/* Tipo — solo Gasto / Ingreso */}
           <div className="grid gap-1.5">
-            <Label>Tipo</Label>
+            <Label>Type</Label>
             <Controller
               name="type"
               control={control}
@@ -324,7 +328,7 @@ export function TxFormDialog({
 
           {/* Fecha */}
           <div className="grid gap-1.5">
-            <Label>Fecha</Label>
+            <Label>Date</Label>
             <Controller
               name="date"
               control={control}
@@ -340,8 +344,8 @@ export function TxFormDialog({
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {field.value
-                        ? format(parseISO(field.value), 'dd MMM yyyy', { locale: es })
-                        : 'Seleccionar fecha'}
+                        ? format(parseISO(field.value), 'dd MMM yyyy', { locale: displayLocale })
+                        : 'Select date'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -358,10 +362,10 @@ export function TxFormDialog({
 
           {/* Concepto */}
           <div className="grid gap-1.5">
-            <Label>Concepto</Label>
+            <Label>Description</Label>
             <Input
               {...register('concept')}
-              placeholder="Ej. Almuerzo en La Puerta Falsa"
+              placeholder="E.g. Lunch at La Puerta Falsa"
             />
             {errors.concept && (
               <p className="text-[12px] text-danger-strong">{errors.concept.message}</p>
@@ -371,7 +375,7 @@ export function TxFormDialog({
           {/* Monto + Moneda */}
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <div className="grid gap-1.5">
-              <Label>Monto</Label>
+              <Label>Amount</Label>
               <Input
                 type="number"
                 step="any"
@@ -383,7 +387,7 @@ export function TxFormDialog({
               )}
             </div>
             <div className="grid gap-1.5">
-              <Label>Moneda</Label>
+              <Label>Currency</Label>
               <Controller
                 name="currency"
                 control={control}
@@ -411,13 +415,13 @@ export function TxFormDialog({
           {/* Categoría */}
           <div className="grid gap-1.5">
             <div className="flex items-center justify-between">
-              <Label>Categoría</Label>
+              <Label>Category</Label>
               <button
                 type="button"
                 onClick={() => setNewCatName('')}
                 className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-brand"
               >
-                <Plus className="h-3 w-3" /> Nueva
+                <Plus className="h-3 w-3" /> New
               </button>
             </div>
             <Controller
@@ -429,7 +433,7 @@ export function TxFormDialog({
                   onValueChange={(v) => field.onChange(Number(v))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar…" />
+                    <SelectValue placeholder="Select…" />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredCategories.map((c) => (
@@ -453,7 +457,7 @@ export function TxFormDialog({
                   type="text"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="Nombre de la categoría"
+                  placeholder="Category name"
                   className="flex-1 rounded-md border border-border px-2 py-1 text-[13px]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -484,10 +488,42 @@ export function TxFormDialog({
             )}
           </div>
 
+          {selectedType === 'income' && (
+            <div className="grid gap-1.5">
+              <Label>Tithe</Label>
+              <Controller
+                name="titheExemption"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? TITHE_EXEMPTION_AUTO}
+                    onValueChange={(v) =>
+                      field.onChange(v === TITHE_EXEMPTION_AUTO ? null : (v as TitheExemption))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TITHE_EXEMPTION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-[11px] text-text-muted">
+                Use "Already tithed" for third-party gifts or "Loan" for non-tithable income.
+              </p>
+            </div>
+          )}
+
           {/* Account */}
           {capitalAccounts.length > 0 && (
             <div className="grid gap-1.5">
-              <Label>Cuenta</Label>
+              <Label>Account</Label>
               <Controller
                 name="accountId"
                 control={control}
@@ -497,10 +533,10 @@ export function TxFormDialog({
                     onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Ninguna" />
+                      <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">Ninguna</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {capitalAccounts.map((acc) => (
                         <SelectItem key={acc.id} value={acc.id}>
                           {acc.name} ({acc.currency})
@@ -518,7 +554,7 @@ export function TxFormDialog({
             return selAcc && selectedCurrency !== selAcc.currency
           })() && (
             <div className="grid gap-1.5">
-              <Label>Monto real debitado en {capitalAccounts.find(a => a.id === selectedAccountId)!.currency}</Label>
+              <Label>Actual amount debited in {capitalAccounts.find(a => a.id === selectedAccountId)!.currency}</Label>
               <Controller
                 name="actualAmount"
                 control={control}
@@ -526,14 +562,14 @@ export function TxFormDialog({
                   <Input
                     type="number"
                     step="0.01"
-                    placeholder={`Opcional · TRM oficial: ${rates.trm.toLocaleString()}`}
+                    placeholder={`Optional · official FX rate: ${rates.trm.toLocaleString('en-US')}`}
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                   />
                 )}
               />
               <p className="text-[11px] text-text-muted">
-                Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+                If left empty, the official FX rate is used. Fill this in if the bank charged a different amount due to spread or fees.
               </p>
             </div>
           )}
@@ -542,7 +578,7 @@ export function TxFormDialog({
           {showDebtFields && (
             <>
               <div className="grid gap-1.5">
-                <Label>Deuda asociada</Label>
+                <Label>Linked debt</Label>
                 {activeDebts.length > 0 ? (
                   <Controller
                     name="debtId"
@@ -553,7 +589,7 @@ export function TxFormDialog({
                         onValueChange={(v) => field.onChange(Number(v))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar deuda…" />
+                          <SelectValue placeholder="Select debt…" />
                         </SelectTrigger>
                         <SelectContent>
                           {activeDebts.map((d) => (
@@ -570,16 +606,16 @@ export function TxFormDialog({
                   />
                 ) : (
                   <p className="text-[12px] text-text-muted">
-                    No hay deudas activas.{' '}
+                    No active debts.{' '}
                     <a href="/debts" className="text-brand underline">
-                      Registrar deuda
+                      Record debt
                     </a>
                   </p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>Capital pagado</Label>
+                  <Label>Principal paid</Label>
                   <Input
                     type="number"
                     step="any"
@@ -588,7 +624,7 @@ export function TxFormDialog({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Intereses incluidos</Label>
+                  <Label>Interest included</Label>
                   <Input
                     type="number"
                     step="any"
@@ -606,13 +642,13 @@ export function TxFormDialog({
           {/* Transfer info */}
           {isTransfer && (
             <p className="text-[12px] text-text-muted rounded-md bg-surface-2 px-3 py-2">
-              Las transferencias no cuentan como gasto ni ingreso en tus métricas.
+              Transfers do not count as expense or income in your metrics.
             </p>
           )}
 
           {/* TRM */}
           <div className="grid gap-1.5">
-            <Label>TRM del día</Label>
+            <Label>FX rate for the day</Label>
             <Input
               type="number"
               step="0.01"
@@ -620,7 +656,7 @@ export function TxFormDialog({
               className="font-mono"
             />
             <p className="text-[11px] text-text-faint">
-              Se autocompleta con la TRM oficial. Puedes editarla si es necesario.
+              Pre-filled with the official FX rate. Edit if needed.
             </p>
           </div>
 
@@ -634,20 +670,20 @@ export function TxFormDialog({
                   checked={field.value ?? false}
                   onCheckedChange={field.onChange}
                 />
-                <span className="text-[13px]">Transacción recurrente</span>
+                <span className="text-[13px]">Recurring transaction</span>
               </label>
             )}
           />
 
           {/* Notas */}
           <div className="grid gap-1.5">
-            <Label>Notas (opcional)</Label>
+            <Label>Notes (optional)</Label>
             <Textarea {...register('notes')} rows={2} />
           </div>
 
           {/* Adjuntos */}
           <div className="grid gap-1.5">
-            <Label>Soportes</Label>
+            <Label>Attachments</Label>
             <div
               className="flex min-h-[72px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-border p-3 text-text-faint transition-colors hover:border-text-muted hover:text-text-muted"
               onClick={() => fileInputRef.current?.click()}
@@ -660,10 +696,10 @@ export function TxFormDialog({
             >
               <Upload className="h-5 w-5" />
               <span className="text-[11px]">
-                Arrastra archivos o haz clic para seleccionar
+                Drag files here or click to select
               </span>
               <span className="text-[10px]">
-                JPG, PNG, HEIC, PDF · máx {MAX_FILES} archivos · 10 MB c/u
+                JPG, PNG, HEIC, PDF · max {MAX_FILES} files · 10 MB each
               </span>
             </div>
             <input
@@ -730,7 +766,7 @@ export function TxFormDialog({
               <p>Campos con errores:</p>
               <ul className="list-disc pl-4">
                 {Object.entries(errors).map(([field, error]) => (
-                  <li key={field}>{field}: {error?.message || 'inválido'}</li>
+                  <li key={field}>{field}: {error?.message || 'invalid'}</li>
                 ))}
               </ul>
             </div>
@@ -742,10 +778,10 @@ export function TxFormDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando…' : 'Guardar'}
+              {isSubmitting ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

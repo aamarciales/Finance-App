@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import {
   ShoppingCart,
   Utensils,
@@ -28,11 +28,13 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Money } from '@/components/common/Money'
+import { displayTransactionConcept } from '@/lib/category-display'
 import { Badge } from '@/components/common/Badge'
 import { EmptyState } from '@/components/common/EmptyState'
 import type { BadgeTone } from '@/components/common/Badge'
 import type { EnrichedTransaction } from '@/hooks/useTransactions'
 import { formatTRM } from '@/lib/format'
+import { displayCategoryName } from '@/lib/category-display'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   'shopping-cart': ShoppingCart,
@@ -92,8 +94,8 @@ export function TransactionsTable({ transactions, onEdit, onDelete, onDuplicate,
   if (transactions.length === 0) {
     return (
       <EmptyState
-        title="Sin transacciones"
-        description="No hay movimientos para los filtros seleccionados"
+        title="No transactions"
+        description="No transactions match the selected filters"
       />
     )
   }
@@ -103,14 +105,14 @@ export function TransactionsTable({ transactions, onEdit, onDelete, onDuplicate,
       <table className="w-full text-left text-[13px]">
         <thead>
           <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-text-faint">
-            <th className="px-4 py-2.5 font-medium">Fecha</th>
-            <th className="px-4 py-2.5 font-medium">Concepto</th>
-            <th className="px-4 py-2.5 font-medium">Categoría</th>
-            <th className="px-4 py-2.5 text-right font-medium">Monto</th>
-            <th className="px-4 py-2.5 text-right font-medium">Equivalente</th>
+            <th className="px-4 py-2.5 font-medium">Date</th>
+            <th className="px-4 py-2.5 font-medium">Description</th>
+            <th className="px-4 py-2.5 font-medium">Category</th>
+            <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+            <th className="px-4 py-2.5 text-right font-medium">Equivalent</th>
             <th className="hidden px-4 py-2.5 text-right font-medium md:table-cell">TRM</th>
-            <th className="px-4 py-2.5 text-right font-medium">Factura</th>
-            <th className="px-4 py-2.5 text-right font-medium">Acciones</th>
+            <th className="px-4 py-2.5 text-right font-medium">Invoice</th>
+            <th className="px-4 py-2.5 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -142,7 +144,7 @@ function TxRow({
   if (tx.date) {
     const d = parseISO(tx.date)
     if (!isNaN(d.getTime())) {
-      dateLabel = format(d, 'dd MMM', { locale: es })
+      dateLabel = format(d, 'dd MMM', { locale: displayLocale })
     }
   }
 
@@ -158,7 +160,7 @@ function TxRow({
       </td>
       <td className="px-4 py-2.5">
         <span className="inline-flex items-center gap-1">
-          {tx.concept}
+          {displayTransactionConcept(tx.concept)}
           {tx.attachments && tx.attachments.length > 0 && (
             <a
               href={tx.attachments[0]}
@@ -180,7 +182,7 @@ function TxRow({
               style={{ color: tx.category.color }}
             />
           )}
-          <Badge tone={getTone(tx.category.name)} color={tx.category.color}>{tx.category.name}</Badge>
+          <Badge tone={getTone(tx.category.name)} color={tx.category.color}>{displayCategoryName(tx.category.name)}</Badge>
           {tx.isRecurring && (
             <RotateCw className="h-3 w-3 text-text-faint" />
           )}
@@ -212,7 +214,7 @@ function TxRow({
             onClick={() => onViewInvoice?.(tx.invoiceId!)}
             className="inline-flex items-center gap-1 text-[12px] text-brand transition-colors hover:text-brand/80"
           >
-            <FileSearch className="h-3 w-3" /> Ver factura
+            <FileSearch className="h-3 w-3" /> View invoice
           </button>
         ) : null}
       </td>
@@ -222,7 +224,7 @@ function TxRow({
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
             onClick={() => onEdit(tx)}
-            aria-label="Editar"
+            aria-label="Edit"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -230,7 +232,7 @@ function TxRow({
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
             onClick={() => onDuplicate(tx)}
-            aria-label="Duplicar"
+            aria-label="Duplicate"
           >
             <Copy className="h-4 w-4" />
           </button>
@@ -238,7 +240,7 @@ function TxRow({
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
             onClick={() => onDelete(tx)}
-            aria-label="Eliminar"
+            aria-label="Delete"
           >
             <Trash2 className="h-4 w-4" />
           </button>

@@ -6,6 +6,8 @@ export type TxType =
   | 'debt_payment'
   | 'transfer'
 
+export type TitheExemption = 'exempt' | 'already_tithed' | 'loan_proceeds'
+
 export interface Transaction {
   id?: number
   date: string
@@ -26,6 +28,8 @@ export interface Transaction {
   interestAmount?: number
   transferGroupId?: string
   accountId?: string
+  /** When set, no tithe commitment is auto-generated for this income. */
+  titheExemption?: TitheExemption | null
   createdAt: string
   updatedAt: string
 }

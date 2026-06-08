@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import type { Currency, Goal } from '@/types/domain'
 
 export interface GoalFormData {
@@ -17,11 +18,13 @@ export interface GoalFormData {
 
 export function useGoals() {
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
 
   const { data: goals, isLoading: loadingGoals } = useQuery({
     queryKey: ['goals'],
     queryFn: () => api.get<Goal[]>('/goals'),
+    enabled: authReady,
   })
 
   const invalidateAll = () => {
@@ -34,7 +37,7 @@ export function useGoals() {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Meta creada')
+      toast.success('Goal created')
     }
   })
 
@@ -44,7 +47,7 @@ export function useGoals() {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Meta actualizada')
+      toast.success('Goal updated')
     }
   })
 
@@ -54,7 +57,7 @@ export function useGoals() {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Meta eliminada')
+      toast.success('Goal deleted')
     }
   })
 
@@ -70,9 +73,9 @@ export function useGoals() {
       if (!result) return
       invalidateAll()
       if (result.newAmount >= result.targetAmount) {
-        toast.success(`¡Meta "${result.goalName}" completada!`)
+        toast.success(`Goal "${result.goalName}" completed!`)
       } else {
-        toast.success('Abono registrado')
+        toast.success('Contribution recorded')
       }
     }
   })

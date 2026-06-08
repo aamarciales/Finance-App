@@ -25,11 +25,11 @@ import {
 const CURRENT_YEAR = new Date().getFullYear()
 
 function formatCop(amount: number): string {
-  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)}`
+  return `$${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)}`
 }
 
 function formatCopFull(amount: number): string {
-  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} COP`
+  return `$${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)} COP`
 }
 
 export default function TaxesPage() {
@@ -65,14 +65,14 @@ export default function TaxesPage() {
       <PageHeader
         title={
           <>
-            Impuestos · <em className="font-serif italic">Colombia</em>
+            Taxes · <em className="font-serif italic">Colombia</em>
           </>
         }
-        subtitle="Seguimiento de obligaciones tributarias DIAN"
+        subtitle="DIAN tax obligation tracking"
       />
 
       {loading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : (
         <div className="space-y-6">
           {/* Row 1: UVT + Annual Income + Obligation */}
@@ -82,14 +82,14 @@ export default function TaxesPage() {
               iconTone="brand"
               title={`UVT ${CURRENT_YEAR}`}
               value={formatCop(uvt)}
-              subtitle="Unidad de Valor Tributario"
+              subtitle="Tax Value Unit"
             />
             <InfoCard
               icon={TrendingUp}
               iconTone="brand"
-              title={`Ingresos brutos ${CURRENT_YEAR}`}
+              title={`Gross income ${CURRENT_YEAR}`}
               value={formatCopFull(annualIncomeCop)}
-              subtitle={`Ingresos tipo "income" del año · ${(annualIncomeCop / uvt).toFixed(1)} UVT`}
+              subtitle={`"Income" transactions this year · ${(annualIncomeCop / uvt).toFixed(1)} UVT`}
             />
             <ObligationCard obligation={obligation} income={annualIncomeCop} />
           </div>
@@ -103,22 +103,22 @@ export default function TaxesPage() {
             <div className="rounded-[10px] border border-border bg-surface p-5">
               <div className="mb-4 flex items-center gap-2">
                 <PiggyBank className="h-4 w-4 text-gold" strokeWidth={1.8} />
-                <h3 className="text-[13px] font-medium">Provisión sugerida</h3>
+                <h3 className="text-[13px] font-medium">Suggested provision</h3>
               </div>
               <p className="mb-3 text-[12px] text-text-muted">
-                Reserva mensual recomendada al 2% de tus ingresos brutos anuales.
+                Recommended monthly reserve at 2% of your gross annual income.
               </p>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-text-muted">Provisión anual</span>
+                  <span className="text-text-muted">Annual provision</span>
                   <span className="font-mono font-medium">{formatCopFull(provision)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-text-muted">Provisión mensual</span>
+                  <span className="text-text-muted">Monthly provision</span>
                   <span className="font-mono font-medium">{formatCopFull(Math.round(provision / 12))}</span>
                 </div>
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-text-muted">Provisión bimensual</span>
+                  <span className="text-text-muted">Bimonthly provision</span>
                   <span className="font-mono font-medium">{formatCopFull(Math.round(provision / 6))}</span>
                 </div>
               </div>
@@ -128,7 +128,7 @@ export default function TaxesPage() {
             <div className="rounded-[10px] border border-border bg-surface p-5">
               <div className="mb-4 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-info" strokeWidth={1.8} />
-                <h3 className="text-[13px] font-medium">Calendario bimensual {CURRENT_YEAR}</h3>
+                <h3 className="text-[13px] font-medium">Bimonthly calendar {CURRENT_YEAR}</h3>
               </div>
               <div className="space-y-2">
                 {calendar.map((period, i) => (
@@ -138,7 +138,7 @@ export default function TaxesPage() {
                   >
                     <span className="font-medium">{period.label}</span>
                     <span className="text-text-muted">{period.months}</span>
-                    <span className="text-text-muted">Vence: {period.dueMonth}</span>
+                    <span className="text-text-muted">Due: {period.dueMonth}</span>
                   </div>
                 ))}
               </div>
@@ -149,17 +149,17 @@ export default function TaxesPage() {
           <div className="rounded-[10px] border border-border bg-surface p-5">
             <div className="mb-3 flex items-center gap-2">
               <Calculator className="h-4 w-4 text-text-muted" strokeWidth={1.8} />
-              <h3 className="text-[13px] font-medium">Topes DIAN · Referencia</h3>
+              <h3 className="text-[13px] font-medium">DIAN thresholds · Reference</h3>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ThresholdCard
-                label="Obligación de declarar renta"
+                label="Income tax filing required"
                 uvt={1400}
                 cop={obligation.declareThresholdCop}
                 exceeded={obligation.mustDeclare}
               />
               <ThresholdCard
-                label="Obligación de facturar"
+                label="Invoicing required"
                 uvt={3500}
                 cop={obligation.invoiceThresholdCop}
                 exceeded={obligation.mustInvoice}
@@ -216,14 +216,14 @@ function ObligationCard({
     return (
       <div className="rounded-[10px] border border-border bg-surface p-5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">Obligación tributaria</span>
+          <span className="text-[12px] text-text-muted">Tax obligation</span>
           <AlertTriangle className="h-4 w-4 text-text-muted" strokeWidth={1.8} />
         </div>
         <div className="text-[14px] font-medium text-text-muted">
-          Sin ingresos registrados
+          No income recorded
         </div>
         <div className="mt-1 text-[11px] text-text-muted">
-          Registra ingresos para calcular tu obligación
+          Record income to calculate your tax obligation
         </div>
       </div>
     )
@@ -234,7 +234,7 @@ function ObligationCard({
   return (
     <div className="rounded-[10px] border border-border bg-surface p-5">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[12px] text-text-muted">Obligación tributaria</span>
+        <span className="text-[12px] text-text-muted">Tax obligation</span>
         {none ? (
           <ShieldCheck className="h-4 w-4 text-brand" strokeWidth={1.8} />
         ) : (
@@ -242,12 +242,12 @@ function ObligationCard({
         )}
       </div>
       <div className="space-y-1.5">
-        <ObligationRow label="Declarar renta" active={obligation.mustDeclare} />
-        <ObligationRow label="Facturar" active={obligation.mustInvoice} />
+        <ObligationRow label="File income tax" active={obligation.mustDeclare} />
+        <ObligationRow label="Invoice" active={obligation.mustInvoice} />
       </div>
       {none && (
         <div className="mt-2 text-[11px] text-brand">
-          Tus ingresos están por debajo de los topes DIAN
+          Your income is below DIAN thresholds
         </div>
       )}
     </div>
@@ -258,7 +258,7 @@ function ObligationRow({ label, active }: { label: string; active: boolean }) {
   return (
     <div className="flex items-center gap-2 text-[13px]">
       <Badge tone={active ? 'warm' : 'green'}>
-        {active ? 'Obligado' : 'No obligado'}
+        {active ? 'Required' : 'Not required'}
       </Badge>
       <span className="text-text-muted">{label}</span>
     </div>
@@ -286,10 +286,10 @@ function SimpleTaxSection({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calculator className="h-4 w-4 text-brand" strokeWidth={1.8} />
-          <h3 className="text-[13px] font-medium">Régimen Simple de Tributación</h3>
+          <h3 className="text-[13px] font-medium">Simple Tax Regime (SIMPLE)</h3>
         </div>
         <div className="text-right">
-          <div className="text-[11px] text-text-muted">Impuesto estimado</div>
+          <div className="text-[11px] text-text-muted">Estimated tax</div>
           <div className="font-mono text-[16px] font-medium">{formatCopFull(result.totalTaxCop)}</div>
         </div>
       </div>
@@ -297,11 +297,11 @@ function SimpleTaxSection({
       {/* Effective rate */}
       <div className="mb-4 rounded-md bg-surface-2/40 px-3 py-2">
         <div className="flex items-center justify-between text-[12px]">
-          <span className="text-text-muted">Tasa efectiva</span>
+          <span className="text-text-muted">Effective rate</span>
           <span className="font-mono font-medium">{(result.effectiveRate * 100).toFixed(2)}%</span>
         </div>
         <div className="mt-1 flex items-center justify-between text-[12px]">
-          <span className="text-text-muted">Ingreso en UVT</span>
+          <span className="text-text-muted">Income in UVT</span>
           <span className="font-mono">{incomeUvt.toFixed(1)} UVT</span>
         </div>
       </div>
@@ -361,7 +361,7 @@ function ThresholdCard({
       </div>
       <div className="text-[13px] font-medium">{label}</div>
       <div className="mt-1 space-y-0.5 text-[12px] text-text-muted">
-        <div>Tope: {uvt.toLocaleString()} UVT = {formatCopFull(cop)}</div>
+        <div>Threshold: {uvt.toLocaleString()} UVT = {formatCopFull(cop)}</div>
       </div>
     </div>
   )

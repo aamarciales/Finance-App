@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../lib/locale'
 import {
   Wallet, TrendingUp, TrendingDown, Heart, ArrowRight,
   Paperclip, ChevronRight, Banknote,
 } from 'lucide-react'
 import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Segmented } from '@/components/common/Segmented'
 import { Money } from '@/components/common/Money'
 import { Badge } from '@/components/common/Badge'
 import { CapitalDetailDialog } from '@/components/common/CapitalDetailDialog'
@@ -14,6 +15,7 @@ import { KpiCard } from '@/components/kpi/KpiCard'
 import { ExpensesByCategory } from '@/components/charts/ExpensesByCategory'
 import { MonthlyTrend } from '@/components/charts/MonthlyTrend'
 import { useDashboard, type EnrichedTransaction, type DashboardPeriod } from '@/hooks/useDashboard'
+import { displayTransactionConcept } from '@/lib/category-display'
 import { useSettings } from '@/hooks/useSettings'
 import { useUser } from '@clerk/clerk-react'
 
@@ -27,25 +29,25 @@ export default function DashboardPage() {
   const now = new Date()
   const hour = now.getHours()
   const greeting =
-    hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
-  const monthLabel = format(now, "LLLL yyyy", { locale: es })
+    hour < 12 ? 'Good morning' : hour < 19 ? 'Good afternoon' : 'Good evening'
+  const monthLabel = format(now, "LLLL yyyy", { locale: displayLocale })
   const month = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)
 
   const PERIOD_LABELS: Record<DashboardPeriod, string> = {
     'this-month': month,
-    'last-month': 'Mes anterior',
-    'this-week': 'Esta semana',
-    'quarter': 'Trimestral',
-    'semester': 'Semestral',
-    'year': 'Anual',
-    'all': 'Desde inicio',
+    'last-month': 'Last month',
+    'this-week': 'This week',
+    'quarter': 'Quarterly',
+    'semester': 'Semester',
+    'year': 'Yearly',
+    'all': 'All time',
   }
   
   // Prioriza el nombre de Clerk (Google), luego el de Dexie, luego genérico
-  const name = user?.firstName || settings?.displayName || 'Usuario'
+  const name = user?.firstName || settings?.displayName || 'User'
 
   function formatCop(amount: number): string {
-    return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} COP`
+    return `$${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)} COP`
   }
 
   return (
@@ -53,14 +55,14 @@ export default function DashboardPage() {
       <PageHeader
         title={
           <>
-            {greeting}, <em className="not-italic font-serif italic text-brand">{name}</em>.
+            {greeting}, <span className="font-semibold text-brand">{name}</span>.
           </>
         }
-        subtitle={`${PERIOD_LABELS[period]} · Resumen financiero`}
+        subtitle={`${PERIOD_LABELS[period]} · Financial summary`}
       />
 
       {data.loading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : (
       <div className="space-y-6">
         <PeriodTabs value={period} onChange={setPeriod} />
@@ -70,7 +72,8 @@ export default function DashboardPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           <KpiCard
-            label="Flujo de caja neto"
+            label="Period balance"
+            hint="Income minus expenses"
             amount={data.totalBalance}
             currency="USD"
             secondary={formatCop(data.totalBalanceCop)}
@@ -78,7 +81,7 @@ export default function DashboardPage() {
             tone={data.totalBalance >= 0 ? 'brand' : 'danger'}
           />
           <KpiCard
-            label="Ingresos del mes"
+            label="Income this month"
             amount={data.monthIncome}
             currency="USD"
             secondary={formatCop(data.monthIncomeCop)}
@@ -86,7 +89,7 @@ export default function DashboardPage() {
             tone="brand"
           />
           <KpiCard
-            label="Gastos del mes"
+            label="Expenses this month"
             amount={data.monthExpenses}
             currency="USD"
             secondary={formatCop(data.monthExpensesCop)}
@@ -94,17 +97,17 @@ export default function DashboardPage() {
             tone="warm"
           />
           <KpiCard
-            label="Diezmo pendiente"
+            label="Tithe pending"
             amount={data.tithePending}
             currency="USD"
             icon={Heart}
-            tone="gold"
+            tone="brand"
           />
           <KpiCard
-            label="Capital disponible"
+            label="Available capital"
             amount={data.availableCapitalCop}
             currency="COP"
-            secondary={data.availableCapital > 0 ? `USD ${data.availableCapital.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
+            secondary={data.availableCapital > 0 ? `USD ${data.availableCapital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
             icon={Banknote}
             tone="brand"
             onClick={() => setCapitalDetailOpen(true)}
@@ -119,30 +122,30 @@ export default function DashboardPage() {
 
         {/* Section title */}
         <div className="text-[11px] uppercase tracking-[0.1em] text-text-faint">
-          Movimientos recientes
+          Recent activity
         </div>
 
         {/* Row 3: Transactions + Category chart */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
           {/* Transactions card */}
-          <div className="rounded-[10px] border border-border bg-surface">
+          <div className="pt-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-3">
               <div>
-                <div className="text-[15px] font-medium font-serif">Transacciones</div>
+                <div className="text-[15px] font-semibold text-text">Transactions</div>
                 <div className="text-[11px] text-text-faint font-mono">
-                  {data.recentTransactions.length} últimas
+                  {data.recentTransactions.length} recent
                 </div>
               </div>
               <Link
                 to="/transactions"
                 className="inline-flex items-center gap-1 text-[12px] text-text-muted transition-colors hover:text-brand"
               >
-                Ver todas <ArrowRight className="h-3 w-3" />
+                View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
             {data.recentTransactions.length === 0 ? (
               <div className="px-6 py-8 text-center text-[13px] text-text-muted">
-                Sin transacciones registradas
+                No transactions yet
               </div>
             ) : (
               <div>
@@ -171,24 +174,15 @@ export default function DashboardPage() {
 
 function InsightBanner({ insight, formatCop }: { insight: NonNullable<ReturnType<typeof useDashboard>['insight']>; formatCop: (n: number) => string }) {
   return (
-    <div
-      className="relative overflow-hidden rounded-[10px] px-6 py-[22px]"
-      style={{ background: 'linear-gradient(135deg, #1a3a2e 0%, #2d4a3e 100%)' }}
-    >
-      <div
-        className="absolute -right-10 -top-10 h-44 w-44 rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
-      />
-      <div className="relative">
-        <div className="mb-1.5 text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'rgba(240,237,228,0.6)' }}>
-          Observación del mes
-        </div>
-        <div className="font-serif text-[19px] font-normal leading-[1.35] tracking-[-0.01em]" style={{ color: '#f0ede4' }}>
-          {insight.text}{' '}
-          <em className="italic" style={{ color: '#d4c693' }}>{formatCop(insight.savingsCop)}</em>
-          {' '}al cierre del mes.
-        </div>
+    <div className="rounded-[var(--radius-card)] border border-border bg-surface px-6 py-[22px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <div className="mb-1.5 text-[10.5px] uppercase tracking-[0.14em] text-text-faint">
+        Monthly insight
       </div>
+      <p className="text-[17px] font-medium leading-[1.4] tracking-[-0.01em] text-text">
+        {insight.text}{' '}
+        <span className="fig font-semibold text-brand">{formatCop(insight.savingsCop)}</span>
+        {' '}by month end.
+      </p>
     </div>
   )
 }
@@ -197,41 +191,32 @@ function TitheCard({ pending }: { pending: number }) {
   if (pending <= 0) return null
 
   return (
-    <div
-      className="rounded-[10px] p-[22px_24px]"
-      style={{
-        background: 'linear-gradient(160deg, #fbf7ed 0%, #f5ecd3 100%)',
-        border: '1px solid var(--gold-soft)',
-      }}
-    >
-      <div className="mb-4">
-        <div className="font-serif text-[17px] font-medium">Diezmo & Ofrendas</div>
-        <div className="font-mono text-[11.5px] text-text-faint">Pendiente de devolver</div>
+    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-[22px_24px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <div className="text-[15px] font-semibold text-text">Tithe & offerings</div>
+          <div className="text-[11px] text-text-faint">Pending to give</div>
+        </div>
+        <Heart className="h-4 w-4 text-brand" strokeWidth={1.8} aria-hidden />
       </div>
 
-      <div
-        className="flex items-baseline justify-between rounded-md px-3.5 py-3"
-        style={{ background: 'rgba(184,146,58,0.12)' }}
-      >
-        <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Total pendiente</span>
-        <span className="font-serif text-[20px] italic text-gold">
-          USD {pending.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+      <div className="flex items-baseline justify-between rounded-[var(--radius-btn)] bg-surface-2 px-3.5 py-3">
+        <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Total pending</span>
+        <span className="fig text-[20px] font-semibold tracking-[-0.02em] text-text">
+          USD {pending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
 
-      <div
-        className="mt-3.5 border-t pt-3.5 text-[11.5px] italic leading-[1.55] text-text-muted"
-        style={{ borderColor: 'rgba(184,146,58,0.2)' }}
-      >
-        "Traed todos los diezmos al alfolí…" — Cada ingreso registrado genera un compromiso automáticamente.
-      </div>
+      <p className="mt-3.5 border-t border-border pt-3.5 text-[11.5px] leading-[1.55] text-text-muted">
+        Each recorded income transaction automatically creates a tithe commitment.
+      </p>
     </div>
   )
 }
 
 function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
   const isIncome = tx.type === 'income'
-  const dateLabel = format(parseISO(tx.date), 'dd MMM', { locale: es })
+  const dateLabel = format(parseISO(tx.date), 'dd MMM', { locale: displayLocale })
   const hasInvoice = !!tx.invoiceId
   const hasAttachment = !!(tx.attachments && tx.attachments.length > 0)
 
@@ -242,7 +227,7 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
       <div className="flex items-center gap-3 min-w-0">
         <span className="shrink-0 font-mono text-[11px] text-text-muted">{dateLabel}</span>
         <span className="truncate">
-          {tx.concept}
+          {displayTransactionConcept(tx.concept)}
           {(hasInvoice || hasAttachment) && (
             <a
               href={tx.attachments?.[0] ?? '#'}
@@ -275,31 +260,20 @@ function DashboardTxRow({ tx }: { tx: EnrichedTransaction }) {
 }
 
 const PERIOD_TABS: { value: DashboardPeriod; label: string }[] = [
-  { value: 'this-month', label: 'Mensual' },
-  { value: 'this-week', label: 'Semanal' },
-  { value: 'quarter', label: 'Trimestral' },
-  { value: 'semester', label: 'Semestral' },
-  { value: 'year', label: 'Anual' },
-  { value: 'all', label: 'Desde inicio' },
+  { value: 'this-month', label: 'Monthly' },
+  { value: 'this-week', label: 'Weekly' },
+  { value: 'quarter', label: 'Quarterly' },
+  { value: 'semester', label: 'Semester' },
+  { value: 'year', label: 'Yearly' },
+  { value: 'all', label: 'All time' },
 ]
 
 function PeriodTabs({ value, onChange }: { value: DashboardPeriod; onChange: (v: DashboardPeriod) => void }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto py-1 -mx-1 px-1">
-      {PERIOD_TABS.map((tab) => (
-        <button
-          key={tab.value}
-          type="button"
-          onClick={() => onChange(tab.value)}
-          className={`rounded-md px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
-            tab.value === value
-              ? 'bg-surface text-text font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-border'
-              : 'text-text-muted hover:bg-black/[0.03] hover:text-text'
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      value={value}
+      onChange={(id) => onChange(id as DashboardPeriod)}
+      options={PERIOD_TABS.map((tab) => ({ id: tab.value, label: tab.label }))}
+    />
   )
 }

@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "finance-app",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Serve the built SPA. The Worker runs first for /api/* so SPA fallback
+  // does not swallow direct browser navigation to API routes.
+  "assets": {
+    "directory": "dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "patrimonio-db",
+      "database_id": "60db20f5-1aa6-403c-90a6-69fc1e307913",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "bucket_name": "patrimonio-files",
+      "binding": "FILES"
+    }
+  ]
+
+  // Secrets (set with `wrangler secret put`, never inline here):
+  //   CLERK_SECRET_KEY              - required
+  //   ANTHROPIC_API_KEY             - optional (server-side OCR default)
+  //   TRAKLL_INTEGRATION_SECRET     - shared with trakll PATRIMONIO_INTEGRATION_SECRET
+  //   TRAKLL_INTEGRATION_USER_ID    - Clerk user id for synced income transactions
+  // Vars (wrangler secret or [vars] for non-sensitive):
+  //   CLERK_PUBLISHABLE_KEY         - optional; falls back to VITE_CLERK_PUBLISHABLE_KEY at build time
+}

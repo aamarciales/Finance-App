@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import type { MonthlyCompliance } from '@/hooks/useTitheCommitments'
 
@@ -10,7 +10,7 @@ interface ComplianceChartProps {
 export function ComplianceChart({ data }: ComplianceChartProps) {
   const chartData = data.map(d => {
     const [y, m] = d.month.split('-')
-    const label = format(parseISO(`${y}-${m}-01`), 'MMM', { locale: es })
+    const label = format(parseISO(`${y}-${m}-01`), 'MMM', { locale: displayLocale })
     return { name: label, ...d }
   })
 
@@ -33,7 +33,7 @@ export function ComplianceChart({ data }: ComplianceChartProps) {
             tickFormatter={(v: number) => `${v}%`}
           />
           <Tooltip
-            formatter={(value: unknown) => [`${value}%`, 'Cumplimiento']}
+            formatter={(value: unknown) => [`${value}%`, 'Compliance']}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
           <Bar dataKey="percent" radius={[4, 4, 0, 0]} maxBarSize={32}>

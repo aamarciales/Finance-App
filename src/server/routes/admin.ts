@@ -276,7 +276,7 @@ adminRouter.post('/import-bulk', async (c) => {
       const debtId = tx.debtRef ? (debtNameToId.get(tx.debtRef) ?? null) : null
       const trm = (tx.trm && tx.trm > 0) ? tx.trm : 1.0
       if (tx.currency === 'COP' && trm <= 1) {
-        return c.json({ error: `TRM inválida (=${trm}) para transacción COP "${tx.concept}". TRM debe ser > 1.` }, 400)
+        return c.json({ error: `Invalid FX rate (=${trm}) for COP transaction "${tx.concept}". Rate must be > 1.` }, 400)
       }
       const { base, secondary } = calcAmounts(tx.amount, tx.currency, trm)
 
@@ -316,7 +316,7 @@ adminRouter.post('/import-bulk', async (c) => {
       }
       const trm = (inv.trm && inv.trm > 0) ? inv.trm : 1.0
       if (inv.currency === 'COP' && trm <= 1) {
-        return c.json({ error: `TRM inválida (=${trm}) para factura COP "${inv.merchant}". TRM debe ser > 1.` }, 400)
+        return c.json({ error: `Invalid FX rate (=${trm}) for COP invoice "${inv.merchant}". Rate must be > 1.` }, 400)
       }
       const { base, secondary } = calcAmounts(inv.total, inv.currency, trm)
 
@@ -450,7 +450,7 @@ adminRouter.post('/generate-commitments', async (c) => {
   })
 
   if (!settingRow?.value) {
-    return c.json({ error: 'No hay configuración de diezmo' }, 400)
+    return c.json({ error: 'No tithe configuration' }, 400)
   }
 
   const config = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value
@@ -459,6 +459,7 @@ adminRouter.post('/generate-commitments', async (c) => {
   for (const tx of allIncome) {
     if (coveredTxIds.has(tx.id)) continue
     if (!tx.amountInBase || tx.amountInBase <= 0) continue
+    if (tx.titheExemption) continue
 
     const defaultTithe = config?.defaultTithe ?? 10
     const defaultOffering = config?.defaultOffering ?? 0

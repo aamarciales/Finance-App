@@ -78,6 +78,13 @@
       "when": 1779200000000,
       "tag": "0010_account_id",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1779300000000,
+      "tag": "0011_tithe_exemption",
+      "breakpoints": true
     }
   ]
 }

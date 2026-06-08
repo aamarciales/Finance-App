@@ -39,7 +39,7 @@ export function useOcrFlow() {
       setOcrResult(result)
     } catch (e) {
       console.error('[useOcrFlow] OCR error:', e)
-      toast.error(e instanceof Error ? e.message : 'Error al procesar la imagen')
+      toast.error(e instanceof Error ? e.message : 'Could not process image')
     } finally {
       setProcessing(false)
     }

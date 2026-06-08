@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import type { Category, Transaction } from '@/types/domain'
 
 export type PeriodType = 'month' | 'quarter' | 'semester' | 'year'
@@ -23,6 +24,7 @@ export interface ReportPeriod {
 export interface ReportsData {
   periods: ReportPeriod[]
   loading: boolean
+  error: string | null
 }
 
 function getQuarter(month: number): number {
@@ -35,20 +37,45 @@ function getSemester(month: number): number {
 
 export function useReports(periodType: PeriodType): ReportsData {
   const api = useApi()
+  const authReady = useAuthReady()
 
-  const { data: transactions } = useQuery({
+  const {
+    data: transactions,
+    isPending: loadingTxs,
+    isError: txError,
+    error: txErr,
+  } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get<Transaction[]>('/transactions'),
+    enabled: authReady,
   })
 
-  const { data: categories } = useQuery({
+  const {
+    data: categories,
+    isPending: loadingCats,
+    isError: catError,
+    error: catErr,
+  } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
+  const queryError = txError || catError
+  const errorMessage = queryError
+    ? txErr instanceof Error
+      ? txErr.message
+      : catErr instanceof Error
+        ? catErr.message
+        : 'No se pudieron cargar los reportes'
+    : null
+
   return useMemo(() => {
-    if (!transactions || !categories) {
-      return { periods: [], loading: true }
+    if (queryError) {
+      return { periods: [], loading: false, error: errorMessage }
+    }
+    if (loadingTxs || loadingCats || !transactions || !categories) {
+      return { periods: [], loading: true, error: null }
     }
 
     const categoryMap = new Map<number, Category>()
@@ -65,10 +92,9 @@ export function useReports(periodType: PeriodType): ReportsData {
     for (const tx of transactions) {
       if (tx.type === 'transfer') continue
 
-      // Parse date: YYYY-MM-DD
       const year = tx.date.substring(0, 4)
       const month = parseInt(tx.date.substring(5, 7), 10)
-      
+
       let sortKey = ''
       let label = ''
 
@@ -140,6 +166,6 @@ export function useReports(periodType: PeriodType): ReportsData {
 
     const periods = Array.from(groups.values()).sort((a, b) => b.sortKey.localeCompare(a.sortKey))
 
-    return { periods, loading: false }
-  }, [transactions, categories, periodType])
+    return { periods, loading: false, error: null }
+  }, [transactions, categories, periodType, loadingTxs, loadingCats, queryError, errorMessage])
 }

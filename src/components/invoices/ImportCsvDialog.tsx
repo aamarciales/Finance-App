@@ -189,7 +189,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = type === 'products' ? 'plantilla-productos.csv' : 'plantilla-servicio.csv'
+    a.download = type === 'products' ? 'products-template.csv' : 'service-template.csv'
     a.click()
     URL.revokeObjectURL(url)
   }, [])
@@ -217,15 +217,15 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
           try {
             const data = JSON.parse(xhr.responseText)
             if (data.url) { setUploadProgress(100); resolve(data.url) }
-            else reject(new Error('El servidor no devolvió la URL del archivo'))
-          } catch { reject(new Error('Error procesando la respuesta')) }
+            else reject(new Error('Server did not return file URL'))
+          } catch { reject(new Error('Error processing response')) }
         } else {
           let errMsg = `Error ${xhr.status}`
           try { const d = JSON.parse(xhr.responseText); errMsg = d.error || errMsg } catch {}
           reject(new Error(errMsg))
         }
       }
-      xhr.onerror = () => reject(new Error('Error de conexión'))
+      xhr.onerror = () => reject(new Error('Connection error'))
       xhr.send(formData)
     })
   }
@@ -263,7 +263,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     if (!file) return
 
     if (!file.name.endsWith('.csv')) {
-      setError('El archivo debe ser .csv')
+      setError('File must be .csv')
       return
     }
 
@@ -274,13 +274,13 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     })
 
     if (result.errors.length > 0 && result.data.length === 0) {
-      setError('No se pudo parsear el CSV')
+      setError('Could not parse the CSV')
       return
     }
 
     const detected = detectCsv(result.data)
     if (!detected) {
-      setError('No se detectaron items en el CSV. Formatos soportados: (1) Factura de productos con columnas "Description", "Qty", "Unit Price". (2) Recibo de servicio con columnas "Proveedor", "Monto Total", "Concepto".')
+      setError('No items detected in CSV. Supported formats: (1) Product invoice with columns "Description", "Qty", "Unit Price". (2) Service receipt with columns "Vendor", "Total Amount", "Description".')
       return
     }
 
@@ -304,7 +304,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
         attachmentUrl = await uploadFile(pendingFile)
       } catch (e) {
         setUploadProgress(0)
-        toast.error(e instanceof Error ? e.message : 'Error al subir el soporte')
+        toast.error(e instanceof Error ? e.message : 'Could not upload attachment')
         return
       }
     }
@@ -325,10 +325,10 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
 
     try {
       await addInvoice(formData)
-      toast.success(`Factura creada: ${parsed.items.length} items, ${formatMoney(total, currency)}`)
+      toast.success(`Invoice created: ${parsed.items.length} items, ${formatMoney(total, currency)}`)
       handleOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al crear la factura')
+      toast.error(e instanceof Error ? e.message : 'Could not create invoice')
     }
   }
 
@@ -338,7 +338,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Importar factura desde CSV</DialogTitle>
+          <DialogTitle className="font-serif text-xl">Import invoice from CSV</DialogTitle>
           <DialogDescription>
             Sube un CSV con los items de tu factura o un recibo de servicio.
           </DialogDescription>
@@ -347,19 +347,19 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
             onClick={() => setShowFormat(f => !f)}
             className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-brand"
           >
-            <HelpCircle className="h-3 w-3" /> Ver formatos soportados
+            <HelpCircle className="h-3 w-3" /> View supported formats
           </button>
           {showFormat && (
             <div className="rounded-md border border-border bg-surface-2 px-4 py-3 text-[12px] space-y-3">
               <div>
-                <p className="font-medium mb-1">Factura de productos (supermercado, tienda):</p>
+                <p className="font-medium mb-1">Product invoice (grocery, retail):</p>
                 <code className="block text-[11px] bg-surface rounded px-2 py-1 text-text-muted">
                   Description,Qty,Unit Price,Total,Category<br />
                   Leche deslactosada,2,4500,9000,Lacteos<br />
                   Pan integral,1,5800,5800,Panaderia
                 </code>
                 <button type="button" onClick={() => downloadTemplate('products')} className="text-brand text-[11px] mt-1 hover:underline">
-                  Descargar plantilla CSV
+                  Download CSV template
                 </button>
               </div>
               <div>
@@ -369,7 +369,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
                   Claro,Pago de factura,44950,COP,2026/03/30
                 </code>
                 <button type="button" onClick={() => downloadTemplate('service')} className="text-brand text-[11px] mt-1 hover:underline">
-                  Descargar plantilla CSV
+                  Download CSV template
                 </button>
               </div>
             </div>
@@ -383,7 +383,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
               onClick={() => fileRef.current?.click()}
             >
               <FileUp className="h-8 w-8 text-text-muted" />
-              <p className="text-[13px] text-text-muted">Click para elegir archivo .csv</p>
+              <p className="text-[13px] text-text-muted">Click to choose a .csv file</p>
               <input
                 ref={fileRef}
                 type="file"
@@ -396,31 +396,31 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label>Comercio</Label>
+                  <Label>Merchant</Label>
                   <Input value={merchant} onChange={(e) => setMerchant(e.target.value)} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Fecha</Label>
+                  <Label>Date</Label>
                   <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label>Moneda</Label>
+                  <Label>Currency</Label>
                   <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="COP">COP — Peso col.</SelectItem>
-                      <SelectItem value="USD">USD — Dólar</SelectItem>
+                      <SelectItem value="USD">USD — US dollar</SelectItem>
                       <SelectItem value="EUR">EUR — Euro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Categoría</Label>
+                  <Label>Category</Label>
                   <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
                       {expenseCategories.map(c => (
                         <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
@@ -432,9 +432,9 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
 
               <div className="rounded-lg bg-surface-2 px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-[13px] font-medium">{parsed.items.length} items detectados</p>
+                  <p className="text-[13px] font-medium">{parsed.items.length} items detected</p>
                   {parsed.invoiceNumber && (
-                    <p className="text-[12px] text-text-muted">Factura {parsed.invoiceNumber}</p>
+                    <p className="text-[12px] text-text-muted">Invoice {parsed.invoiceNumber}</p>
                   )}
                 </div>
                 <p className="font-mono text-[15px] font-semibold">{formatMoney(total, currency)}</p>
@@ -444,9 +444,9 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
                 <table className="w-full text-left text-[12px]">
                   <thead>
                     <tr className="border-b border-border bg-surface-2 text-[10px] uppercase tracking-[0.06em] text-text-faint">
-                      <th className="px-3 py-1.5 font-medium">Descripción</th>
-                      <th className="w-12 px-2 py-1.5 text-center font-medium">Cant.</th>
-                      <th className="w-20 px-2 py-1.5 text-right font-medium">Precio</th>
+                      <th className="px-3 py-1.5 font-medium">Description</th>
+                      <th className="w-12 px-2 py-1.5 text-center font-medium">Qty</th>
+                      <th className="w-20 px-2 py-1.5 text-right font-medium">Price</th>
                       <th className="w-20 px-2 py-1.5 text-right font-medium">Subtotal</th>
                     </tr>
                   </thead>
@@ -492,7 +492,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
                     className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
                   >
                     <Upload className="h-4 w-4" />
-                    Subir imagen o PDF
+                    Upload image or PDF
                   </button>
                 )}
                 {uploadProgress > 0 && uploadProgress < 100 && (
@@ -505,7 +505,7 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
                 )}
                 {uploadProgress > 0 && (
                   <p className="text-[11px] text-text-muted">
-                    {uploadProgress >= 100 ? 'Procesando…' : `Subiendo… ${uploadProgress}%`}
+                    {uploadProgress >= 100 ? 'Processing…' : `Uploading… ${uploadProgress}%`}
                   </p>
                 )}
               </div>
@@ -518,10 +518,10 @@ export function ImportCsvDialog({ open, onOpenChange, categories, rates }: Impor
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
           {parsed && (
             <Button onClick={handleImport} disabled={!canImport}>
-              Crear factura
+              Create invoice
             </Button>
           )}
         </DialogFooter>

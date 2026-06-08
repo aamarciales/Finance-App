@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { Trash2, Pencil, FileText, ExternalLink } from 'lucide-react'
+import { displayLocale } from '../../lib/locale'
+import { Trash2, Pencil } from 'lucide-react'
+import { AuthenticatedAttachment } from '@/components/common/AuthenticatedAttachment'
 import {
   Dialog,
   DialogContent,
@@ -23,16 +24,18 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
   const dateLabel = invoice.date
     ? (() => {
         const d = parseISO(invoice.date)
-        return isNaN(d.getTime()) ? '—' : format(d, "dd MMMM yyyy", { locale: es })
+        return isNaN(d.getTime()) ? '—' : format(d, "dd MMMM yyyy", { locale: displayLocale })
       })()
     : '—'
 
   const hasAttachment = !!invoice.attachmentUrl
-  const isImage = hasAttachment && /\.(jpg|jpeg|png|webp|heic)$/i.test(invoice.attachmentUrl!)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 overflow-hidden">
+      <DialogContent
+        className="max-w-[95vw] sm:max-w-4xl p-0 overflow-hidden"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <div className="max-h-[85vh] overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 z-10 border-b border-border bg-surface px-6 py-4">
@@ -45,11 +48,11 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
                 <p className="text-[12px] text-text-muted">{dateLabel}</p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <Button variant="outline" size="sm" className="gap-1" onClick={onEdit}>
-                  <Pencil className="h-3.5 w-3.5" /> Editar
+                <Button variant="outline" size="sm" className="gap-1 focus-visible:ring-0" onClick={onEdit}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1 text-danger-strong" onClick={onDelete}>
-                  <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                <Button variant="outline" size="sm" className="gap-1 text-danger-strong focus-visible:ring-0" onClick={onDelete}>
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
                 </Button>
               </div>
             </div>
@@ -66,7 +69,7 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
                     <span className="font-mono">{formatMoney(invoice.subtotal ?? invoice.items.reduce((s, i) => s + i.totalPrice, 0), invoice.currency)}</span>
                   </div>
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="uppercase tracking-[0.06em] text-text-muted">Descuento</span>
+                    <span className="uppercase tracking-[0.06em] text-text-muted">Discount</span>
                     <span className="font-mono text-brand">−{formatMoney(invoice.discount, invoice.currency)}</span>
                   </div>
                   <div className="border-t border-border/50 my-1" />
@@ -79,13 +82,13 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-[1fr_260px]">
               {/* Left: items table */}
               <div>
-                <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Ítems ({invoice.items.length})</h4>
+                <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Items ({invoice.items.length})</h4>
                 <table className="w-full text-left text-[13px]">
                   <thead>
                     <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-text-faint">
-                      <th className="py-1.5 pr-3 font-medium">Descripción</th>
-                      <th className="w-16 py-1.5 px-2 text-center font-medium">Cant.</th>
-                      <th className="w-24 py-1.5 px-2 text-right font-medium hidden sm:table-cell">Precio</th>
+                      <th className="py-1.5 pr-3 font-medium">Description</th>
+                      <th className="w-16 py-1.5 px-2 text-center font-medium">Qty</th>
+                      <th className="w-24 py-1.5 px-2 text-right font-medium hidden sm:table-cell">Price</th>
                       <th className="w-24 py-1.5 pl-2 text-right font-medium">Subtotal</th>
                     </tr>
                   </thead>
@@ -100,7 +103,7 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
                         </td>
                         <td className="py-1.5 px-2 text-center font-mono">{item.quantity}</td>
                         <td className="py-1.5 px-2 text-right font-mono hidden sm:table-cell">
-                          {item.unitPrice != null ? item.unitPrice.toLocaleString('es-CO', { minimumFractionDigits: invoice.currency !== 'COP' ? 2 : 0 }) : '—'}
+                          {item.unitPrice != null ? item.unitPrice.toLocaleString('en-US', { minimumFractionDigits: invoice.currency !== 'COP' ? 2 : 0 }) : '—'}
                         </td>
                         <td className="py-1.5 pl-2 text-right font-mono font-medium">
                           {formatMoney(item.totalPrice, invoice.currency)}
@@ -122,43 +125,14 @@ export function InvoiceDetailModal({ open, onOpenChange, invoice, onEdit, onDele
 
               {/* Right: soporte */}
               <div>
-                <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Soporte</h4>
-                {hasAttachment ? (
+                <h4 className="mb-2 text-[11px] uppercase tracking-[0.08em] text-text-muted">Receipt</h4>
+                {hasAttachment && invoice.attachmentUrl ? (
                   <div className="rounded-lg border border-border overflow-hidden bg-surface-2">
-                    {isImage ? (
-                      <a href={invoice.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block">
-                        <img
-                          src={invoice.attachmentUrl}
-                          alt="Soporte"
-                          className="w-full object-cover max-h-[200px] hover:opacity-90 transition-opacity"
-                        />
-                      </a>
-                    ) : (
-                      <a
-                        href={invoice.attachmentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-4 text-brand hover:bg-brand/5 transition-colors"
-                      >
-                        <FileText className="h-8 w-8 shrink-0" />
-                        <span className="text-[13px]">Ver documento PDF</span>
-                      </a>
-                    )}
-                    <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
-                      <a
-                        href={invoice.attachmentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[11px] text-brand hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Abrir en nueva pestaña
-                      </a>
-                    </div>
+                    <AuthenticatedAttachment url={invoice.attachmentUrl} />
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-border p-4 text-center text-[13px] text-text-faint italic">
-                    Sin soporte adjunto
+                    No receipt attached
                   </div>
                 )}
               </div>

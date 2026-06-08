@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/common/Badge'
 import { Money } from '@/components/common/Money'
@@ -118,7 +118,7 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
 
   function setCategory(index: number, catId: string) {
     if (catId === 'CREATE_NEW') {
-      const name = window.prompt('Nombre de la nueva categoría:')
+      const name = window.prompt('New category name:')
       if (name && name.trim()) {
         const cleanName = name.trim()
         
@@ -184,19 +184,19 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Badge tone="info">Detectado: {BANK_LABELS[bank]}</Badge>
+          <Badge tone="info">Detected: {BANK_LABELS[bank]}</Badge>
           <span className="text-[13px] text-text-muted">
             {rows.length} transacciones · {incomeCount} ingresos · {expenseCount} gastos
           </span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button
             size="sm"
             onClick={handleImport}
             disabled={importing || selectedRows.length === 0}
           >
-            {importing ? 'Importando…' : `Importar ${selectedRows.length}`}
+            {importing ? 'Importing…' : `Import ${selectedRows.length}`}
           </Button>
         </div>
       </div>
@@ -209,10 +209,10 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
               <th className="w-10 px-3 py-2">
                 <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
               </th>
-              <th className="py-2 pr-2 font-medium">Fecha</th>
-              <th className="py-2 px-2 font-medium">Concepto</th>
-              <th className="w-40 py-2 px-2 font-medium">Categoría</th>
-              <th className="w-28 py-2 pl-2 pr-3 text-right font-medium">Monto</th>
+              <th className="py-2 pr-2 font-medium">Date</th>
+              <th className="py-2 px-2 font-medium">Description</th>
+              <th className="w-40 py-2 px-2 font-medium">Category</th>
+              <th className="w-28 py-2 pl-2 pr-3 text-right font-medium">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -220,7 +220,7 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
               let dateLabel = row.date
               try {
                 const d = parseISO(row.date)
-                if (!isNaN(d.getTime())) dateLabel = format(d, 'dd MMM', { locale: es })
+                if (!isNaN(d.getTime())) dateLabel = format(d, 'dd MMM', { locale: displayLocale })
               } catch { /* keep raw */ }
 
               return (
@@ -240,14 +240,14 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel>Categorías existentes</SelectLabel>
+                          <SelectLabel>Existing categories</SelectLabel>
                           {categories.map(c => (
                             <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                           ))}
                         </SelectGroup>
                         {newCategoryNames.length > 0 && (
                           <SelectGroup>
-                            <SelectLabel>Nuevas a crear</SelectLabel>
+                            <SelectLabel>New to create</SelectLabel>
                             {newCategoryNames.map((name, i) => (
                               <SelectItem key={-1 - i} value={String(-1 - i)}>Crear: {name}</SelectItem>
                             ))}
@@ -256,7 +256,7 @@ export function CsvImportPreview({ transactions, bank, categories, onImport, onC
                         <SelectSeparator />
                         <SelectItem value="CREATE_NEW" className="font-medium text-brand">
                           <Plus className="mr-2 inline h-3 w-3" />
-                          Crear nueva categoría...
+                          Create new category...
                         </SelectItem>
                       </SelectContent>
                     </Select>

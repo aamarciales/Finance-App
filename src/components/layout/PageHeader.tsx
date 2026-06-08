@@ -18,7 +18,7 @@ export function PageHeader({ title, subtitle, actions, className }: PageHeaderPr
       )}
     >
       <div>
-        <h1 className="font-serif text-[28px] font-normal leading-[1.1] tracking-[-0.02em] md:text-[30px]">
+        <h1 className="text-[28px] font-extrabold leading-[1.1] tracking-[-0.02em] md:text-[30px]">
           {title}
         </h1>
         {subtitle && (

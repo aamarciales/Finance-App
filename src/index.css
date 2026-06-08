@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
@@ -5,20 +6,18 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ========================================================================
-   PATRIMONIO · Sistema de diseño
-   Filosofía: minimalismo cálido tipo Mercury × revista financiera.
-   Fondo crema, serif editorial, mono para cifras.
-   Las CSS vars están listas para añadir dark mode después sin tocar Tailwind.
+   PATRIMONIO · Design system (trakll family)
+   Hanken Grotesk · warm gray surfaces · orange brand accent
    ======================================================================== */
 
 @theme inline {
-    /* Tipografía */
-    --font-serif: 'Fraunces', Georgia, serif;
-    --font-sans: 'Geist', system-ui, sans-serif;
+    /* Typography — trakll family */
+    --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-serif: 'Hanken Grotesk', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    --font-heading: 'Fraunces', Georgia, serif;
+    --font-heading: 'Hanken Grotesk', system-ui, sans-serif;
 
-    /* Tokens propios del sistema (expuestos como bg-bg, text-text-muted, etc.) */
+    /* App tokens (bg-bg, text-text-muted, etc.) */
     --color-bg: var(--bg);
     --color-surface: var(--surface);
     --color-surface-2: var(--surface-2);
@@ -39,7 +38,7 @@
     --color-info: var(--info);
     --color-info-soft: var(--info-soft);
 
-    /* Bridge a las CSS vars de shadcn (botones, cards, dialogs, etc.) */
+    /* shadcn bridge */
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --color-card: var(--card);
@@ -72,41 +71,54 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
-    /* Radios — README: cards 10px, botones/inputs 6px, modales 12px */
-    --radius: 0.625rem;
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
+    /* Radii — trakll: cards 22px, buttons ~13px, pills 999px */
+    --radius: 0.8125rem;
+    --radius-sm: 0.5625rem;
+    --radius-md: 0.6875rem;
     --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-xl: 1rem;
+    --radius-2xl: 1.375rem;
 }
 
 :root {
-    /* Paleta principal del README (light mode) */
-    --bg: #fafaf7;
+    /* Surfaces (trakll palette) */
+    --bg: #f2f2f3;
     --surface: #ffffff;
-    --surface-2: #f4f3ee;
-    --surface-3: #ecebe4;
-    --border: #e8e6df;
-    --border-strong: #d4d1c7;
-    --text: #1a1a17;
-    --text-muted: #6b6960;
-    --text-faint: #9a978d;
+    --surface-2: #f6f6f7;
+    --surface-3: #e8e8ea;
+    --border: rgba(0, 0, 0, 0.07);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --text: #1b1b1d;
+    --text-muted: #6b6b70;
+    --text-faint: #a2a2a8;
 
-    --brand: #2d4a3e;
-    --brand-hover: #1f3329;
-    --brand-soft: #d9e2dc;
+    --brand: #e0584c;
+    --brand-hover: #c94e43;
+    --brand-soft: #fbeae8;
 
-    --warm: #c4621d;
-    --warm-soft: #f5e4d3;
-    --danger-strong: #a83e2b;
-    --danger-soft: #f0d9d2;
-    --gold: #b8923a;
-    --gold-soft: #ede2c5;
+    --warm: #b5853a;
+    --warm-soft: #f4ecdd;
+    --danger-strong: #e0584c;
+    --danger-soft: #fbeae8;
+    --gold: #b5853a;
+    --gold-soft: #f4ecdd;
     --info: #4a6e8a;
     --info-soft: #d8e2eb;
 
-    /* Bridge a shadcn — botones primary = verde profundo, etc. */
+    --rec: #3f9e6b;
+    --rec-soft: #e7f2ec;
+    --line: rgba(0, 0, 0, 0.07);
+
+    --sidebar-width: 218px;
+    --radius-card: 22px;
+    --radius-nav: 11px;
+    --radius-btn: 13px;
+    --radius-pill: 999px;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+    --shadow-nav: 0 8px 40px rgba(0, 0, 0, 0.12);
+    --shadow-sheet: 0 16px 48px rgba(0, 0, 0, 0.18);
+
+    /* shadcn bridge — primary = orange brand */
     --background: var(--bg);
     --foreground: var(--text);
     --card: var(--surface);
@@ -114,50 +126,457 @@
     --popover: var(--surface);
     --popover-foreground: var(--text);
     --primary: var(--brand);
-    --primary-foreground: var(--bg);
+    --primary-foreground: #ffffff;
     --secondary: var(--surface-2);
     --secondary-foreground: var(--text);
     --muted: var(--surface-2);
     --muted-foreground: var(--text-muted);
-    /* shadcn usa --accent como hover/highlight claro, NO como brand color */
     --accent: var(--surface-2);
     --accent-foreground: var(--text);
     --destructive: var(--danger-strong);
     --input: var(--border-strong);
-    --ring: var(--brand);
+    /* Neutral focus ring — brand orange is reserved for CTAs, not focus outlines */
+    --ring: rgba(27, 27, 29, 0.14);
 
-    /* Charts (Recharts) — paleta del README */
     --chart-1: var(--brand);
     --chart-2: var(--gold);
-    --chart-3: var(--warm);
+    --chart-3: var(--rec);
     --chart-4: var(--info);
-    --chart-5: var(--danger-strong);
+    --chart-5: var(--warm);
 
-    /* Sidebar (shadcn sidebar tokens) */
-    --sidebar: var(--surface-2);
+    --sidebar: var(--bg);
     --sidebar-foreground: var(--text);
     --sidebar-primary: var(--brand);
-    --sidebar-primary-foreground: var(--bg);
+    --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: var(--surface);
     --sidebar-accent-foreground: var(--text);
     --sidebar-border: var(--border);
-    --sidebar-ring: var(--brand);
+    --sidebar-ring: rgba(27, 27, 29, 0.14);
+}
+
+/* Hide native number spinners when using custom steppers */
+.no-number-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.no-number-spinner::-webkit-outer-spin-button,
+.no-number-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 @layer base {
     * {
-        @apply border-border outline-ring/50;
+        @apply border-border;
+    }
+    *:focus {
+        outline: none;
+    }
+    *:focus-visible {
+        outline: none;
     }
     html {
         @apply font-sans;
     }
     body {
         @apply bg-background text-foreground antialiased;
-        font-feature-settings: 'cv11', 'ss01';
+        letter-spacing: -0.012em;
+        font-feature-settings: 'tnum';
     }
-    /* Cifras siempre alineadas con tabular-nums cuando se use mono */
     .font-mono,
-    .tabular-nums {
+    .tabular-nums,
+    .fig {
         font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
     }
+}
+
+/* ---------- Cards (trakll family) ---------- */
+.pt-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ---------- App shell (trakll tf-stage / tf-frame) ---------- */
+.pt-stage {
+    min-height: 100dvh;
+    width: 100%;
+    display: flex;
+}
+.pt-frame {
+    position: relative;
+    width: 100%;
+    min-height: 100dvh;
+    height: 100dvh;
+    background: var(--bg);
+    display: flex;
+    overflow: hidden;
+}
+.pt-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Native Android shell — lock document scroll; Tauri WebView safe-area fallback. */
+.is-android-app {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+.is-android-app body {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+.is-android-app .pt-stage {
+    box-sizing: border-box;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding-top: max(32px, env(safe-area-inset-top, 0px));
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    padding-right: max(0px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+}
+.is-android-app .pt-frame {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+}
+.is-android-app .pt-main {
+    min-height: 0;
+    overflow: hidden;
+}
+.is-android-app .pt-mobile-nav-float {
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- Desktop sidebar (trakll tf-side / tf-nav / tf-profile) ---------- */
+.pt-side {
+    width: 218px;
+    flex-shrink: 0;
+    padding: 22px 14px 16px;
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+}
+@media (min-width: 1024px) {
+    .pt-side {
+        display: flex;
+    }
+    .is-desktop-app .pt-side {
+        padding-top: 56px;
+    }
+}
+
+/* Tauri overlay title bar — drag window from the top strip (see DesktopWindowChrome). */
+.is-desktop-app .desktop-drag-strip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    z-index: 9999;
+    -webkit-app-region: drag;
+    app-region: drag;
+    cursor: default;
+}
+.pt-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.pt-nav a {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 14px;
+    border: 1px solid transparent;
+    transition: background 0.12s ease;
+    text-decoration: none;
+}
+.pt-nav a:hover {
+    background: var(--surface-2);
+}
+.pt-nav a.on {
+    background: #fff;
+    border-color: var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    color: var(--text);
+    font-weight: 700;
+}
+.pt-nav a .ic {
+    color: var(--text-faint);
+}
+.pt-nav a.on .ic {
+    color: var(--text);
+}
+.pt-nav-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 0 12px 8px;
+}
+.pt-nav-section-label + .pt-nav-section-label,
+.pt-nav-section + .pt-nav-section .pt-nav-section-label {
+    margin-top: 16px;
+}
+.pt-spacer {
+    flex: 1;
+}
+.pt-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px;
+    border-radius: 11px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+}
+.pt-profile:hover {
+    background: var(--surface-2);
+}
+.pt-profile img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.pt-profile .nm {
+    font-size: 13px;
+    font-weight: 700;
+}
+.pt-profile .em {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pt-external-link {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none;
+    transition: background 0.12s ease;
+}
+.pt-external-link:hover {
+    background: var(--surface-2);
+}
+
+/* ---------- Brand mark (trakll tf-brand) ---------- */
+.pt-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    margin-bottom: 22px;
+}
+.pt-brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.pt-brand-name {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.pt-icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- Segmented tabs (trakll .seg / .seg-scroll) ---------- */
+.pt-seg {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: 12px;
+    padding: 3px;
+    gap: 2px;
+}
+.pt-seg button {
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 7px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pt-seg button.on {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.pt-seg-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.pt-seg-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* ---------- Mobile (< lg) — mirrors trakll tf.css ---------- */
+@media (max-width: 1023px) {
+    .pt-main {
+        overflow-x: hidden;
+    }
+    .pt-main > main {
+        display: block;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+    .is-android-app .pt-main > main {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overscroll-behavior: none;
+        padding-bottom: calc(4.875rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    .pt-main > main > * {
+        flex: none !important;
+        min-height: auto !important;
+    }
+    .pt-seg {
+        flex-shrink: 0;
+    }
+    .pt-seg button {
+        padding: 7px 11px;
+        font-size: 12px;
+    }
+    .pt-mobile-nav-float {
+        position: fixed;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 32px);
+        max-width: 360px;
+        z-index: 40;
+        pointer-events: none;
+    }
+    .pt-mobile-nav-pill {
+        pointer-events: auto;
+        display: flex;
+        align-items: stretch;
+        height: 62px;
+        padding: 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+    }
+    .pt-mobile-nav-tab {
+        position: relative;
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+        padding: 6px 4px 7px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-family: inherit;
+        cursor: pointer;
+        border-radius: 999px;
+        transition: color 0.15s ease;
+        text-decoration: none;
+    }
+    .pt-mobile-nav-tab.on {
+        color: var(--brand);
+    }
+    .pt-mobile-nav-tab.on::before {
+        content: '';
+        position: absolute;
+        inset: 0 2px;
+        background: #ededed;
+        border-radius: 999px;
+        z-index: 0;
+    }
+    .pt-mobile-nav-tab > * {
+        position: relative;
+        z-index: 1;
+    }
+    .pt-mobile-nav-label {
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 12px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .pt-mobile-menu-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        background: rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 0 16px calc(88px + env(safe-area-inset-bottom));
+    }
+    .pt-mobile-menu-sheet {
+        width: 100%;
+        max-width: 360px;
+        background: var(--surface);
+        border-radius: 20px;
+        padding: 16px;
+        box-shadow: var(--shadow-sheet);
+    }
+}
+
+/* Sonner toasts — top, card radius */
+.cn-toast {
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--shadow-sm), 0 8px 24px rgba(0, 0, 0, 0.08) !important;
 }

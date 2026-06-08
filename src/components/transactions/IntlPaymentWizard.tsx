@@ -35,8 +35,8 @@ const PLATFORMS = ['Wise', 'PayPal', 'Transferencia bancaria', 'Binance', 'Plent
 
 const step1Schema = z.object({
   date: z.string().min(1),
-  concept: z.string().min(1, 'El concepto es obligatorio'),
-  amount: z.number({ message: 'Monto obligatorio' }).positive(),
+  concept: z.string().min(1, 'Description is required'),
+  amount: z.number({ message: 'Amount is required' }).positive(),
   currency: z.enum(CURRENCIES),
   incomeCategoryId: z.number().positive(),
   platform: z.string().min(1),
@@ -112,7 +112,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
     if (!conversion.enabled || effectiveRate === 0) return null
     if (step1.currency === 'USD' && conversion.toCurrency === 'COP') {
       const diff = effectiveRate - rates.trm
-      return { diff, label: `Tasa efectiva $${effectiveRate.toFixed(0)} vs TRM $${rates.trm.toFixed(0)}` }
+      return { diff, label: `Effective rate $${effectiveRate.toFixed(0)} vs FX $${rates.trm.toFixed(0)}` }
     }
     return null
   }, [conversion, effectiveRate, rates.trm, step1.currency])
@@ -129,26 +129,26 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
     txs.push({ label: `+${step1.currency} ${step1.amount.toFixed(2)}  ${step1.concept}`, type: 'income', amount: step1.amount, currency: step1.currency, categoryName: incomeCategories.find(c => c.id === step1.incomeCategoryId)?.name ?? '' })
 
     if (originFees.enabled) {
-      if (originFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${originFees.receiveFee.toFixed(2)}  Comisión recibir (${step1.platform})`, type: 'expense', amount: originFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
-      if (originFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${originFees.sendFee.toFixed(2)}  Comisión envío (${step1.platform})`, type: 'expense', amount: originFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      if (originFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${originFees.receiveFee.toFixed(2)}  Receive fee (${step1.platform})`, type: 'expense', amount: originFees.receiveFee, currency: step1.currency, categoryName: 'Bank fees' })
+      if (originFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${originFees.sendFee.toFixed(2)}  Send fee (${step1.platform})`, type: 'expense', amount: originFees.sendFee, currency: step1.currency, categoryName: 'Bank fees' })
     }
 
     if (intermediateFees.enabled) {
-      const name = intermediateFees.platformName || 'Intermedia'
-      if (intermediateFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.receiveFee.toFixed(2)}  Comisión recibir (${name})`, type: 'expense', amount: intermediateFees.receiveFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
-      if (intermediateFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.sendFee.toFixed(2)}  Comisión envío (${name})`, type: 'expense', amount: intermediateFees.sendFee, currency: step1.currency, categoryName: 'Comisiones bancarias' })
+      const name = intermediateFees.platformName || 'Intermediary'
+      if (intermediateFees.receiveFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.receiveFee.toFixed(2)}  Receive fee (${name})`, type: 'expense', amount: intermediateFees.receiveFee, currency: step1.currency, categoryName: 'Bank fees' })
+      if (intermediateFees.sendFee > 0) txs.push({ label: `−${step1.currency} ${intermediateFees.sendFee.toFixed(2)}  Send fee (${name})`, type: 'expense', amount: intermediateFees.sendFee, currency: step1.currency, categoryName: 'Bank fees' })
     }
 
     if (conversion.enabled && conversion.receivedAmount > 0) {
       txs.push({ label: `−${step1.currency} ${amountAfterFees.toFixed(2)}  Transfer ${step1.currency} → ${conversion.toCurrency}`, type: 'transfer', amount: amountAfterFees, currency: step1.currency, categoryName: 'Transferencias' })
-      txs.push({ label: `+${conversion.toCurrency} ${conversion.receivedAmount.toFixed(0)}  Recibido en ${conversion.toCurrency}`, type: 'transfer', amount: conversion.receivedAmount, currency: conversion.toCurrency, categoryName: 'Transferencias' })
+      txs.push({ label: `+${conversion.toCurrency} ${conversion.receivedAmount.toFixed(0)}  Received in ${conversion.toCurrency}`, type: 'transfer', amount: conversion.receivedAmount, currency: conversion.toCurrency, categoryName: 'Transferencias' })
     }
 
     if (titheInfo && titheInfo.tithe > 0) {
-      txs.push({ label: `−${step1.currency} ${titheInfo.tithe.toFixed(2)}  Diezmo`, type: 'expense', amount: titheInfo.tithe, currency: step1.currency, categoryName: 'Diezmo' })
+      txs.push({ label: `−${step1.currency} ${titheInfo.tithe.toFixed(2)}  Tithe`, type: 'expense', amount: titheInfo.tithe, currency: step1.currency, categoryName: 'Tithe' })
     }
     if (titheInfo && titheInfo.offering > 0) {
-      txs.push({ label: `−${step1.currency} ${titheInfo.offering.toFixed(2)}  Ofrenda`, type: 'expense', amount: titheInfo.offering, currency: step1.currency, categoryName: 'Ofrendas' })
+      txs.push({ label: `−${step1.currency} ${titheInfo.offering.toFixed(2)}  Offering`, type: 'expense', amount: titheInfo.offering, currency: step1.currency, categoryName: 'Ofrendas' })
     }
 
     return txs
@@ -203,21 +203,21 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
           transferGroupId: groupId,
         })
       }
-      toast.success(`Pago internacional registrado con ${pendingTxs.filter((_, i) => isTxChecked(i)).length} movimientos`)
+      toast.success(`International payment saved with ${pendingTxs.filter((_, i) => isTxChecked(i)).length} transactions`)
       await queryClient.invalidateQueries()
       onOpenChange(false)
       setStep(1)
     } catch (e) {
-      toast.error('Ocurrió un error guardando las transacciones')
+      toast.error('Could not save transactions')
     }
   }
 
   const STEP_TITLES = [
-    'Pago bruto recibido',
-    'Comisiones de origen',
-    'Plataforma intermedia',
-    'Cambio de moneda',
-    'Resumen y confirmación',
+    'Gross payment received',
+    'Origin fees',
+    'Intermediary platform',
+    'Currency exchange',
+    'Summary and confirmation',
   ]
 
   function goBack() {
@@ -227,29 +227,29 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
   const footer = (() => {
     if (step === 1) return (
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-        <Button type="submit" form="wizard-step-1">Siguiente</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button type="submit" form="wizard-step-1">Next</Button>
       </DialogFooter>
     )
     if (step === 2) return (
       <DialogFooter>
-        <Button onClick={() => setStep(3)}>Siguiente</Button>
+        <Button onClick={() => setStep(3)}>Next</Button>
       </DialogFooter>
     )
     if (step === 3) return (
       <DialogFooter>
-        <Button onClick={() => setStep(4)}>Siguiente</Button>
+        <Button onClick={() => setStep(4)}>Next</Button>
       </DialogFooter>
     )
     if (step === 4) return (
       <DialogFooter>
-        <Button onClick={() => setStep(5)}>Siguiente</Button>
+        <Button onClick={() => setStep(5)}>Next</Button>
       </DialogFooter>
     )
     return (
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-        <Button onClick={handleConfirm}>Confirmar</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button onClick={handleConfirm}>Confirm</Button>
       </DialogFooter>
     )
   })()
@@ -267,37 +267,37 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                 type="button"
                 onClick={goBack}
                 className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-default transition-colors -ml-1"
-                aria-label="Atrás"
+                aria-label="Back"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
             <Globe className="h-5 w-5" />
-            Recibir pago internacional
+            Receive international payment
           </DialogTitle>
-          <p className="text-[12px] text-text-muted">Paso {step} de 5 — {STEP_TITLES[step - 1]}</p>
+          <p className="text-[12px] text-text-muted">Step {step} of 5 — {STEP_TITLES[step - 1]}</p>
         </DialogHeader>
 
         <div className="overflow-y-auto -mx-4 px-4 flex-1">
           {step === 1 && (
             <form id="wizard-step-1" onSubmit={handleSubmitStep1(() => setStep(2))} className="grid gap-4 py-2">
               <div className="grid gap-1.5">
-                <Label>Fecha</Label>
+                <Label>Date</Label>
                 <Input type="date" {...register('date')} />
               </div>
               <div className="grid gap-1.5">
-                <Label>Cliente / Concepto</Label>
-                <Input {...register('concept')} placeholder="Ej. Pago freelance BRIX" />
+                <Label>Client / description</Label>
+                <Input {...register('concept')} placeholder="E.g. BRIX freelance payment" />
                 {errors.concept && <p className="text-[12px] text-danger-strong">{errors.concept.message}</p>}
               </div>
               <div className="grid grid-cols-[1fr_90px] gap-2">
                 <div className="grid gap-1.5">
-                  <Label>Monto</Label>
+                  <Label>Amount</Label>
                   <Input type="number" step="any" {...register('amount', { valueAsNumber: true })} className="font-mono" />
                   {errors.amount && <p className="text-[12px] text-danger-strong">{errors.amount.message}</p>}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Moneda</Label>
+                  <Label>Currency</Label>
                   <Controller name="currency" control={control} render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -309,10 +309,10 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>Categoría de ingreso</Label>
+                <Label>Income category</Label>
                 <Controller name="incomeCategoryId" control={control} render={({ field }) => (
                   <Select value={field.value ? String(field.value) : ''} onValueChange={(v) => field.onChange(Number(v))}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
                       {incomeCategories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                     </SelectContent>
@@ -326,7 +326,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                     <Input
                       value={field.value}
                       onChange={(e) => field.onChange(e.target.value)}
-                      placeholder="Nombre de la plataforma"
+                      placeholder="Platform name"
                       autoFocus
                     />
                   ) : (
@@ -338,7 +338,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                         field.onChange(v)
                       }
                     }}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                       <SelectContent>
                         {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                       </SelectContent>
@@ -353,16 +353,16 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
             <div className="grid gap-4 py-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={originFees.enabled} onCheckedChange={(v) => setOriginFees(f => ({ ...f, enabled: !!v }))} />
-                <span className="text-[13px]">¿Te cobraron comisiones al recibir o enviar?</span>
+                <span className="text-[13px]">Were you charged fees to receive or send?</span>
               </label>
               {originFees.enabled && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-1.5">
-                    <Label>Comisión por recibir ({step1.currency})</Label>
+                    <Label>Receive fee ({step1.currency})</Label>
                     <Input type="number" step="any" value={originFees.receiveFee} onChange={(e) => setOriginFees(f => ({ ...f, receiveFee: Number(e.target.value) || 0 }))} className="font-mono" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Comisión por enviar ({step1.currency})</Label>
+                    <Label>Send fee ({step1.currency})</Label>
                     <Input type="number" step="any" value={originFees.sendFee} onChange={(e) => setOriginFees(f => ({ ...f, sendFee: Number(e.target.value) || 0 }))} className="font-mono" />
                   </div>
                 </div>
@@ -374,21 +374,21 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
             <div className="grid gap-4 py-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={intermediateFees.enabled} onCheckedChange={(v) => setIntermediateFees(f => ({ ...f, enabled: !!v }))} />
-                <span className="text-[13px]">¿Pasó por una segunda plataforma?</span>
+                <span className="text-[13px]">Did it go through a second platform?</span>
               </label>
               {intermediateFees.enabled && (
                 <>
                   <div className="grid gap-1.5">
-                    <Label>Nombre de la plataforma</Label>
-                    <Input value={intermediateFees.platformName} onChange={(e) => setIntermediateFees(f => ({ ...f, platformName: e.target.value }))} placeholder="Ej. Plenti" />
+                    <Label>Platform name</Label>
+                    <Input value={intermediateFees.platformName} onChange={(e) => setIntermediateFees(f => ({ ...f, platformName: e.target.value }))} placeholder="E.g. Plenti" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="grid gap-1.5">
-                      <Label>Comisión recibir ({step1.currency})</Label>
+                      <Label>Receive fee ({step1.currency})</Label>
                       <Input type="number" step="any" value={intermediateFees.receiveFee} onChange={(e) => setIntermediateFees(f => ({ ...f, receiveFee: Number(e.target.value) || 0 }))} className="font-mono" />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label>Comisión envío ({step1.currency})</Label>
+                      <Label>Send fee ({step1.currency})</Label>
                       <Input type="number" step="any" value={intermediateFees.sendFee} onChange={(e) => setIntermediateFees(f => ({ ...f, sendFee: Number(e.target.value) || 0 }))} className="font-mono" />
                     </div>
                   </div>
@@ -401,7 +401,7 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
             <div className="grid gap-4 py-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={conversion.enabled} onCheckedChange={(v) => setConversion(c => ({ ...c, enabled: !!v }))} />
-                <span className="text-[13px]">¿Cambiaste a otra moneda?</span>
+                <span className="text-[13px]">Did you convert to another currency?</span>
               </label>
               {conversion.enabled && (
                 <>
@@ -421,15 +421,15 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
                     </div>
                   </div>
                   <div className="rounded-md bg-surface-2 px-3 py-2 text-[12px] text-text-muted">
-                    Monto convertido: {step1.currency} {amountAfterFees.toFixed(2)}
+                    Converted amount: {step1.currency} {amountAfterFees.toFixed(2)}
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Monto recibido en {conversion.toCurrency}</Label>
+                    <Label>Amount received in {conversion.toCurrency}</Label>
                     <Input type="number" step="any" value={conversion.receivedAmount} onChange={(e) => setConversion(c => ({ ...c, receivedAmount: Number(e.target.value) || 0 }))} className="font-mono" />
                   </div>
                   {effectiveRate > 0 && (
                     <p className="text-[12px] text-text-muted">
-                      Tasa efectiva: {effectiveRate.toFixed(2)} {step1.currency}/{conversion.toCurrency}
+                      Effective rate: {effectiveRate.toFixed(2)} {step1.currency}/{conversion.toCurrency}
                     </p>
                   )}
                   {trmDelta && (
@@ -458,8 +458,8 @@ export function IntlPaymentWizard({ open, onOpenChange, categories, rates }: Wiz
 
               {titheInfo && (
                 <div className="border-t border-border pt-3 text-[12px] text-text-muted">
-                  <p>Diezmo a apartar ({titheInfo.tithe.toFixed(0)}%): {step1.currency} {titheInfo.tithe.toFixed(2)}</p>
-                  <p>Ofrenda a apartar ({titheInfo.offering.toFixed(0)}%): {step1.currency} {titheInfo.offering.toFixed(2)}</p>
+                  <p>Tithe to set aside ({titheInfo.tithe.toFixed(0)}%): {step1.currency} {titheInfo.tithe.toFixed(2)}</p>
+                  <p>Offering to set aside ({titheInfo.offering.toFixed(0)}%): {step1.currency} {titheInfo.offering.toFixed(2)}</p>
                 </div>
               )}
             </div>

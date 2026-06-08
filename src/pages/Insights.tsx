@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../lib/locale'
 import {
   Repeat, ShoppingBag, Bug, TrendingUp, AlertTriangle,
 } from 'lucide-react'
@@ -8,7 +8,7 @@ import { Badge } from '@/components/common/Badge'
 import { useInsights } from '@/hooks/useInsights'
 
 function formatCop(amount: number): string {
-  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)}`
+  return `$${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)}`
 }
 
 export default function InsightsPage() {
@@ -17,20 +17,20 @@ export default function InsightsPage() {
   if (data.loading) {
     return (
       <>
-        <PageHeader title="Análisis" subtitle="Patrones de gasto, suscripciones e insights" />
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <PageHeader title="Insights" subtitle="Spending patterns, subscriptions, and insights" />
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       </>
     )
   }
 
   const now = new Date()
-  const monthLabel = format(now, "MMMM yyyy", { locale: es })
+  const monthLabel = format(now, "MMMM yyyy", { locale: displayLocale })
 
   return (
     <>
       <PageHeader
-        title="Análisis"
-        subtitle={`Patrones de gasto e insights · ${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}`}
+        title="Insights"
+        subtitle={`Spending patterns and insights · ${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}`}
       />
 
       <div className="space-y-6">
@@ -38,11 +38,11 @@ export default function InsightsPage() {
         <Section
           icon={<Repeat className="h-4 w-4" />}
           iconTone="info"
-          title="Suscripciones activas"
-          subtitle="Gastos recurrentes detectados en los últimos 3 meses"
+          title="Active subscriptions"
+          subtitle="Recurring expenses detected in the last 3 months"
         >
           {data.subscriptions.length === 0 ? (
-            <EmptyMessage message="No se detectaron suscripciones recurrentes" />
+            <EmptyMessage message="No recurring subscriptions detected" />
           ) : (
             <>
               <div className="space-y-2">
@@ -53,20 +53,20 @@ export default function InsightsPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Badge tone={sub.isActive ? 'green' : 'gray'}>
-                        {sub.isActive ? 'Activa' : 'Inactiva'}
+                        {sub.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                       <span className="font-medium">{sub.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-right">
-                      <span className="text-text-muted">{formatCop(sub.monthlyCost)}/mes</span>
-                      <span className="font-mono font-medium">{formatCop(sub.annualCost)}/año</span>
+                      <span className="text-text-muted">{formatCop(sub.monthlyCost)}/mo</span>
+                      <span className="font-mono font-medium">{formatCop(sub.annualCost)}/yr</span>
                     </div>
                   </div>
                 ))}
               </div>
               {data.totalSubscriptionsAnnual > 0 && (
                 <div className="mt-3 rounded-md bg-surface-2/60 px-4 py-3">
-                  <span className="text-[12px] text-text-muted">Total anual en suscripciones activas: </span>
+                  <span className="text-[12px] text-text-muted">Total annual on active subscriptions: </span>
                   <span className="font-mono text-[14px] font-medium">{formatCop(data.totalSubscriptionsAnnual)}</span>
                 </div>
               )}
@@ -78,21 +78,21 @@ export default function InsightsPage() {
         <Section
           icon={<ShoppingBag className="h-4 w-4" />}
           iconTone="brand"
-          title="Ítems más comprados"
-          subtitle="Top 10 productos por frecuencia en facturas"
+          title="Most purchased items"
+          subtitle="Top 10 products by frequency in invoices"
         >
           {data.topItems.length === 0 ? (
-            <EmptyMessage message="No hay ítems de factura para analizar" />
+            <EmptyMessage message="No invoice items to analyze" />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[13px]">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.06em] text-text-faint">
                     <th className="pb-2 font-medium">#</th>
-                    <th className="pb-2 font-medium">Ítem</th>
-                    <th className="pb-2 text-right font-medium">Veces</th>
+                    <th className="pb-2 font-medium">Item</th>
+                    <th className="pb-2 text-right font-medium">Times</th>
                     <th className="pb-2 text-right font-medium">Total</th>
-                    <th className="pb-2 text-right font-medium">Precio prom.</th>
+                    <th className="pb-2 text-right font-medium">Avg. price</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -115,11 +115,11 @@ export default function InsightsPage() {
         <Section
           icon={<Bug className="h-4 w-4" />}
           iconTone="warm"
-          title="Gastos hormiga"
-          subtitle="Gastos pequeños frecuentes que se acumulan"
+          title="Small recurring expenses"
+          subtitle="Small frequent expenses that add up"
         >
           {data.antExpenses.length === 0 ? (
-            <EmptyMessage message="No se detectaron gastos hormiga este mes" />
+            <EmptyMessage message="No small recurring expenses detected this month" />
           ) : (
             <>
               <div className="space-y-2">
@@ -130,11 +130,11 @@ export default function InsightsPage() {
                   >
                     <div>
                       <span className="font-medium">{exp.category}</span>
-                      <span className="ml-2 text-text-muted">{exp.countThisMonth} veces este mes</span>
+                      <span className="ml-2 text-text-muted">{exp.countThisMonth} times this month</span>
                     </div>
                     <div className="text-right">
                       <div className="font-mono font-medium">{formatCop(exp.totalThisMonth)}</div>
-                      <div className="text-[11px] text-text-muted">{formatCop(exp.annualProjection)}/año</div>
+                      <div className="text-[11px] text-text-muted">{formatCop(exp.annualProjection)}/yr</div>
                     </div>
                   </div>
                 ))}
@@ -144,7 +144,7 @@ export default function InsightsPage() {
                   <div className="flex items-center gap-2 text-[12px]">
                     <AlertTriangle className="h-4 w-4 text-warm" />
                     <span className="text-text-muted">
-                      Al ritmo actual, tus gastos hormiga sumarían <strong className="text-text">{formatCop(data.totalAntAnnual)}</strong> al año.
+                      At the current pace, your small recurring expenses would total <strong className="text-text">{formatCop(data.totalAntAnnual)}</strong> per year.
                     </span>
                   </div>
                 </div>
@@ -157,11 +157,11 @@ export default function InsightsPage() {
         <Section
           icon={<TrendingUp className="h-4 w-4" />}
           iconTone="gold"
-          title="Categorías con mayor crecimiento"
-          subtitle="Comparación del mes actual vs mes anterior"
+          title="Fastest-growing categories"
+          subtitle="Current month vs previous month"
         >
           {data.categoryGrowth.length === 0 ? (
-            <EmptyMessage message="No hay suficientes datos para comparar" />
+            <EmptyMessage message="Not enough data to compare" />
           ) : (
             <div className="space-y-2">
               {data.categoryGrowth.map(cat => {

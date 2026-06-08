@@ -19,8 +19,8 @@ interface CascadeDeleteDialogProps {
 }
 
 const LABELS = {
-  invoice: { singular: 'factura', linked: 'transacción' },
-  transaction: { singular: 'transacción', linked: 'factura' },
+  invoice: { singular: 'invoice', linked: 'transaction' },
+  transaction: { singular: 'transaction', linked: 'invoice' },
 } as const
 
 export function CascadeDeleteDialog({ open, onOpenChange, onConfirm, entity, hasLinked }: CascadeDeleteDialogProps) {
@@ -43,34 +43,34 @@ export function CascadeDeleteDialog({ open, onOpenChange, onConfirm, entity, has
       <AlertDialog open={open} onOpenChange={handleClose}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
+            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
           </AlertDialogHeader>
           <div className="space-y-3 text-[13px] text-text-muted">
-            <p>Esto eliminará permanentemente:</p>
+            <p>This will permanently delete:</p>
             <ul className="list-disc pl-4 space-y-0.5">
-              <li>La {label.singular}</li>
-              <li>La {label.linked} asociada</li>
-              <li>Todos los ítems de la factura</li>
+              <li>The {label.singular}</li>
+              <li>The linked {label.linked}</li>
+              <li>All invoice line items</li>
             </ul>
-            <p className="font-medium text-text">Esta acción no se puede deshacer.</p>
+            <p className="font-medium text-text">This action cannot be undone.</p>
             <div className="space-y-1.5 pt-1">
-              <p className="text-[12px]">Escribe <strong>BORRAR</strong> para confirmar:</p>
+              <p className="text-[12px]">Type <strong>DELETE</strong> to confirm:</p>
               <Input
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder="BORRAR"
+                placeholder="DELETE"
                 className="font-mono"
               />
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Button
               variant="destructive"
               onClick={handleConfirm}
-              disabled={confirmText !== 'BORRAR'}
+              disabled={confirmText !== 'DELETE'}
             >
-              Eliminar
+              Delete
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -83,13 +83,13 @@ export function CascadeDeleteDialog({ open, onOpenChange, onConfirm, entity, has
     <AlertDialog open={open} onOpenChange={handleClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Eliminar esta {label.singular}?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this {label.singular}?</AlertDialogTitle>
         </AlertDialogHeader>
-        <p className="text-[13px] text-text-muted">Esta acción no se puede deshacer.</p>
+        <p className="text-[13px] text-text-muted">This action cannot be undone.</p>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <Button variant="destructive" onClick={handleConfirm}>
-            Eliminar
+            Delete
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
+import { useAuthenticatedFileUrl } from '@/hooks/useAuthenticatedFile'
 import { cn } from '@/lib/utils'
 import {
   Dialog,
@@ -31,19 +32,19 @@ import type { EnrichedInvoice } from '@/hooks/useInvoices'
 import { useTRM } from '@/hooks/useTRM'
 
 const itemSchema = z.object({
-  name: z.string().min(1, 'Nombre obligatorio'),
-  quantity: z.number({ message: 'Cantidad obligatoria' }).positive(),
-  unitPrice: z.number({ message: 'Precio obligatorio' }).positive(),
+  name: z.string().min(1, 'Name is required'),
+  quantity: z.number({ message: 'Quantity is required' }).positive(),
+  unitPrice: z.number({ message: 'Price is required' }).positive(),
   subCategory: z.string().optional(),
 })
 
 const invoiceSchema = z.object({
-  merchant: z.string().min(1, 'Comercio obligatorio'),
+  merchant: z.string().min(1, 'Merchant is required'),
   branch: z.string().optional(),
   date: z.string().min(1),
   currency: z.enum(CURRENCIES),
   categoryId: z.number().positive(),
-  items: z.array(itemSchema).min(1, 'Agrega al menos un ítem'),
+  items: z.array(itemSchema).min(1, 'Add at least one item'),
   accountId: z.string().nullable().optional(),
   actualAmount: z.number().nullable().optional(),
 })
@@ -92,6 +93,9 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { url: existingAttachmentPreviewUrl, loading: attachmentPreviewLoading } = useAuthenticatedFileUrl(
+    pendingFile ? null : existingAttachment,
+  )
 
   const {
     register,
@@ -188,10 +192,10 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
               setUploadProgress(100)
               resolve(data.url)
             } else {
-              reject(new Error('El servidor no devolvió la URL del archivo'))
+              reject(new Error('Server did not return file URL'))
             }
           } catch {
-            reject(new Error('Error procesando la respuesta del servidor'))
+            reject(new Error('Error processing server response'))
           }
         } else {
           let errMsg = `Error ${xhr.status}`
@@ -202,7 +206,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           reject(new Error(errMsg))
         }
       }
-      xhr.onerror = () => reject(new Error('Error de conexión al subir archivo'))
+      xhr.onerror = () => reject(new Error('Connection error while uploading file'))
       xhr.send(formData)
     })
   }
@@ -220,8 +224,8 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           attachmentUrl = await uploadFile(pendingFile)
         } catch (uploadErr) {
           setUploadProgress(0)
-          setSubmitError(uploadErr instanceof Error ? uploadErr.message : 'Error subiendo archivo')
-          toast.error('Error al subir el archivo. Intenta de nuevo.')
+          setSubmitError(uploadErr instanceof Error ? uploadErr.message : 'Upload failed')
+          toast.error('Could not upload file. Try again.')
           return
         }
       }
@@ -236,7 +240,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       setUploadProgress(0)
       onOpenChange(false)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al guardar la factura'
+      const msg = e instanceof Error ? e.message : 'Could not save invoice'
       setSubmitError(msg)
       setUploadProgress(0)
       toast.error(msg)
@@ -252,30 +256,30 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
       <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
-            {isEditing ? 'Editar factura' : 'Nueva factura'}
+            {isEditing ? 'Edit invoice' : 'New invoice'}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4 py-2">
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div className="grid gap-1.5">
-              <Label>Comercio</Label>
-              <Input {...register('merchant')} placeholder="Ej. Éxito" />
+              <Label>Merchant</Label>
+              <Input {...register('merchant')} placeholder="e.g. Target" />
               {errors.merchant && <p className="text-[12px] text-danger-strong">{errors.merchant.message}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Label>Fecha</Label>
+              <Label>Date</Label>
               <Input type="date" {...register('date')} />
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div className="grid gap-1.5">
-              <Label>Sucursal</Label>
-              <Input {...register('branch')} placeholder="Ej. Chapinero" />
+              <Label>Branch</Label>
+              <Input {...register('branch')} placeholder="E.g. Chapinero" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Moneda</Label>
+              <Label>Currency</Label>
               <Controller name="currency" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -288,10 +292,10 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Categoría</Label>
+            <Label>Category</Label>
             <Controller name="categoryId" control={control} render={({ field }) => (
               <Select value={field.value ? String(field.value) : ''} onValueChange={(v) => field.onChange(Number(v))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                 <SelectContent>
                   {expenseCategories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                 </SelectContent>
@@ -302,7 +306,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
 
           {capitalAccounts.length > 0 && (
             <div className="grid gap-1.5">
-              <Label>Cuenta</Label>
+              <Label>Account</Label>
               <Controller
                 name="accountId"
                 control={control}
@@ -312,10 +316,10 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                     onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Ninguna" />
+                      <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">Ninguna</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {capitalAccounts.map((acc) => (
                         <SelectItem key={acc.id} value={acc.id}>
                           {acc.name} ({acc.currency})
@@ -333,7 +337,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             return selAcc && currency !== selAcc.currency
           })() && (
             <div className="grid gap-1.5">
-              <Label>Monto real debitado en {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
+              <Label>Actual amount debited in {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
               <Controller
                 name="actualAmount"
                 control={control}
@@ -341,14 +345,14 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                   <Input
                     type="number"
                     step="0.01"
-                    placeholder={`Opcional · TRM oficial: ${trm.toLocaleString()}`}
+                    placeholder={`Optional · official FX rate: ${trm.toLocaleString('en-US')}`}
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                   />
                 )}
               />
               <p className="text-[11px] text-text-muted">
-                Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+                If left empty, the official FX rate is used. Fill this in if the bank charged a different amount due to spread or fees.
               </p>
             </div>
           )}
@@ -356,22 +360,22 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           <div className="grid grid-cols-[1fr_240px] gap-6">
             {/* Left: items */}
             <div className="grid gap-2">
-              <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Ítems</Label>
+              <Label className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Items</Label>
               {items.map((_, i) => {
                 const itemErrs = errors.items?.[i] as Record<string, { message?: string }> | undefined
                 return (
                   <div key={i} className="grid gap-1">
                     <div className="grid grid-cols-[1fr_50px_80px_28px] gap-2 items-center">
                       <div>
-                        {i === 0 && <span className="text-[11px] text-text-faint">Descripción</span>}
-                        <Input {...register(`items.${i}.name`)} placeholder="Ej. Leche" className={cn('text-[13px]', itemErrs?.name && 'border-danger-strong')} />
+                        {i === 0 && <span className="text-[11px] text-text-faint">Description</span>}
+                        <Input {...register(`items.${i}.name`)} placeholder="E.g. Milk" className={cn('text-[13px]', itemErrs?.name && 'border-danger-strong')} />
                       </div>
                       <div>
-                        {i === 0 && <span className="text-[11px] text-text-faint">Cant.</span>}
+                        {i === 0 && <span className="text-[11px] text-text-faint">Qty</span>}
                         <Input type="number" step="any" {...register(`items.${i}.quantity`, { valueAsNumber: true })} className={cn('text-[13px] font-mono', (itemErrs?.quantity) && 'border-danger-strong')} />
                       </div>
                       <div>
-                        {i === 0 && <span className="text-[11px] text-text-faint">Precio</span>}
+                        {i === 0 && <span className="text-[11px] text-text-faint">Price</span>}
                         <Input type="number" step="any" {...register(`items.${i}.unitPrice`, { valueAsNumber: true })} className={cn('text-[13px] font-mono', (itemErrs?.unitPrice) && 'border-danger-strong')} />
                       </div>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-7 shrink-0" disabled={items.length <= 1}
@@ -389,13 +393,13 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
               })}
               <Button type="button" variant="outline" size="sm" className="w-fit gap-1 text-[12px]"
                 onClick={() => { reset({ ...watch(), items: [...items, { name: '', quantity: 1, unitPrice: 0 }] }) }}>
-                <Plus className="h-3 w-3" /> Agregar ítem
+                <Plus className="h-3 w-3" /> Add item
               </Button>
               {typeof errors.items?.message === 'string' && <p className="text-[12px] text-danger-strong">{errors.items.message}</p>}
 
               <div className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2 text-[13px]">
                 <span className="text-text-muted">Total</span>
-                <span className="font-mono font-medium">{currency} {total.toLocaleString('es-CO', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
+                <span className="font-mono font-medium">{currency} {total.toLocaleString('en-US', { minimumFractionDigits: currency !== 'COP' ? 2 : 0 })}</span>
               </div>
             </div>
 
@@ -413,11 +417,17 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                 {hasFile ? (
                   <div className="rounded-lg border border-border overflow-hidden">
                     {isImage ? (
+                      attachmentPreviewLoading && !pendingFile ? (
+                        <div className="flex h-[180px] items-center justify-center text-text-muted text-[12px]">
+                          Loading…
+                        </div>
+                      ) : (
                       <img
-                        src={pendingFile ? URL.createObjectURL(pendingFile) : existingAttachment!}
+                        src={pendingFile ? URL.createObjectURL(pendingFile) : (existingAttachmentPreviewUrl ?? '')}
                         alt="Soporte"
                         className="w-full h-[180px] object-cover"
                       />
+                      )
                     ) : (
                       <div className="flex items-center gap-2 p-3 h-[180px]">
                         <FileText className="h-8 w-8 text-text-muted" />
@@ -429,7 +439,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                       <button type="button"
                         onClick={() => { setPendingFile(null); setExistingAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
                         className="text-[11px] text-danger-strong hover:underline">
-                        Eliminar
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -440,7 +450,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                     className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border w-full h-[180px] text-[13px] text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
                   >
                     <Upload className="h-5 w-5" />
-                    Subir imagen o PDF
+                    Upload image or PDF
                   </button>
                 )}
                 {uploadProgress > 0 && uploadProgress < 100 && (
@@ -453,7 +463,7 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
                 )}
                 {uploadProgress > 0 && (
                   <p className="mt-1 text-[11px] text-text-muted text-center">
-                    {uploadProgress >= 100 ? 'Procesando…' : `Subiendo… ${uploadProgress}%`}
+                    {uploadProgress >= 100 ? 'Processing…' : `Uploading… ${uploadProgress}%`}
                   </p>
                 )}
               </div>
@@ -464,12 +474,12 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
             <div className="rounded-md bg-red-50 px-3 py-2">
               <p className="text-[12px] font-medium text-danger-strong mb-1">Corrige estos errores:</p>
               <ul className="text-[11px] text-danger-strong list-disc pl-4 space-y-0.5">
-                {errors.merchant && <li>Comercio: {errors.merchant.message}</li>}
-                {errors.date && <li>Fecha: {errors.date.message}</li>}
-                {errors.currency && <li>Moneda: {errors.currency.message}</li>}
-                {errors.categoryId && <li>Categoría: {errors.categoryId.message}</li>}
+                {errors.merchant && <li>Merchant: {errors.merchant.message}</li>}
+                {errors.date && <li>Date: {errors.date.message}</li>}
+                {errors.currency && <li>Currency: {errors.currency.message}</li>}
+                {errors.categoryId && <li>Category: {errors.categoryId.message}</li>}
                 {Array.isArray(errors.items) && errors.items.map((itemErr, i) =>
-                  itemErr ? <li key={i}>Ítem {i + 1}: {[itemErr.name?.message, itemErr.quantity?.message, itemErr.unitPrice?.message].filter(Boolean).join(', ')}</li> : null
+                  itemErr ? <li key={i}>Item {i + 1}: {[itemErr.name?.message, itemErr.quantity?.message, itemErr.unitPrice?.message].filter(Boolean).join(', ')}</li> : null
                 )}
                 {typeof errors.items?.message === 'string' && <li>{errors.items.message}</li>}
               </ul>
@@ -482,8 +492,8 @@ export function InvoiceFormDialog({ open, onOpenChange, categories, onSubmit, ed
           )}
 
           <DialogFooter className="gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando…' : 'Guardar'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

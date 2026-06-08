@@ -4,20 +4,8 @@ import { drizzle } from 'drizzle-orm/d1'
 import { eq, and } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { AppEnv } from '../types'
-
-function computeTithe(amountBase: number, categoryId: number, titheConfig: any) {
-  const defaultTithe = titheConfig?.defaultTithe ?? 10
-  const defaultOffering = titheConfig?.defaultOffering ?? 10
-  const catConfig = titheConfig?.tithePercentByIncomeCategory?.[categoryId]
-  const tithePct = catConfig?.tithe ?? defaultTithe
-  const offeringPct = catConfig?.offering ?? defaultOffering
-  return {
-    tithe: Math.round(amountBase * (tithePct / 100) * 100) / 100,
-    offering: Math.round(amountBase * (offeringPct / 100) * 100) / 100,
-    tithePct,
-    offeringPct,
-  }
-}
+import { parseTitheExemption } from '../../lib/tithe-exemption'
+import { maybeCreateTitheCommitment, syncTitheCommitmentForIncome } from '../lib/tithe-transaction'
 
 export const transactionsRouter = new Hono<AppEnv>()
 
@@ -43,9 +31,10 @@ transactionsRouter.post('/', async (c) => {
   const body = await c.req.json()
 
   if (body.currency === 'COP' && (!body.trm || body.trm <= 1)) {
-    return c.json({ error: 'TRM inválida para moneda COP. Debe ser mayor a 1.' }, 400)
+    return c.json({ error: 'Invalid FX rate for COP. Must be greater than 1.' }, 400)
   }
 
+  const titheExemption = parseTitheExemption(body.titheExemption)
   const db = drizzle(c.env.DB, { schema })
 
   const result = await db.insert(schema.transactions).values({
@@ -66,66 +55,25 @@ transactionsRouter.post('/', async (c) => {
     capitalAmount: body.capitalAmount ?? null,
     interestAmount: body.interestAmount ?? null,
     accountId: body.accountId ?? null,
+    titheExemption: titheExemption ?? null,
     isTitheCalculated: false,
     userId: auth.userId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as any).returning()
+  }).returning()
 
   const tx = result[0]
 
-  // Auto-generate tithe commitment for income transactions
   if (body.type === 'income' && tx?.id && body.amountInBase > 0) {
-    try {
-      let settingRow = await db.query.settings.findFirst({
-        where: (s, { eq, and }) => and(eq(s.key, 'titheConfig'), eq(s.userId, auth.userId)),
-      })
-
-      // Auto-create titheConfig with defaults if it doesn't exist
-      if (!settingRow?.value) {
-        const defaultConfig = {
-          defaultTithe: 10,
-          defaultOffering: 10,
-          destination: 'Iglesia local',
-          tithePercentByIncomeCategory: {},
-        }
-        await db.insert(schema.settings).values({
-          key: 'titheConfig',
-          userId: auth.userId,
-          value: JSON.stringify(defaultConfig),
-        })
-        settingRow = { key: 'titheConfig', userId: auth.userId, value: defaultConfig }
-      }
-
-      const config = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value
-      const { tithe, offering, tithePct, offeringPct } = computeTithe(body.amountInBase, body.categoryId, config)
-
-      if (tithe > 0 || offering > 0) {
-        await db.insert(schema.titheCommitments).values({
-          userId: auth.userId,
-          incomeTransactionId: tx.id,
-          date: body.date,
-          incomeAmount: body.amount,
-          incomeCurrency: body.currency,
-          incomeTrm: body.trm,
-          incomeAmountBase: body.amountInBase,
-          tithePercent: tithePct,
-          offeringPercent: offeringPct,
-          titheAmount: tithe,
-          offeringAmount: offering,
-          totalAmount: tithe + offering,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-        })
-
-        await db.update(schema.transactions).set({
-          isTitheCalculated: true as any,
-          updatedAt: new Date().toISOString(),
-        }).where(eq(schema.transactions.id, tx.id))
-      }
-    } catch {
-      // Don't fail the transaction if commitment generation fails
-    }
+    await maybeCreateTitheCommitment(db, auth.userId, {
+      id: tx.id,
+      date: body.date,
+      amount: body.amount,
+      currency: body.currency,
+      trm: body.trm,
+      amountInBase: body.amountInBase,
+      categoryId: body.categoryId,
+    }, titheExemption)
   }
 
   return c.json(tx)
@@ -140,46 +88,42 @@ transactionsRouter.put('/:id', async (c) => {
   const body = await c.req.json()
   const db = drizzle(c.env.DB, { schema })
 
-  const updates: Record<string, any> = { updatedAt: new Date().toISOString() }
-  const allowedFields = ['date', 'type', 'concept', 'categoryId', 'amount', 'currency', 'trm', 'amountInBase', 'amountInSecondary', 'notes', 'attachments', 'invoiceId', 'debtId', 'isRecurring', 'capitalAmount', 'interestAmount', 'accountId']
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+  const allowedFields = [
+    'date', 'type', 'concept', 'categoryId', 'amount', 'currency', 'trm',
+    'amountInBase', 'amountInSecondary', 'notes', 'attachments', 'invoiceId',
+    'debtId', 'isRecurring', 'capitalAmount', 'interestAmount', 'accountId',
+    'titheExemption',
+  ]
   for (const key of allowedFields) {
     if (body[key] !== undefined) updates[key] = body[key]
   }
+  if (body.titheExemption !== undefined) {
+    updates.titheExemption = parseTitheExemption(body.titheExemption)
+  }
 
   const result = await db.update(schema.transactions).set(updates).where(
-    and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId))
+    and(eq(schema.transactions.id, id), eq(schema.transactions.userId, auth.userId)),
   ).returning()
 
   const updated = result[0]
 
-  // Recalculate tithe commitment if category or amount changed on an income transaction
-  if (updated && updated.type === 'income' && (body.categoryId != null || body.amount != null || body.amountInBase != null)) {
-    const commitment = await db.query.titheCommitments.findFirst({
-      where: (tc, { eq, and }) => and(eq(tc.incomeTransactionId, id), eq(tc.userId, auth.userId)),
-    })
+  if (updated && updated.type === 'income') {
+    const exemption = parseTitheExemption(updated.titheExemption)
+    const fieldsChanged = body.categoryId != null || body.amount != null
+      || body.amountInBase != null || body.titheExemption !== undefined
 
-    if (commitment && commitment.status !== 'paid') {
-      const settingRow = await db.query.settings.findFirst({
-        where: (s, { eq, and }) => and(eq(s.key, 'titheConfig'), eq(s.userId, auth.userId)),
-      })
-      const config = settingRow?.value ? (typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value) : null
-
-      if (config) {
-        const { tithePct, offeringPct } = computeTithe(updated.amountInBase, updated.categoryId, config)
-        const titheAmount = Math.round(updated.amountInBase * (tithePct / 100) * 100) / 100
-        const offeringAmount = Math.round(updated.amountInBase * (offeringPct / 100) * 100) / 100
-        await db.update(schema.titheCommitments).set({
-          tithePercent: tithePct,
-          offeringPercent: offeringPct,
-          titheAmount,
-          offeringAmount,
-          totalAmount: titheAmount + offeringAmount,
-          incomeAmount: updated.amount,
-          incomeCurrency: updated.currency,
-          incomeTrm: updated.trm,
-          incomeAmountBase: updated.amountInBase,
-        }).where(eq(schema.titheCommitments.id, commitment.id))
-      }
+    if (fieldsChanged) {
+      await syncTitheCommitmentForIncome(db, auth.userId, {
+        id: updated.id,
+        type: updated.type,
+        date: updated.date,
+        amount: updated.amount,
+        currency: updated.currency,
+        trm: updated.trm,
+        amountInBase: updated.amountInBase,
+        categoryId: updated.categoryId,
+      }, exemption)
     }
   }
 
@@ -195,13 +139,11 @@ transactionsRouter.delete('/:id', async (c) => {
   const db = drizzle(c.env.DB, { schema })
   const { transactions, invoices, invoiceItems, titheCommitments } = schema
 
-  // 1. Find tx (verify ownership)
   const tx = await db.query.transactions.findFirst({
     where: (t, { eq, and }) => and(eq(t.id, id), eq(t.userId, auth.userId)),
   })
   if (!tx) return c.json({ error: 'Not found' }, 404)
 
-  // 2. PRESERVE existing commitment check — block if has commitment_payments
   const commitment = await db.query.titheCommitments.findFirst({
     where: (tc, { eq }) => eq(tc.incomeTransactionId, id),
   })
@@ -212,23 +154,20 @@ transactionsRouter.delete('/:id', async (c) => {
     })
 
     if (linkedPayments.length > 0) {
-      return c.json({ error: 'Esta transacción tiene un compromiso de diezmo con pagos registrados. Elimínalo desde la sección de Diezmos.' }, 400)
+      return c.json({ error: 'This transaction has a tithe commitment with recorded payments. Delete it from the Tithe section.' }, 400)
     }
 
-    // No payments yet — safe to cascade-delete the pending commitment
     await db.delete(titheCommitments).where(eq(titheCommitments.id, commitment.id))
   }
 
-  // Block deletion if linked to a tithe payment
   const payment = await db.query.tithePayments.findFirst({
     where: (tp, { eq }) => eq(tp.transactionId, id),
   })
 
   if (payment) {
-    return c.json({ error: 'Esta transacción es un pago de diezmo/ofrenda registrado. Elimínalo desde la sección de Diezmos.' }, 400)
+    return c.json({ error: 'This transaction is a recorded tithe/offering payment. Delete it from the Tithe section.' }, 400)
   }
 
-  // 3. Cascade: delete associated invoice + items if linked
   const invoiceId = tx.invoiceId
   const deleteTx = db.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, auth.userId)))
 

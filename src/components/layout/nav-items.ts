@@ -12,6 +12,9 @@ import {
   Target,
 } from 'lucide-react'
 
+export const TRAKLL_URL =
+  import.meta.env.VITE_TRAKLL_URL ?? 'https://timeflow.aamarciales.workers.dev'
+
 export interface NavItem {
   to: string
   label: string
@@ -27,34 +30,48 @@ export interface NavSection {
 
 export const NAV_SECTIONS: NavSection[] = [
   {
-    label: 'Resumen',
+    label: 'Overview',
     items: [
       { to: '/', label: 'Dashboard', icon: Activity, end: true },
-      { to: '/transactions', label: 'Transacciones', icon: Receipt },
-      { to: '/invoices', label: 'Facturas', icon: ScrollText },
+      { to: '/transactions', label: 'Transactions', icon: Receipt },
+      { to: '/invoices', label: 'Invoices', icon: ScrollText },
     ],
   },
   {
-    label: 'Análisis',
+    label: 'Insights',
     items: [
-      { to: '/categories', label: 'Categorías', icon: LineChart },
-      { to: '/insights', label: 'Análisis', icon: Search },
-      { to: '/reports', label: 'Reportes', icon: FileText },
+      { to: '/categories', label: 'Categories', icon: LineChart },
+      { to: '/insights', label: 'Insights', icon: Search },
+      { to: '/reports', label: 'Reports', icon: FileText },
     ],
   },
   {
-    label: 'Compromisos',
+    label: 'Commitments',
     items: [
-      { to: '/tithe', label: 'Diezmo & Ofrendas', icon: Shield },
-      { to: '/goals', label: 'Metas de ahorro', icon: Target },
-      { to: '/debts', label: 'Deudas', icon: CreditCard },
-      { to: '/taxes', label: 'Impuestos', icon: FileText },
+      { to: '/tithe', label: 'Tithe & offerings', icon: Shield },
+      { to: '/goals', label: 'Savings goals', icon: Target },
+      { to: '/debts', label: 'Debts', icon: CreditCard },
+      { to: '/taxes', label: 'Taxes', icon: FileText },
     ],
   },
   {
-    label: 'Configuración',
+    label: 'Settings',
     items: [
-      { to: '/settings', label: 'Ajustes', icon: Settings },
+      { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ]
+
+/** Bottom nav primary tabs (max 3 + "Más"). */
+export const PRIMARY_MOBILE_TABS: NavItem[] = [
+  { to: '/', label: 'Dashboard', icon: Activity, end: true },
+  { to: '/transactions', label: 'Transactions', icon: Receipt },
+  { to: '/invoices', label: 'Invoices', icon: ScrollText },
+]
+
+const PRIMARY_MOBILE_PATHS = new Set(PRIMARY_MOBILE_TABS.map((t) => t.to))
+
+/** Overflow routes shown in the mobile "Más" sheet. */
+export const MOBILE_MENU_LINKS: NavItem[] = NAV_SECTIONS.flatMap((s) =>
+  s.items.filter((item) => !PRIMARY_MOBILE_PATHS.has(item.to)),
+)

@@ -1,21 +1,28 @@
+import { Link } from 'react-router-dom'
+import { Landmark, Settings } from 'lucide-react'
 import { UserButton } from '@clerk/clerk-react'
-import { MobileNav } from './MobileNav'
 
 /**
- * Top bar visible solo en mobile (<768px). En desktop, el "page-title" vive
- * dentro de cada página (en su propio `.topbar`), no aquí.
+ * Mobile header — mirrors trakll App.tsx (solid bar + border, bottom pill nav).
  */
 export function TopBar() {
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-2 px-4 md:hidden">
-      <div className="flex items-baseline gap-2">
-        <span className="font-serif text-[18px] font-medium italic tracking-[-0.01em]">
-          Patrimonio
-        </span>
+    <header className="pt-mobile-header flex shrink-0 items-center justify-between border-b border-border px-4 py-3 lg:hidden">
+      <div className="pt-brand !mb-0 min-w-0 !p-0">
+        <div className="pt-brand-mark">
+          <Landmark className="h-[17px] w-[17px] text-white" strokeWidth={2.1} aria-hidden />
+        </div>
+        <span className="pt-brand-name truncate">Patrimonio</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
+        <Link
+          to="/settings"
+          className="pt-icon-btn text-text-muted hover:bg-surface-2"
+          aria-label="Settings"
+        >
+          <Settings className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </Link>
         <UserButton />
-        <MobileNav />
       </div>
     </header>
   )

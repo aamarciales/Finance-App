@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { format, parseISO, differenceInMonths } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../lib/locale'
 import { Plus, Trash2, Pencil, Wallet, Target } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -52,26 +52,26 @@ export default function GoalsPage() {
   return (
     <>
       <PageHeader
-        title="Metas de ahorro"
-        subtitle="Objetivos que te acercan a tu próximo paso"
+        title="Savings goals"
+        subtitle="Goals that move you toward your next milestone"
         actions={
           <Button onClick={() => setFormOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" />
-            Nueva meta
+            New goal
           </Button>
         }
       />
 
       {loading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : goals.length === 0 ? (
         <EmptyState
-          title="Sin metas definidas"
-          description="Crea metas de ahorro para visualizar tu progreso"
+          title="No goals yet"
+          description="Create savings goals to track your progress"
           icon={<Target className="h-8 w-8 text-text-faint" />}
           action={
             <Button onClick={() => setFormOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Crear meta
+              <Plus className="h-4 w-4" /> Create goal
             </Button>
           }
         />
@@ -118,14 +118,14 @@ export default function GoalsPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar meta "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>Delete goal "{deleteTarget?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará la meta y todo su historial de aportes.
+              The goal and its full contribution history will be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -154,7 +154,7 @@ function GoalCard({ goal, onEdit, onDelete, onContribute }: {
   let targetLabel = ''
   if (goal.targetDate) {
     const d = parseISO(goal.targetDate)
-    if (!isNaN(d.getTime())) targetLabel = format(d, 'MMM yyyy', { locale: es })
+    if (!isNaN(d.getTime())) targetLabel = format(d, 'MMM yyyy', { locale: displayLocale })
   }
 
   return (
@@ -182,7 +182,7 @@ function GoalCard({ goal, onEdit, onDelete, onContribute }: {
             type="button"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-surface-2"
             onClick={onEdit}
-            aria-label="Editar"
+            aria-label="Edit"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -190,7 +190,7 @@ function GoalCard({ goal, onEdit, onDelete, onContribute }: {
             type="button"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-surface-2 text-danger-strong"
             onClick={onDelete}
-            aria-label="Eliminar"
+            aria-label="Delete"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -218,14 +218,14 @@ function GoalCard({ goal, onEdit, onDelete, onContribute }: {
             <Money amount={goal.currentAmount} currency={goal.currency} variant="inline" />
           </div>
           <div className="text-[11px] text-text-muted">
-            de <Money amount={goal.targetAmount} currency={goal.currency} variant="inline" />
+            of <Money amount={goal.targetAmount} currency={goal.currency} variant="inline" />
           </div>
         </div>
         {suggestion != null && goal.monthlyContribution == null && (
           <div className="text-right text-[11px] text-text-muted">
-            Ahorra <span className="font-mono font-medium text-text">
-              {goal.currency} {suggestion.toLocaleString('es-CO', { minimumFractionDigits: goal.currency !== 'COP' ? 2 : 0 })}
-            </span>/mes
+            Save <span className="font-mono font-medium text-text">
+              {goal.currency} {suggestion.toLocaleString('en-US', { minimumFractionDigits: goal.currency !== 'COP' ? 2 : 0 })}
+            </span>/mo
           </div>
         )}
       </div>
@@ -238,7 +238,7 @@ function GoalCard({ goal, onEdit, onDelete, onContribute }: {
           className="w-full gap-1.5 text-[12px]"
           onClick={onContribute}
         >
-          <Wallet className="h-3.5 w-3.5" /> Abonar
+          <Wallet className="h-3.5 w-3.5" /> Contribute
         </Button>
       )}
     </div>

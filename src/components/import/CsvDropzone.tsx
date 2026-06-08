@@ -67,7 +67,7 @@ export function CsvDropzone({ onFileAccepted, fileName, onClear }: CsvDropzonePr
         )}
         <div className="text-center">
           <p className="text-[13px] text-text-muted">
-            Arrastra un CSV aquí o <span className="text-brand">haz clic para seleccionar</span>
+            Drag a CSV here or <span className="text-brand">click to select</span>
           </p>
           <p className="mt-1 text-[11px] text-text-faint">Bancolombia, Davivienda, Wise, Binance P2P</p>
         </div>

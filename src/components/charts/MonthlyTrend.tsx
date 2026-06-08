@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import { format, parse } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../../lib/locale'
 import { formatMoney } from '@/lib/format'
 import type { MonthData } from '@/hooks/useDashboard'
 
@@ -15,7 +15,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <div className="mb-1 font-medium">{formatMonth(label)}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="font-mono" style={{ color: p.dataKey === 'income' ? 'var(--brand)' : 'var(--warm)' }}>
-          {p.dataKey === 'income' ? 'Ingresos' : 'Gastos'}: {formatMoney(p.value, 'USD')}
+          {p.dataKey === 'income' ? 'Income' : 'Expenses'}: {formatMoney(p.value, 'USD')}
         </div>
       ))}
     </div>
@@ -25,7 +25,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 function formatMonth(monthStr: string): string {
   try {
     const d = parse(monthStr, 'yyyy-MM', new Date())
-    return format(d, 'MMMM yyyy', { locale: es })
+    return format(d, 'MMMM yyyy', { locale: displayLocale })
   } catch {
     return monthStr
   }
@@ -37,7 +37,7 @@ export function MonthlyTrend({ data }: MonthlyTrendProps) {
     label: (() => {
       try {
         const dt = parse(d.month, 'yyyy-MM', new Date())
-        return format(dt, 'MMM', { locale: es })
+        return format(dt, 'MMM', { locale: displayLocale })
       } catch {
         return d.month
       }
@@ -64,8 +64,8 @@ export function MonthlyTrend({ data }: MonthlyTrendProps) {
             tickFormatter={(v: number) => `$${v}`}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="income" fill="var(--brand)" radius={[4, 4, 0, 0]} name="Ingresos" />
-          <Bar dataKey="expenses" fill="var(--warm)" radius={[4, 4, 0, 0]} name="Gastos" />
+          <Bar dataKey="income" fill="var(--brand)" radius={[4, 4, 0, 0]} name="Income" />
+          <Bar dataKey="expenses" fill="var(--warm)" radius={[4, 4, 0, 0]} name="Expenses" />
         </BarChart>
       </ResponsiveContainer>
     </div>

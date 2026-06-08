@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { getEquivalentAmounts } from '@/lib/currency'
 import type { Currency, DebtType, Debt, Category } from '@/types/domain'
 
@@ -28,16 +29,19 @@ export interface DebtPaymentData {
 
 export function useDebts(rates: { trm: number; eurToUsd: number }) {
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
 
   const { data: debts, isLoading: loadingDebts } = useQuery({
     queryKey: ['debts'],
     queryFn: () => api.get<Debt[]>('/debts'),
+    enabled: authReady,
   })
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
   const invalidateAll = () => {
@@ -51,7 +55,7 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Deuda registrada')
+      toast.success('Debt recorded')
     }
   })
 
@@ -61,7 +65,7 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Deuda actualizada')
+      toast.success('Debt updated')
     }
   })
 
@@ -71,7 +75,7 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Deuda eliminada')
+      toast.success('Debt deleted')
     }
   })
 
@@ -81,16 +85,16 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
       if (!debt) return
 
       const { amountInBase, amountInSecondary } = getEquivalentAmounts(data.amount, debt.currency, rates)
-      const debtCategory = categories?.find(c => c.name === 'Deuda')
+      const debtCategory = categories?.find(c => c.name === 'Deuda' || c.name === 'Debt')
       if (!debtCategory) {
-        toast.error('No se encontró la categoría "Deuda". Créala primero.')
+        toast.error('Could not find the "Debt" category. Create it first.')
         return
       }
 
       await api.post('/transactions', {
         date: data.date,
         type: 'debt_payment',
-        concept: `Cuota · ${debt.name}`,
+        concept: `Installment · ${debt.name}`,
         categoryId: debtCategory.id,
         amount: data.amount,
         currency: debt.currency,
@@ -116,9 +120,9 @@ export function useDebts(rates: { trm: number; eurToUsd: number }) {
       if (!result) return
       invalidateAll()
       if (result.newBalance <= 0) {
-        toast.success(`¡Has saldado "${result.debtName}"!`)
+        toast.success(`You paid off "${result.debtName}"!`)
       } else {
-        toast.success('Pago registrado')
+        toast.success('Payment recorded')
       }
     }
   })

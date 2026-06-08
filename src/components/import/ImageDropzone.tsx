@@ -1,5 +1,12 @@
 import { useState, useRef, type DragEvent } from 'react'
 import { Upload, X, ImageIcon, Camera } from 'lucide-react'
+import { toast } from 'sonner'
+import { shouldUseWebCameraFallback } from '@/lib/desktop-mode'
+import {
+  canUseNativeCamera,
+  capturePhotoWithNativeCamera,
+} from '@/lib/native-camera'
+import { CameraCaptureDialog } from '@/components/common/CameraCaptureDialog'
 
 const MAX_SIZE = 5 * 1024 * 1024
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
@@ -13,12 +20,15 @@ interface ImageDropzoneProps {
 export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzoneProps) {
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraBusy, setCameraBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
+  const useWebCameraFallback = shouldUseWebCameraFallback() && !canUseNativeCamera()
 
   function validate(file: File): string | null {
-    if (!ACCEPTED.includes(file.type)) return 'Formato no soportado. Usa JPG, PNG, WEBP o PDF.'
-    if (file.size > MAX_SIZE) return 'El archivo excede 5 MB.'
+    if (!ACCEPTED.includes(file.type)) return 'Unsupported format. Use JPG, PNG, WEBP, or PDF.'
+    if (file.size > MAX_SIZE) return 'File exceeds 5 MB.'
     return null
   }
 
@@ -40,6 +50,28 @@ export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzon
     const file = e.target.files?.[0]
     if (file) handleFile(file)
     if (inputRef.current) inputRef.current.value = ''
+  }
+
+  async function openCamera() {
+    if (canUseNativeCamera()) {
+      setCameraBusy(true)
+      try {
+        const file = await capturePhotoWithNativeCamera()
+        if (file) handleFile(file)
+      } catch {
+        toast.error('Could not open the camera. Try again.')
+      } finally {
+        setCameraBusy(false)
+      }
+      return
+    }
+
+    if (useWebCameraFallback) {
+      setCameraOpen(true)
+      return
+    }
+
+    cameraRef.current?.click()
   }
 
   if (preview) {
@@ -75,9 +107,9 @@ export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzon
         )}
         <div className="text-center">
           <p className="text-[13px] text-text-muted">
-            Arrastra una imagen aquí o <span className="text-brand">haz clic para seleccionar</span>
+            Drag an image here or <span className="text-brand">click to select</span>
           </p>
-          <p className="mt-1 text-[11px] text-text-faint">JPG, PNG, WEBP o PDF · Máximo 5 MB</p>
+          <p className="mt-1 text-[11px] text-text-faint">JPG, PNG, WEBP, or PDF · Max 5 MB</p>
         </div>
       </div>
       <input
@@ -87,27 +119,38 @@ export function ImageDropzone({ onFileAccepted, preview, onClear }: ImageDropzon
         className="hidden"
         onChange={handleInputChange}
       />
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/jpeg,image/png"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleFile(file)
-          if (cameraRef.current) cameraRef.current.value = ''
-        }}
-      />
+      {!useWebCameraFallback ? (
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleFile(file)
+            if (cameraRef.current) cameraRef.current.value = ''
+          }}
+        />
+      ) : null}
       <button
         type="button"
-        onClick={() => cameraRef.current?.click()}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-[13px] text-text-muted transition-colors hover:border-brand/50 hover:text-brand"
+        disabled={cameraBusy}
+        onClick={() => void openCamera()}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-[13px] text-text-muted transition-colors hover:border-brand/50 hover:text-brand disabled:opacity-60"
       >
         <Camera className="h-4 w-4" />
-        Tomar foto
+        {cameraBusy ? 'Opening camera…' : 'Take photo'}
       </button>
       {error && <p className="mt-2 text-[12px] text-danger-strong">{error}</p>}
+
+      {useWebCameraFallback ? (
+        <CameraCaptureDialog
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onCapture={handleFile}
+        />
+      ) : null}
     </div>
   )
 }

@@ -26,7 +26,7 @@ invoicesRouter.post('/', async (c) => {
   const body = await c.req.json()
 
   if (body.currency === 'COP' && (!body.trm || body.trm <= 1)) {
-    return c.json({ error: 'TRM inválida para moneda COP. Debe ser mayor a 1.' }, 400)
+    return c.json({ error: 'Invalid FX rate for COP. Must be greater than 1.' }, 400)
   }
 
   const db = drizzle(c.env.DB, { schema })
@@ -45,7 +45,7 @@ invoicesRouter.post('/', async (c) => {
     return c.json(result[0])
   } catch (err) {
     console.error('Invoice insert error:', err)
-    return c.json({ error: 'Error al crear factura: ' + (err instanceof Error ? err.message : String(err)) }, 500)
+    return c.json({ error: 'Could not create invoice: ' + (err instanceof Error ? err.message : String(err)) }, 500)
   }
 })
 
@@ -71,7 +71,7 @@ invoicesRouter.put('/:id', async (c) => {
     return c.json(result[0])
   } catch (err) {
     console.error('Invoice update error:', err)
-    return c.json({ error: 'Error al actualizar factura: ' + (err instanceof Error ? err.message : String(err)) }, 500)
+    return c.json({ error: 'Could not update invoice: ' + (err instanceof Error ? err.message : String(err)) }, 500)
   }
 })
 

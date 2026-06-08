@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import type { Category, Transaction } from '@/types/domain'
 
@@ -67,20 +68,24 @@ export function useInsights(): InsightsData {
   const threeMonthsAgo = format(startOfMonth(subMonths(now, 3)), 'yyyy-MM-dd')
 
   const api = useApi()
+  const authReady = useAuthReady()
 
-  const { data: transactionsData } = useQuery({
+  const { data: transactionsData, isPending: loadingTxs } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get<Transaction[]>('/transactions'),
+    enabled: authReady,
   })
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
   const { data: invoiceItemsData } = useQuery({
     queryKey: ['invoice-items'],
     queryFn: () => api.get<any[]>('/invoice-items'),
+    enabled: authReady,
   })
 
   const transactions = transactionsData ? transactionsData.filter(tx => tx.date >= threeMonthsAgo) : undefined
@@ -96,7 +101,7 @@ export function useInsights(): InsightsData {
   }, [categories])
 
   return useMemo(() => {
-    if (!transactions) {
+    if (loadingTxs || !transactions) {
       return { subscriptions: [], totalSubscriptionsAnnual: 0, topItems: [], antExpenses: [], totalAntAnnual: 0, categoryGrowth: [], loading: true }
     }
 
@@ -199,7 +204,7 @@ export function useInsights(): InsightsData {
       ifood: 'Delivery (iFood)',
       'domicilios.com': 'Delivery (Domicilios)',
       'uber eats': 'Delivery (Uber Eats)',
-      cafe: 'Cafés',
+      cafe: 'Coffee shops',
       snack: 'Snacks',
     }
 
@@ -248,5 +253,5 @@ export function useInsights(): InsightsData {
       categoryGrowth,
       loading: false,
     }
-  }, [transactions, categories, categoryMap, invoiceItems, monthStart, monthEnd, prevMonthStart, prevMonthEnd])
+  }, [transactions, categories, categoryMap, invoiceItems, monthStart, monthEnd, prevMonthStart, prevMonthEnd, loadingTxs])
 }

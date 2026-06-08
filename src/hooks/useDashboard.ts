@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { calculateTitheForIncome } from '@/lib/tithe'
 import { useSettings } from '@/hooks/useSettings'
 import { useTRM } from '@/hooks/useTRM'
@@ -121,20 +122,24 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
   const prevMonthEnd = prevPeriodEnd
 
   const api = useApi()
+  const authReady = useAuthReady()
 
-  const { data: transactionsData } = useQuery({
+  const { data: transactionsData, isPending: loadingTxs } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get<Transaction[]>('/transactions'),
+    enabled: authReady,
   })
 
-  const { data: categoriesData } = useQuery({
+  const { data: categoriesData, isPending: loadingCats } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
   const { data: titheSummary } = useQuery({
     queryKey: ['tithe-commitments', 'pending-summary'],
     queryFn: () => api.get<{ totalPending: number; totalPaid: number; pendingCount: number; totalDebt: number; debtCount: number }>('/tithe-commitments/pending-summary'),
+    enabled: authReady,
   })
 
   const transactions = transactionsData ?? null
@@ -149,7 +154,7 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
   }, [categories])
 
   return useMemo(() => {
-    if (!transactions) {
+    if (loadingTxs || loadingCats || !transactions) {
       return {
         totalBalance: 0, totalBalanceCop: 0, monthIncome: 0, monthExpenses: 0, tithePending: 0,
         titheBreakdown: { byCategory: [], totalTithe: 0, totalOffering: 0, totalCop: 0, totalUsd: 0 },
@@ -257,12 +262,12 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
 
         if (bestDiff < -5) {
           insight = {
-            text: `Vas ${Math.abs(bestDiff).toFixed(0)}% por debajo de tu gasto promedio en ${bestCat.toLowerCase()}. A este ritmo, ahorrarás cerca de`,
+            text: `You're ${Math.abs(bestDiff).toFixed(0)}% below your average spending on ${bestCat.toLowerCase()}. At this pace, you'll save about`,
             savingsCop: Math.abs(savingsCop),
           }
         } else if (bestDiff > 10) {
           insight = {
-            text: `Tu gasto en ${bestCat.toLowerCase()} va ${bestDiff.toFixed(0)}% por encima del mes pasado. Al cierre del mes podrías gastar cerca de`,
+            text: `Your spending on ${bestCat.toLowerCase()} is ${bestDiff.toFixed(0)}% above last month. You could spend about`,
             savingsCop: Math.abs(projectedEnd - bestPrev),
           }
         }
@@ -370,5 +375,5 @@ export function useDashboard(period: DashboardPeriod = 'this-month'): DashboardD
       availableCapitalCop,
       loading: false,
     }
-  }, [transactions, categories, categoryMap, settings, titheSummary, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period, trm, eurToUsd])
+  }, [transactions, categories, categoryMap, settings, titheSummary, monthStart, monthEnd, trendStart, prevMonthStart, prevMonthEnd, period, trm, eurToUsd, loadingTxs, loadingCats])
 }

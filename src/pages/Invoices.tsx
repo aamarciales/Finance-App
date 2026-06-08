@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../lib/locale'
 import { toast } from 'sonner'
 import { Plus, Receipt, Trash2, FileUp, Paperclip, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -63,7 +63,7 @@ export default function InvoicesPage() {
       await deleteInvoice(deleteTarget.id)
       setDeleteTarget(null)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al eliminar la factura')
+      toast.error(e instanceof Error ? e.message : 'Could not delete invoice')
     }
   }
 
@@ -106,35 +106,35 @@ export default function InvoicesPage() {
       accountId: data.accountId ?? undefined,
       actualAmount: data.actualAmount,
     })
-    toast.success('Transacción creada')
+    toast.success('Transaction created')
     ocr.reset()
   }
 
   return (
     <>
       <PageHeader
-        title="Facturas"
-        subtitle="Compras con detalle de ítems y soportes adjuntos"
+        title="Invoices"
+        subtitle="Purchases with line items and attachments"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
               <FileUp className="h-4 w-4" />
-              Importar CSV
+              Import CSV
             </Button>
             <Button onClick={() => setCreateMenuOpen(true)} className="gap-1.5">
               <Plus className="h-4 w-4" />
-              Nueva factura
+              New invoice
             </Button>
           </div>
         }
       />
 
       {loading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : invoices.length === 0 ? (
         <EmptyState
-          title="Sin facturas registradas"
-          description="Agrega facturas para ver el detalle de tus compras"
+          title="No invoices yet"
+          description="Add invoices to see purchase details"
           icon={<Receipt className="h-8 w-8 text-text-faint" />}
         />
       ) : (
@@ -191,14 +191,14 @@ export default function InvoicesPage() {
         onOpenChange={setCreateMenuOpen}
         onImageSelected={ocr.handleFileAccepted}
         onManual={() => setFormOpen(true)}
-        label="factura"
+        label="invoice"
       />
 
       {ocr.processing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-3 rounded-xl bg-surface px-8 py-6 shadow-lg">
             <Loader2 className="h-8 w-8 animate-spin text-brand" />
-            <p className="text-[14px] font-medium">Procesando OCR…</p>
+            <p className="text-[14px] font-medium">Processing OCR…</p>
           </div>
         </div>
       )}
@@ -224,7 +224,7 @@ function InvoiceCard({ invoice, onClick, onDelete }: { invoice: Invoice; onClick
   const dateLabel = invoice.date
     ? (() => {
         const d = parseISO(invoice.date)
-        return isNaN(d.getTime()) ? '—' : format(d, 'dd MMM yyyy', { locale: es })
+        return isNaN(d.getTime()) ? '—' : format(d, 'dd MMM yyyy', { locale: displayLocale })
       })()
     : '—'
 
@@ -244,7 +244,7 @@ function InvoiceCard({ invoice, onClick, onDelete }: { invoice: Invoice; onClick
           type="button"
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity hover:bg-surface-2 group-hover:opacity-100"
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          aria-label="Eliminar"
+          aria-label="Delete"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -259,7 +259,7 @@ function InvoiceCard({ invoice, onClick, onDelete }: { invoice: Invoice; onClick
             <Paperclip className="h-3.5 w-3.5 text-text-muted" />
           )}
         </div>
-        <Badge tone="gray">{invoice.itemCount} ítems</Badge>
+        <Badge tone="gray">{invoice.itemCount} items</Badge>
       </div>
     </div>
   )

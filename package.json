@@ -5,11 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "wrangler dev",
+    "dev:all": "bash scripts/dev-local.sh",
     "build": "tsc -b && vite build",
+    "deploy": "wrangler deploy",
+    "release": "npm run build && wrangler deploy && npm run release:pages",
+    "release:pages": "wrangler pages deploy dist --project-name finance-app --branch main --commit-dirty=true",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply patrimonio-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply patrimonio-db --remote"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.4",
@@ -18,12 +25,13 @@
     "@hono/clerk-auth": "^3.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.100.8",
+    "@tauri-apps/api": "^2.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.16",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^0.460.0",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
     "radix-ui": "^1.4.3",
@@ -36,6 +44,7 @@
     "shadcn": "^4.6.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "tauri-plugin-native-camera-api": "^0.1.0",
     "tw-animate-css": "^1.4.0",
     "zod": "^4.4.2"
   },

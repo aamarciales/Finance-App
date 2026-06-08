@@ -25,8 +25,8 @@ export function ExpensesByCategory({ data }: ExpensesByCategoryProps) {
   if (data.length === 0) {
     return (
       <div className="rounded-[10px] border border-border bg-surface p-6">
-        <h3 className="mb-4 text-[11px] uppercase tracking-[0.08em] text-text-muted">Gastos por categoría</h3>
-        <EmptyState title="Sin gastos" description="No hay gastos este mes" />
+        <h3 className="mb-4 text-[11px] uppercase tracking-[0.08em] text-text-muted">Expenses by category</h3>
+        <EmptyState title="No expenses" description="No expenses this month" />
       </div>
     )
   }
@@ -35,7 +35,7 @@ export function ExpensesByCategory({ data }: ExpensesByCategoryProps) {
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-6">
-      <h3 className="mb-4 text-[11px] uppercase tracking-[0.08em] text-text-muted">Gastos por categoría</h3>
+      <h3 className="mb-4 text-[11px] uppercase tracking-[0.08em] text-text-muted">Expenses by category</h3>
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie

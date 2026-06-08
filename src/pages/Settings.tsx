@@ -83,9 +83,9 @@ export default function SettingsPage() {
           await setSetting(key, local[key])
         }
       }
-      toast.success('Ajustes guardados')
+      toast.success('Settings saved')
     } catch {
-      toast.error('Error al guardar')
+      toast.error('Could not save settings')
     } finally {
       setSaving(false)
     }
@@ -94,8 +94,8 @@ export default function SettingsPage() {
   if (loading || !local) {
     return (
       <>
-        <PageHeader title="Ajustes" subtitle="Configuración personal y preferencias" />
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <PageHeader title="Settings" subtitle="Personal settings and preferences" />
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       </>
     )
   }
@@ -120,7 +120,7 @@ export default function SettingsPage() {
     a.download = `patrimonio-backup-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('Exportación completada')
+    toast.success('Export complete')
   }
 
   async function handleClear() {
@@ -130,9 +130,9 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries()
       setConfirmClear(false)
       setLocal(null)
-      toast.success('Datos eliminados y categorías sistema restauradas')
+      toast.success('Data deleted and system categories restored')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al borrar los datos')
+      toast.error(err instanceof Error ? err.message : 'Could not delete data')
     }
   }
 
@@ -141,31 +141,31 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Ajustes" subtitle="Configuración personal y preferencias" />
+      <PageHeader title="Settings" subtitle="Personal settings and preferences" />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Section 1: Monedas */}
+        {/* Section 1: Currencies */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
-            <h3 className="text-[15px] font-medium">Monedas</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Configura tus monedas y fuente de tasas de cambio</p>
+            <h3 className="text-[15px] font-medium">Currencies</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Configure your currencies and exchange-rate source</p>
           </div>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FieldGroup label="Moneda base">
+              <FieldGroup label="Base currency">
                 <Select
                   value={local.baseCurrency}
                   onValueChange={(v) => updateLocal('baseCurrency', v as Currency)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD — Dólar</SelectItem>
+                    <SelectItem value="USD">USD — US dollar</SelectItem>
                     <SelectItem value="COP">COP — Peso col.</SelectItem>
                     <SelectItem value="EUR">EUR — Euro</SelectItem>
                   </SelectContent>
                 </Select>
               </FieldGroup>
-              <FieldGroup label="Moneda secundaria">
+              <FieldGroup label="Secondary currency">
                 <Select
                   value={local.secondaryCurrency}
                   onValueChange={(v) => updateLocal('secondaryCurrency', v as Currency)}
@@ -173,17 +173,17 @@ export default function SettingsPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="COP">COP — Peso col.</SelectItem>
-                    <SelectItem value="USD">USD — Dólar</SelectItem>
+                    <SelectItem value="USD">USD — US dollar</SelectItem>
                     <SelectItem value="EUR">EUR — Euro</SelectItem>
                   </SelectContent>
                 </Select>
               </FieldGroup>
             </div>
-            <FieldGroup label="Fuente TRM">
+            <FieldGroup label="FX rate source">
               <Select value="banrep" onValueChange={() => {}} disabled>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="banrep">Banco de la República</SelectItem>
+                  <SelectItem value="banrep">Bank of the Republic (Banrep)</SelectItem>
                 </SelectContent>
               </Select>
             </FieldGroup>
@@ -193,13 +193,13 @@ export default function SettingsPage() {
         {/* Section: Capital disponible */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
-            <h3 className="text-[15px] font-medium">Capital disponible</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Cuentas bancarias y efectivo. El total se muestra en el Dashboard.</p>
+            <h3 className="text-[15px] font-medium">Available capital</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Bank accounts and cash. The total appears on the Dashboard.</p>
           </div>
           <div className="space-y-3">
             {(local.capitalAccounts ?? []).map((acc, idx) => (
               <div key={acc.id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
-                <FieldGroup label={idx === 0 ? 'Nombre' : undefined}>
+                <FieldGroup label={idx === 0 ? 'Name' : undefined}>
                   <Input
                     value={acc.name}
                     onChange={(e) => {
@@ -207,11 +207,11 @@ export default function SettingsPage() {
                       accounts[idx] = { ...accounts[idx], name: e.target.value }
                       updateLocal('capitalAccounts', accounts)
                     }}
-                    placeholder="Ej. Bancolombia"
+                    placeholder="e.g. Bancolombia"
                   />
                 </FieldGroup>
                 <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-                  <FieldGroup label={idx === 0 ? 'Monto' : undefined}>
+                  <FieldGroup label={idx === 0 ? 'Amount' : undefined}>
                     <Input
                       type="number"
                       step="any"
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                       placeholder="0"
                     />
                   </FieldGroup>
-                  <FieldGroup label={idx === 0 ? 'Moneda' : undefined}>
+                  <FieldGroup label={idx === 0 ? 'Currency' : undefined}>
                     <Select
                       value={acc.currency}
                       onValueChange={(v) => {
@@ -266,7 +266,7 @@ export default function SettingsPage() {
               }}
             >
               <Plus className="h-3.5 w-3.5" />
-              Agregar cuenta
+              Add account
             </Button>
             <Button
               onClick={handleSave}
@@ -274,7 +274,7 @@ export default function SettingsPage() {
               className="w-full gap-1.5"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Guardando…' : 'Guardar cambios'}
+              {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </div>
@@ -282,56 +282,52 @@ export default function SettingsPage() {
         {/* Section 2: Diezmo & Ofrendas */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
-            <h3 className="text-[15px] font-medium">Diezmo & Ofrendas</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Configura los porcentajes por tipo de ingreso</p>
+            <h3 className="text-[15px] font-medium">Tithe & offerings</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Set tithe and offering percentages by income type</p>
           </div>
           <div className="space-y-4">
-            <FieldGroup label="Iglesia / Destino">
+            <FieldGroup label="Church / destination">
               <Input
                 value={local.titheConfig.destination}
                 onChange={(e) => {
                   updateLocal('titheConfig', { ...local.titheConfig, destination: e.target.value })
                 }}
-                placeholder="Iglesia local"
+                placeholder="Local church"
               />
             </FieldGroup>
 
-            {/* Stepper grid */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">
-                <span className="text-[11px] uppercase tracking-[0.06em] text-text-muted w-16">Tipo</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Diezmo</span>
-                  <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Ofrenda</span>
-                </div>
+            {/* Stepper grid — single 3-col layout so Diezmo/Ofrenda align across rows */}
+            <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] items-center gap-x-4 gap-y-3">
+              <span className="text-[11px] uppercase tracking-[0.06em] text-text-muted">Type</span>
+              <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Tithe</span>
+              <span className="text-center text-[11px] uppercase tracking-[0.06em] text-text-muted">Offering</span>
+
+              <span className="text-[13px]">Freelance</span>
+              <div className="flex justify-center">
+                <StepperInput
+                  value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.tithe ?? local.titheConfig.defaultTithe}
+                  onChange={(v) => updateTitheCategory(freeCatId, 'tithe', v)}
+                />
+              </div>
+              <div className="flex justify-center">
+                <StepperInput
+                  value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.offering ?? local.titheConfig.defaultOffering}
+                  onChange={(v) => updateTitheCategory(freeCatId, 'offering', v)}
+                />
               </div>
 
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-3 items-center">
-                <span className="text-[13px]">Freelance</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <StepperInput
-                    value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.tithe ?? local.titheConfig.defaultTithe}
-                    onChange={(v) => updateTitheCategory(freeCatId, 'tithe', v)}
-                  />
-                  <StepperInput
-                    value={local.titheConfig.tithePercentByIncomeCategory[freeCatId]?.offering ?? local.titheConfig.defaultOffering}
-                    onChange={(v) => updateTitheCategory(freeCatId, 'offering', v)}
-                  />
-                </div>
+              <span className="text-[13px]">Salary</span>
+              <div className="flex justify-center">
+                <StepperInput
+                  value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.tithe ?? local.titheConfig.defaultTithe}
+                  onChange={(v) => updateTitheCategory(sueldoCatId, 'tithe', v)}
+                />
               </div>
-
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-3 items-center">
-                <span className="text-[13px]">Sueldo</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <StepperInput
-                    value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.tithe ?? local.titheConfig.defaultTithe}
-                    onChange={(v) => updateTitheCategory(sueldoCatId, 'tithe', v)}
-                  />
-                  <StepperInput
-                    value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.offering ?? local.titheConfig.defaultOffering}
-                    onChange={(v) => updateTitheCategory(sueldoCatId, 'offering', v)}
-                  />
-                </div>
+              <div className="flex justify-center">
+                <StepperInput
+                  value={local.titheConfig.tithePercentByIncomeCategory[sueldoCatId]?.offering ?? local.titheConfig.defaultOffering}
+                  onChange={(v) => updateTitheCategory(sueldoCatId, 'offering', v)}
+                />
               </div>
             </div>
 
@@ -342,20 +338,20 @@ export default function SettingsPage() {
               className="w-full gap-1.5"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Guardando…' : 'Guardar cambios'}
+              {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </div>
 
-        {/* Section 3: Importación inteligente */}
+        {/* Section 3: Smart import */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
-            <h3 className="text-[15px] font-medium">Importación inteligente</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Configura OCR y categorización automática</p>
+            <h3 className="text-[15px] font-medium">Smart import</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Configure OCR and auto-categorization</p>
           </div>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FieldGroup label="Procesamiento OCR">
+              <FieldGroup label="OCR processing">
                 <Select
                   value={local.ocrProvider}
                   onValueChange={(v) => updateLocal('ocrProvider', v as OcrProvider)}
@@ -365,18 +361,18 @@ export default function SettingsPage() {
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="gemini">Google Gemini</SelectItem>
                     <SelectItem value="claude">Claude AI</SelectItem>
-                    <SelectItem value="off">Desactivado</SelectItem>
+                    <SelectItem value="off">Off</SelectItem>
                   </SelectContent>
                 </Select>
               </FieldGroup>
-              <FieldGroup label="Categorización automática">
+              <FieldGroup label="Auto-categorization">
                 <Select
                   value={local.autoCategorize ? 'auto' : 'manual'}
                   onValueChange={(v) => updateLocal('autoCategorize', v === 'auto')}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Automática</SelectItem>
+                    <SelectItem value="auto">Automatic</SelectItem>
                     <SelectItem value="manual">Manual</SelectItem>
                   </SelectContent>
                 </Select>
@@ -385,7 +381,7 @@ export default function SettingsPage() {
             {(local.ocrProvider === 'gemini' || local.ocrProvider === 'openai') && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {local.ocrProvider === 'openai' && (
-                  <FieldGroup label="API Key de OpenAI">
+                  <FieldGroup label="OpenAI API key">
                     <Input
                       type="password"
                       value={local.openaiApiKey ?? ''}
@@ -395,7 +391,7 @@ export default function SettingsPage() {
                   </FieldGroup>
                 )}
                 {local.ocrProvider === 'gemini' && (
-                  <FieldGroup label="API Key de Google Gemini">
+                  <FieldGroup label="Google Gemini API key">
                     <Input
                       type="password"
                       value={local.geminiApiKey ?? ''}
@@ -413,26 +409,26 @@ export default function SettingsPage() {
               className="w-full gap-1.5"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Guardando…' : 'Guardar cambios'}
+              {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </div>
 
-        {/* Section 4: Datos & Privacidad */}
+        {/* Section 4: Data & privacy */}
         <div className="rounded-[10px] border border-border bg-surface p-5">
           <div className="mb-4">
-            <h3 className="text-[15px] font-medium">Datos & Privacidad</h3>
-            <p className="mt-1 text-[12.5px] text-text-muted">Tus datos están almacenados de forma segura en la nube y sincronizados entre dispositivos.</p>
+            <h3 className="text-[15px] font-medium">Data & privacy</h3>
+            <p className="mt-1 text-[12.5px] text-text-muted">Your data is stored securely in the cloud and synced across devices.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="gap-1.5" onClick={handleExport}>
-              <Download className="h-4 w-4" /> Exportar JSON
+              <Download className="h-4 w-4" /> Export JSON
             </Button>
             <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
-              <FileUp className="h-4 w-4" /> Importar JSON
+              <FileUp className="h-4 w-4" /> Import JSON
             </Button>
             <Button variant="outline" className="gap-1.5 text-danger-strong hover:text-danger-strong" onClick={() => setConfirmClear(true)}>
-              <Trash2 className="h-4 w-4" /> Borrar datos
+              <Trash2 className="h-4 w-4" /> Delete data
             </Button>
           </div>
         </div>
@@ -442,15 +438,15 @@ export default function SettingsPage() {
       <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Borrar todos los datos?</AlertDialogTitle>
+            <AlertDialogTitle>Delete all data?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará todas las transacciones, facturas, deudas, metas y configuración.
-              No se puede deshacer. Exporta tus datos primero si necesitas respaldo.
+              This will delete all transactions, invoices, debts, goals, and settings.
+              This cannot be undone. Export your data first if you need a backup.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClear}>Borrar todo</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClear}>Delete all</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

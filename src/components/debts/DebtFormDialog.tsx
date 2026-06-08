@@ -24,18 +24,18 @@ import type { Debt, DebtType } from '@/types/domain'
 import type { DebtFormData } from '@/hooks/useDebts'
 
 const DEBT_TYPES: { value: DebtType; label: string }[] = [
-  { value: 'credit_card', label: 'Tarjeta de crédito' },
-  { value: 'personal_loan', label: 'Préstamo personal' },
-  { value: 'family_loan', label: 'Préstamo familiar' },
+  { value: 'credit_card', label: 'Credit card' },
+  { value: 'personal_loan', label: 'Personal loan' },
+  { value: 'family_loan', label: 'Family loan' },
   { value: 'mortgage', label: 'Hipoteca' },
   { value: 'other', label: 'Otra' },
 ]
 
 const schema = z.object({
-  name: z.string().min(1, 'Nombre obligatorio'),
-  creditor: z.string().min(1, 'Acreedor obligatorio'),
+  name: z.string().min(1, 'Name is required'),
+  creditor: z.string().min(1, 'Creditor is required'),
   type: z.enum(['credit_card', 'personal_loan', 'family_loan', 'mortgage', 'other']),
-  originalAmount: z.number({ message: 'Monto obligatorio' }).positive(),
+  originalAmount: z.number({ message: 'Amount is required' }).positive(),
   currentBalance: z.number().min(0),
   currency: z.enum(CURRENCIES),
   interestRate: z.number().min(0),
@@ -130,27 +130,27 @@ export function DebtFormDialog({ open, onOpenChange, onSubmit, editDebt }: DebtF
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
-            {isEditing ? 'Editar deuda' : 'Nueva deuda'}
+            {isEditing ? 'Edit debt' : 'New debt'}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4 py-2">
           <div className="grid grid-cols-[1fr_1fr] gap-3">
             <div className="grid gap-1.5">
-              <Label>Nombre</Label>
-              <Input {...register('name')} placeholder="Ej. Tarjeta Bancolombia" />
+              <Label>Name</Label>
+              <Input {...register('name')} placeholder="E.g. Bancolombia card" />
               {errors.name && <p className="text-[12px] text-danger-strong">{errors.name.message}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Label>Acreedor</Label>
-              <Input {...register('creditor')} placeholder="Ej. Bancolombia" />
+              <Label>Creditor</Label>
+              <Input {...register('creditor')} placeholder="E.g. Bancolombia" />
               {errors.creditor && <p className="text-[12px] text-danger-strong">{errors.creditor.message}</p>}
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div className="grid gap-1.5">
-              <Label>Tipo</Label>
+              <Label>Type</Label>
               <Controller name="type" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -161,7 +161,7 @@ export function DebtFormDialog({ open, onOpenChange, onSubmit, editDebt }: DebtF
               )} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Moneda</Label>
+              <Label>Currency</Label>
               <Controller name="currency" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -175,50 +175,50 @@ export function DebtFormDialog({ open, onOpenChange, onSubmit, editDebt }: DebtF
 
           <div className="grid grid-cols-[1fr_1fr] gap-3">
             <div className="grid gap-1.5">
-              <Label>Monto original</Label>
+              <Label>Original amount</Label>
               <Input type="number" step="any" {...register('originalAmount', { valueAsNumber: true })} className="font-mono" />
               {errors.originalAmount && <p className="text-[12px] text-danger-strong">{errors.originalAmount.message}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Label>Saldo actual</Label>
+              <Label>Current balance</Label>
               <Input type="number" step="any" {...register('currentBalance', { valueAsNumber: true })} className="font-mono" />
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_1fr_1fr] gap-3">
             <div className="grid gap-1.5">
-              <Label>Tasa interés %</Label>
+              <Label>Interest rate %</Label>
               <Input type="number" step="any" {...register('interestRate', { valueAsNumber: true })} className="font-mono" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Cuota/mes</Label>
+              <Label>Monthly payment</Label>
               <Input type="number" step="any" {...register('monthlyPayment', { valueAsNumber: true })} className="font-mono" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Prox. pago</Label>
+              <Label>Next payment</Label>
               <Input type="date" {...register('nextPaymentDate')} />
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_1fr] gap-3">
             <div className="grid gap-1.5">
-              <Label>Total cuotas</Label>
+              <Label>Total installments</Label>
               <Input type="number" {...register('totalInstallments', { valueAsNumber: true })} className="font-mono" />
             </div>
             <div className="grid gap-1.5">
-              <Label>Cuotas pagadas</Label>
+              <Label>Installments paid</Label>
               <Input type="number" {...register('paidInstallments', { valueAsNumber: true })} className="font-mono" />
             </div>
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Notas</Label>
-            <Input {...register('notes')} placeholder="Ej. Sin intereses" />
+            <Label>Notes</Label>
+            <Input {...register('notes')} placeholder="e.g. Interest-free" />
           </div>
 
           <DialogFooter className="gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando…' : 'Guardar'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

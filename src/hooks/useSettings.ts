@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import type { AppSettings, TitheConfig, TaxProfile } from '@/types/domain'
 
 const DEFAULT_TITHE_CONFIG: TitheConfig = {
@@ -30,10 +31,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export function useSettings() {
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
+    enabled: authReady,
     queryFn: async (): Promise<AppSettings> => {
       const all: any[] = await api.get('/settings')
       const fromApi = Object.fromEntries(

@@ -1,18 +1,13 @@
 import type { Currency } from '@/types/domain'
+import { numberLocale } from '@/lib/locale'
 
 /**
- * Formato de moneda según el HTML reference:
- *  - COP: "$184.520"           (sin decimales, miles con punto)
- *  - USD: "USD 45,14"          (prefijo "USD", coma decimal)
- *
- * Recibe `amount` en unidades enteras de la moneda (no en cents). Para cents,
- * pasar `amount / 100` desde el caller — TODO: integrar dinero.js cuando
- * añadamos cálculos sumatorios reales (Fase 2+).
+ * Currency display for the UI (en-US number formatting).
+ * `amount` is in whole currency units (not cents).
  */
 export function formatMoney(amount: number, currency: Currency): string {
   if (currency === 'COP') {
-    /* es-CO: "$184.520" */
-    const formatted = new Intl.NumberFormat('es-CO', {
+    const formatted = new Intl.NumberFormat(numberLocale, {
       maximumFractionDigits: 0,
       minimumFractionDigits: 0,
     }).format(Math.abs(amount))
@@ -20,8 +15,7 @@ export function formatMoney(amount: number, currency: Currency): string {
     return `${sign}$${formatted}`
   }
 
-  /* USD: "USD 45,14" — prefijo USD, coma decimal estilo es-CO */
-  const formatted = new Intl.NumberFormat('es-CO', {
+  const formatted = new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   }).format(Math.abs(amount))
@@ -29,21 +23,18 @@ export function formatMoney(amount: number, currency: Currency): string {
   return `${sign}USD ${formatted}`
 }
 
-/**
- * Variante "compact" para KPIs grandes (sin signo, currency aparte).
- * El componente <Money> coloca el currency como prefijo separado.
- */
+/** Compact amount for KPIs (currency shown separately by <Money>). */
 export function formatAmountOnly(amount: number, currency: Currency): string {
   const fractionDigits = currency === 'COP' ? 0 : 2
-  return new Intl.NumberFormat('es-CO', {
+  return new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
   }).format(Math.abs(amount))
 }
 
-/** Formato de TRM: "$4.087,30" (siempre 2 decimales, símbolo $). */
+/** FX rate display: "$4,087.30" (always 2 decimals). */
 export function formatTRM(rate: number): string {
-  const formatted = new Intl.NumberFormat('es-CO', {
+  const formatted = new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   }).format(rate)

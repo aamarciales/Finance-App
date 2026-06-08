@@ -18,7 +18,7 @@ import type { DebtPaymentData } from '@/hooks/useDebts'
 
 const schema = z.object({
   date: z.string().min(1),
-  amount: z.number({ message: 'Monto obligatorio' }).positive(),
+  amount: z.number({ message: 'Amount is required' }).positive(),
   capitalAmount: z.number().min(0),
   interestAmount: z.number().min(0),
 })
@@ -74,17 +74,17 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Pagar cuota · {debt.name}</DialogTitle>
+          <DialogTitle className="font-serif text-xl">Pay installment · {debt.name}</DialogTitle>
         </DialogHeader>
 
         <div className="mb-3 rounded-md bg-surface-2 px-3 py-2 text-[13px]">
           <div className="flex items-center justify-between">
-            <span className="text-text-muted">Saldo actual</span>
+            <span className="text-text-muted">Current balance</span>
             <Money amount={debt.currentBalance} currency={debt.currency} variant="inline" className="font-mono" />
           </div>
           {debt.interestRate > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-text-muted">Tasa interés</span>
+              <span className="text-text-muted">Interest rate</span>
               <span className="font-mono">{debt.interestRate}% EA</span>
             </div>
           )}
@@ -92,12 +92,12 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label>Fecha</Label>
+            <Label>Date</Label>
             <Input type="date" {...register('date')} />
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Monto total</Label>
+            <Label>Total amount</Label>
             <Input
               type="number"
               step="any"
@@ -110,7 +110,7 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
 
           <div className="grid grid-cols-[1fr_1fr] gap-3">
             <div className="grid gap-1.5">
-              <Label>Intereses</Label>
+              <Label>Interest</Label>
               <Input
                 type="number"
                 step="any"
@@ -131,8 +131,8 @@ export function DebtPaymentDialog({ open, onOpenChange, debt, onPay }: DebtPayme
           </div>
 
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Procesando…' : 'Pagar'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Processing…' : 'Pay'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

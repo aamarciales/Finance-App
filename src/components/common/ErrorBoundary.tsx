@@ -22,11 +22,11 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8 text-center">
           <AlertTriangle className="h-10 w-10 text-warning" />
-          <h2 className="font-serif text-xl">Algo salió mal</h2>
+          <h2 className="font-serif text-xl">Something went wrong</h2>
           <p className="max-w-md text-[13px] text-text-muted">
-            Ocurrió un error inesperado. Intenta recargar la página.
+            An unexpected error occurred. Try reloading the page.
           </p>
-          <Button onClick={() => window.location.reload()}>Recargar</Button>
+          <Button onClick={() => window.location.reload()}>Reload</Button>
         </div>
       )
     }

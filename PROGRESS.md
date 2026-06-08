@@ -4,6 +4,26 @@
 
 ---
 
+## UI + diezmo fixes (2026-06-07)
+
+- Mobile nav: glass pill blur (`pt-mobile-nav-pill`), enlace Trakll en menú «Más» y sidebar desktop.
+- Tokens trakll: cards 22px, sombras, TopBar con blur.
+- `transactions.tithe_exemption`: excluir ingresos del auto-diezmo (exento / ya diezmado / préstamo).
+- Registrar entrega en `/tithe` con monto real en COP/USD y «Confirmo pago completo» (tolerancia TRM).
+- Migración `0011_tithe_exemption.sql`.
+
+---
+
+## trakll integration (2026-06-07)
+
+- `POST /api/integrations/trakll/income` — server-to-server income from trakll paid invoices.
+- Auth: `X-Integration-Secret` + env `TRAKLL_INTEGRATION_SECRET` / `TRAKLL_INTEGRATION_USER_ID`.
+- Idempotency via `transactions.notes` = `trakll:invoice:{externalId}`.
+- Category: settings `trakllIncomeCategoryId` or first income category.
+- Full contract: `docs/integration-trakll.md`.
+
+---
+
 ## Fase de estabilización post-handoff V4 (2026-05-15 → 2026-05-17)
 
 60+ commits entre `4765463` (cierre handoff V4) y `5ed39cf`.
@@ -167,6 +187,45 @@ User `user_3DEHVwNjURaZfTfhcPTS0rNLOer`:
 ```
 0010_account_id            → account_id en transactions (2026-05-17)
 ```
+
+---
+
+## Phase C · Deploy Worker + SPA assets (2026-06-07)
+
+Migrated from Cloudflare Pages (`pages_build_output_dir`) to a single Worker that serves the Hono API and the built SPA (same pattern as TimeFlow/trakll).
+
+### Wrangler
+
+- Config: `wrangler.jsonc` (replaces `wrangler.toml`)
+- Entry: `src/worker.ts` → shared Hono app in `src/server/app.ts`
+- Assets: `dist/` with `run_worker_first: ["/api/*"]` and SPA fallback for client routes
+- Bindings: D1 `DB`, R2 `FILES`, static `ASSETS`
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev:all` | Local full stack (wrangler :8787 + vite :5173, `/api` proxied) |
+| `npm run dev:api` | API only (`wrangler dev`) |
+| `npm run dev` | Frontend only (needs `dev:api` in another terminal for `/api`) |
+| `npm run build` | Typecheck + Vite → `dist/` |
+| `npm run release` | `build` + `wrangler deploy` (no GitHub required) |
+| `npm run db:migrate:remote` | Apply D1 migrations to production |
+
+### First-time / secrets
+
+1. Copy `.dev.vars` for local (`CLERK_SECRET_KEY`, optional `ANTHROPIC_API_KEY`).
+2. Set production secrets: `npx wrangler secret put CLERK_SECRET_KEY` (and `ANTHROPIC_API_KEY` if using server OCR).
+3. `npx wrangler login` if not already authenticated.
+4. After schema changes: `npm run db:migrate:remote` before or right after deploy.
+
+### Pages → Worker migration (one-time)
+
+1. Deploy with `npm run release` and verify `curl -s -o /dev/null -w "%{http_code}\n" https://<worker-url>/api/health` → `200`.
+2. Point custom domain (if any) from Pages to the Worker in Cloudflare dashboard.
+3. Disable Pages auto-deploy from GitHub when the Worker URL is confirmed (optional rollback: re-enable Pages).
+
+`functions/api/[[route]].ts` remains a thin Pages Functions shim importing `src/server/app.ts` for reference only; production uses `src/worker.ts`.
 
 ---
 

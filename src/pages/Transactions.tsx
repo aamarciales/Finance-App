@@ -87,7 +87,7 @@ export default function TransactionsPage() {
         accountId: values.accountId ?? undefined,
         actualAmount: values.actualAmount,
       })
-      toast.success('Transacción creada')
+      toast.success('Transaction created')
     },
     [addTransaction, categories],
   )
@@ -123,13 +123,13 @@ export default function TransactionsPage() {
     try {
       const res = await deleteTransaction(deleteTarget.id) as { deleted: { transaction: number; invoice: number; items: string | number } }
       if (res?.deleted.invoice > 0) {
-        toast.success('Transacción y factura asociadas eliminadas')
+        toast.success('Transaction and linked invoice deleted')
       } else {
-        toast.success('Transacción eliminada')
+        toast.success('Transaction deleted')
       }
       setDeleteTarget(null)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al eliminar la transacción')
+      toast.error(e instanceof Error ? e.message : 'Could not delete transaction')
     }
   }, [deleteTarget, deleteTransaction])
 
@@ -176,24 +176,24 @@ export default function TransactionsPage() {
       accountId: data.accountId ?? undefined,
       actualAmount: data.actualAmount,
     })
-    toast.success('Transacción creada')
+    toast.success('Transaction created')
     ocr.reset()
   }
 
   return (
     <>
       <PageHeader
-        title="Transacciones"
-        subtitle="Todas las entradas y salidas registradas"
+        title="Transactions"
+        subtitle="All recorded income and expenses"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setWizardOpen(true)} className="gap-1.5">
               <Globe className="h-4 w-4" />
-              Pago internacional
+              International payment
             </Button>
             <Button onClick={() => setCreateMenuOpen(true)} className="gap-1.5">
               <Plus className="h-4 w-4" />
-              Nueva transacción
+              New transaction
             </Button>
           </div>
         }
@@ -215,7 +215,7 @@ export default function TransactionsPage() {
 
         <div className="rounded-lg border border-border bg-surface">
           {loading ? (
-            <div className="p-10 text-center text-text-muted">Cargando…</div>
+            <div className="p-10 text-center text-text-muted">Loading…</div>
           ) : (
             <TransactionsTable
               transactions={transactions}
@@ -264,14 +264,14 @@ export default function TransactionsPage() {
         onOpenChange={setCreateMenuOpen}
         onImageSelected={ocr.handleFileAccepted}
         onManual={() => setFormOpen(true)}
-        label="transacción"
+        label="transaction"
       />
 
       {ocr.processing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-3 rounded-xl bg-surface px-8 py-6 shadow-lg">
             <Loader2 className="h-8 w-8 animate-spin text-brand" />
-            <p className="text-[14px] font-medium">Procesando OCR…</p>
+            <p className="text-[14px] font-medium">Processing OCR…</p>
           </div>
         </div>
       )}

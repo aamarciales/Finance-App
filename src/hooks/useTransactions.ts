@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useApi } from '@/lib/api'
+import { useAuthReady } from '@/hooks/useAuthReady'
 import { getEquivalentAmounts, computeAmountsWithActual } from '@/lib/currency'
 import type { Transaction, Category, CapitalAccount, Debt } from '@/types/domain'
 
@@ -26,6 +27,7 @@ export function isKpiTransaction(tx: Transaction): boolean {
 export function useTransactions(filters: TxFilters = {}, rates: { trm: number; eurToUsd: number }) {
   const { tab, periodStart, periodEnd, categoryId, search } = filters
   const api = useApi()
+  const authReady = useAuthReady()
   const queryClient = useQueryClient()
 
   const { data: settingsData } = useQuery({
@@ -36,22 +38,26 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
       for (const r of rows) map[r.key] = r.value
       return map as Record<string, unknown>
     },
+    enabled: authReady,
   })
   const capitalAccounts: CapitalAccount[] = (settingsData?.capitalAccounts as CapitalAccount[] | undefined) ?? []
 
   const { data: rawTransactions, isLoading: loadingTxs } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get<Transaction[]>('/transactions'),
+    enabled: authReady,
   })
 
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+    enabled: authReady,
   })
 
   const { data: debts } = useQuery({
     queryKey: ['debts'],
     queryFn: () => api.get<Debt[]>('/debts'),
+    enabled: authReady,
   })
 
   const filteredTransactions = useMemo(() => {
@@ -109,7 +115,7 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
             paidInstallments: debt.paidInstallments + 1,
             isPaid: newBalance <= 0
           })
-          if (newBalance <= 0) toast.success(`Has saldado "${debt.name}"`)
+          if (newBalance <= 0) toast.success(`You paid off "${debt.name}"`)
         }
 
         // Interest logic -> create another expense tx
@@ -120,7 +126,7 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
             await api.post('/transactions', {
               date: data.date,
               type: 'expense',
-              concept: `Intereses · ${data.concept}`,
+              concept: `Interest · ${data.concept}`,
               categoryId: interestCategory.id,
               amount: data.interestAmount,
               currency: data.currency,
@@ -169,7 +175,7 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
               paidInstallments: targetDebt.paidInstallments + 1,
               isPaid: newBalance <= 0
             })
-            if (newBalance <= 0) toast.success(`Has saldado "${targetDebt.name}"`)
+            if (newBalance <= 0) toast.success(`You paid off "${targetDebt.name}"`)
           }
         }
       }
@@ -205,7 +211,13 @@ export function useTransactions(filters: TxFilters = {}, rates: { trm: number; e
       data.amount, data.currency, account, data.actualAmount, rates,
     )
     const { actualAmount: _, ...txData } = data
-    const tx = await addTxMutate({ ...txData, trm, amountInBase, amountInSecondary })
+    const tx = await addTxMutate({
+      ...txData,
+      trm,
+      amountInBase,
+      amountInSecondary,
+      titheExemption: data.titheExemption ?? null,
+    })
     return tx.id
   }
 

@@ -47,7 +47,7 @@ export default function CategoriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
-      toast.success('Categoría creada')
+      toast.success('Category created')
       closeForm()
     }
   })
@@ -58,7 +58,7 @@ export default function CategoriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
-      toast.success('Categoría actualizada')
+      toast.success('Category updated')
       closeForm()
     }
   })
@@ -70,7 +70,7 @@ export default function CategoriesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('Categoría eliminada')
+      toast.success('Category deleted')
       setDeleteTarget(null)
     }
   })
@@ -97,28 +97,28 @@ export default function CategoriesPage() {
   return (
     <>
       <PageHeader
-        title="Categorías"
-        subtitle="En qué se va tu dinero"
+        title="Categories"
+        subtitle="Where your money goes"
         actions={
           <Button onClick={() => setFormOpen(true)} className="gap-1.5">
-            Nueva categoría
+            New category
           </Button>
         }
       />
 
       {isLoading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : (
         <div className="space-y-8">
           <CategoryGroup
-            title="Gastos"
+            title="Expenses"
             items={expenseCategories}
             onEdit={setEditCategory}
             onDelete={setDeleteTarget}
             onDuplicate={(c) => createMutation.mutate({ name: `${c.name} (copia)`, color: c.color, icon: c.icon, type: c.type })}
           />
           <CategoryGroup
-            title="Ingresos"
+            title="Income"
             items={incomeCategories}
             onEdit={setEditCategory}
             onDelete={setDeleteTarget}
@@ -137,15 +137,15 @@ export default function CategoriesPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Las transacciones asociadas se reasignarán a "Otros". Esta acción no se puede deshacer.
+              Associated transactions will be reassigned to "Other". This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={deleteMutation.isPending}>
-              {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -196,18 +196,18 @@ function CategoryGroup({
                     type="button"
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
                     onClick={() => onDuplicate(c)}
-                    aria-label="Duplicar"
+                    aria-label="Duplicate"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Duplicar categoría</TooltipContent>
+                <TooltipContent>Duplicate category</TooltipContent>
               </Tooltip>
               <button
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
                 onClick={() => onEdit(c)}
-                aria-label="Editar"
+                aria-label="Edit"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -218,14 +218,14 @@ function CategoryGroup({
                       <Trash2 className="h-3.5 w-3.5" />
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>Categoría protegida del sistema</TooltipContent>
+                  <TooltipContent>Protected system category</TooltipContent>
                 </Tooltip>
               ) : (
                 <button
                   type="button"
                   className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100"
                   onClick={() => onDelete(c)}
-                  aria-label="Eliminar"
+                  aria-label="Delete"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

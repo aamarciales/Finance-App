@@ -51,11 +51,11 @@ export function CapitalDetailDialog({ open, onOpenChange, totalCop, totalUsd }: 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogTitle>Capital disponible — Detalle</DialogTitle>
+        <DialogTitle>Available capital — details</DialogTitle>
         <div className="space-y-3 pt-2">
           {accounts.length === 0 ? (
             <p className="text-[13px] text-text-muted py-4 text-center">
-              No hay cuentas configuradas. Ve a Ajustes para agregarlas.
+              No accounts configured. Go to Settings to add them.
             </p>
           ) : (
             <>
@@ -74,7 +74,7 @@ export function CapitalDetailDialog({ open, onOpenChange, totalCop, totalUsd }: 
                     className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
                   >
                     <div>
-                      <p className="text-[13px] font-medium">{acc.name || 'Sin nombre'}</p>
+                      <p className="text-[13px] font-medium">{acc.name || 'Unnamed'}</p>
                       <div className="flex items-center gap-2">
                         <p className="text-[11px] text-text-muted">
                           <Money amount={acc.amount} currency={acc.currency as Currency} />
@@ -112,5 +112,5 @@ export function CapitalDetailDialog({ open, onOpenChange, totalCop, totalUsd }: 
 }
 
 function formatCop(amount: number): string {
-  return `COP $${Math.round(amount).toLocaleString('es-CO')}`
+  return `COP $${Math.round(amount).toLocaleString('en-US')}`
 }

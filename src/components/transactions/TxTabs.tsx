@@ -2,10 +2,10 @@ import { cn } from '@/lib/utils'
 import type { TabFilter } from '@/hooks/useTransactions'
 
 const TABS: { value: TabFilter; label: string }[] = [
-  { value: 'all', label: 'Todas' },
-  { value: 'income', label: 'Ingresos' },
-  { value: 'expense', label: 'Gastos' },
-  { value: 'recurring', label: 'Recurrentes' },
+  { value: 'all', label: 'All' },
+  { value: 'income', label: 'Income' },
+  { value: 'expense', label: 'Expenses' },
+  { value: 'recurring', label: 'Recurring' },
 ]
 
 interface TxTabsProps {

@@ -15,7 +15,7 @@ import { Money } from '@/components/common/Money'
 import type { Goal } from '@/types/domain'
 
 const schema = z.object({
-  amount: z.number({ message: 'Monto obligatorio' }).positive('Debe ser mayor a 0'),
+  amount: z.number({ message: 'Amount is required' }).positive('Must be greater than 0'),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -50,23 +50,23 @@ export function GoalContributeDialog({ open, onOpenChange, goal, onContribute }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Abonar a "{goal.name}"</DialogTitle>
+          <DialogTitle className="font-serif text-xl">Contribute to "{goal.name}"</DialogTitle>
         </DialogHeader>
 
         <div className="mb-3 rounded-md bg-surface-2 px-3 py-2 text-[13px]">
           <div className="flex items-center justify-between">
-            <span className="text-text-muted">Actual</span>
+            <span className="text-text-muted">Current</span>
             <Money amount={goal.currentAmount} currency={goal.currency} variant="inline" className="font-mono" />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-text-muted">Faltan</span>
+            <span className="text-text-muted">Remaining</span>
             <Money amount={Math.max(0, remaining)} currency={goal.currency} variant="inline" className="font-mono" />
           </div>
         </div>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label>Monto a abonar</Label>
+            <Label>Amount to contribute</Label>
             <Input
               type="number"
               step="any"
@@ -79,8 +79,8 @@ export function GoalContributeDialog({ open, onOpenChange, goal, onContribute }:
           </div>
 
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando…' : 'Abonar'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Contribute'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

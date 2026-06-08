@@ -4,6 +4,10 @@ import { drizzle } from 'drizzle-orm/d1'
 import { eq, and, sql, inArray } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { AppEnv } from '../types'
+import {
+  commitmentPaymentShortfall,
+  resolveCommitmentStatus,
+} from '../lib/tithe-commitment'
 
 export const titheCommitmentsRouter = new Hono<AppEnv>()
 
@@ -54,13 +58,11 @@ titheCommitmentsRouter.get('/', async (c) => {
 
   const enriched = results.map(r => {
     const amountPaidUsd = paidMap[r.id] ?? 0
-    // Calculate dynamic status
-    let dynamicStatus = r.status
-    if (amountPaidUsd >= r.totalAmount && amountPaidUsd > 0) {
-      dynamicStatus = 'paid'
-    } else if (amountPaidUsd > 0 && amountPaidUsd < r.totalAmount) {
-      dynamicStatus = 'partial'
-    }
+    const dynamicStatus = resolveCommitmentStatus(
+      amountPaidUsd,
+      r.totalAmount,
+      r.status as 'pending' | 'partial' | 'paid' | 'debt',
+    )
 
     return {
       ...r,
@@ -121,6 +123,68 @@ titheCommitmentsRouter.put('/:id', async (c) => {
   return c.json(result[0])
 })
 
+// POST /api/tithe-commitments/mark-as-paid — user confirms full payment (TRM drift)
+titheCommitmentsRouter.post('/mark-as-paid', async (c) => {
+  const auth = getAuth(c)
+  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const { commitmentIds } = await c.req.json()
+  if (!commitmentIds?.length) {
+    return c.json({ error: 'Select at least one commitment' }, 400)
+  }
+
+  const db = drizzle(c.env.DB, { schema })
+
+  const commitments = await db.query.titheCommitments.findMany({
+    where: (tc, { eq, and, inArray }) => and(
+      eq(tc.userId, auth.userId),
+      inArray(tc.id, commitmentIds),
+    ),
+  })
+
+  if (commitments.length !== commitmentIds.length) {
+    return c.json({ error: 'Some commitments do not exist or do not belong to you' }, 400)
+  }
+
+  const invalid = commitments.filter(tc => tc.status === 'paid')
+  if (invalid.length > 0) {
+    return c.json({ error: 'Some commitments are already paid' }, 400)
+  }
+
+  let markedCount = 0
+
+  for (const commitment of commitments) {
+    const paymentLinks = await db.query.commitmentPayments.findMany({
+      where: (cp, { eq }) => eq(cp.commitmentId, commitment.id),
+    })
+
+    const totalPaid = paymentLinks.reduce((s, p) => s + p.amountUsd, 0)
+    if (totalPaid <= 0) {
+      return c.json({
+        error: `Commitment #${commitment.id} has no recorded payments. Use "Record payment".`,
+      }, 400)
+    }
+
+    const shortfall = commitmentPaymentShortfall(totalPaid, commitment.totalAmount)
+    if (shortfall > 0) {
+      const latestLink = paymentLinks.reduce((a, b) =>
+        a.createdAt >= b.createdAt ? a : b,
+      )
+      await db.update(schema.commitmentPayments)
+        .set({ amountUsd: Math.round((latestLink.amountUsd + shortfall) * 100) / 100 })
+        .where(eq(schema.commitmentPayments.id, latestLink.id))
+    }
+
+    await db.update(schema.titheCommitments)
+      .set({ status: 'paid' })
+      .where(eq(schema.titheCommitments.id, commitment.id))
+
+    markedCount++
+  }
+
+  return c.json({ markedCount })
+})
+
 // POST /api/tithe-commitments/mark-as-debt
 titheCommitmentsRouter.post('/mark-as-debt', async (c) => {
   const auth = getAuth(c)
@@ -128,7 +192,7 @@ titheCommitmentsRouter.post('/mark-as-debt', async (c) => {
 
   const { commitmentIds } = await c.req.json()
   if (!commitmentIds?.length) {
-    return c.json({ error: 'Selecciona al menos un compromiso' }, 400)
+    return c.json({ error: 'Select at least one commitment' }, 400)
   }
 
   const db = drizzle(c.env.DB, { schema })
@@ -142,7 +206,7 @@ titheCommitmentsRouter.post('/mark-as-debt', async (c) => {
   })
 
   if (commitments.length === 0) {
-    return c.json({ error: 'No hay compromisos pendientes para mover' }, 400)
+    return c.json({ error: 'No pending commitments to move' }, 400)
   }
 
   for (const c of commitments) {

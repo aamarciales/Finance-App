@@ -20,10 +20,10 @@ interface TxFiltersProps {
 }
 
 const PERIODS = [
-  { value: 'this-month', label: 'Este mes' },
-  { value: 'last-month', label: 'Mes anterior' },
-  { value: 'last-3-months', label: 'Últimos 3 meses' },
-  { value: 'all', label: 'Todo' },
+  { value: 'this-month', label: 'This month' },
+  { value: 'last-month', label: 'Last month' },
+  { value: 'last-3-months', label: 'Last 3 months' },
+  { value: 'all', label: 'All time' },
 ]
 
 export function TxFilters({
@@ -39,7 +39,7 @@ export function TxFilters({
     <div className="flex flex-wrap items-center gap-2">
       <Select value={period} onValueChange={onPeriodChange}>
         <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Periodo" />
+          <SelectValue placeholder="Period" />
         </SelectTrigger>
         <SelectContent>
           {PERIODS.map((p) => (
@@ -52,10 +52,10 @@ export function TxFilters({
 
       <Select value={categoryId} onValueChange={onCategoryChange}>
         <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Categoría" />
+          <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todas</SelectItem>
+          <SelectItem value="all">All</SelectItem>
           {categories.map((c) => (
             <SelectItem key={c.id} value={String(c.id)}>
               <span className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function TxFilters({
       <div className="relative flex-1 min-w-[180px]">
         <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-faint" />
         <Input
-          placeholder="Buscar por concepto…"
+          placeholder="Search by description…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"

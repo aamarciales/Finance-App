@@ -5,6 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    port: 5173,
+    // In dev, proxy /api to wrangler dev (npm run dev:api on :8787).
+    proxy: { '/api': 'http://localhost:8787' },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

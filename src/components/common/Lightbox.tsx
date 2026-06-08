@@ -17,7 +17,7 @@ export function Lightbox({ src, onClose }: LightboxProps) {
         type="button"
         onClick={onClose}
         className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
-        aria-label="Cerrar"
+        aria-label="Close"
       >
         <X className="h-5 w-5" />
       </button>

@@ -77,7 +77,7 @@ export default function ImportPage() {
       const result = await processReceiptOCR(imageFile)
       setOcrResult(result)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al procesar la imagen')
+      toast.error(e instanceof Error ? e.message : 'Could not process image')
     } finally {
       setProcessing(false)
     }
@@ -95,12 +95,12 @@ export default function ImportPage() {
     const bank = detectBank(text)
     setDetectedBank(bank)
     if (bank === 'unknown') {
-      toast.error('No se pudo detectar el banco. Verifica el formato del CSV.')
+      toast.error('Could not detect the bank. Check the CSV format.')
       return
     }
     const parsed = parseCSV(text, bank)
     if (parsed.length === 0) {
-      toast.error('No se encontraron transacciones en el archivo.')
+      toast.error('No transactions found in the file.')
       return
     }
     setCsvParsed(parsed)
@@ -159,10 +159,10 @@ export default function ImportPage() {
 
       if (uniqueNewCats.size > 0) {
         await queryClient.invalidateQueries({ queryKey: ['categories'] })
-        toast.success(`Se crearon ${uniqueNewCats.size} nuevas categorías`)
+        toast.success(`Created ${uniqueNewCats.size} new categories`)
       }
     } catch {
-      toast.error('Error creando las nuevas categorías')
+      toast.error('Could not create new categories')
       return
     }
 
@@ -198,9 +198,9 @@ export default function ImportPage() {
           amountInSecondary,
         })
       }
-      toast.success(`Importadas ${rows.length} transacciones`)
+      toast.success(`Imported ${rows.length} transactions`)
     } catch {
-      toast.error('Ocurrió un error guardando las transacciones')
+      toast.error('Could not save transactions')
     }
 
     clearCsv()
@@ -209,8 +209,8 @@ export default function ImportPage() {
   return (
     <>
       <PageHeader
-        title="Importar"
-        subtitle="Sube fotos de facturas o extractos bancarios CSV"
+        title="Import"
+        subtitle="Upload receipt photos or bank statement CSV files"
       />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -218,7 +218,7 @@ export default function ImportPage() {
         <section className="rounded-[10px] border border-border bg-surface p-6">
           <div className="mb-4 flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-text-muted" />
-            <h2 className="font-serif text-lg">Escanear ticket o factura</h2>
+            <h2 className="font-serif text-lg">Scan receipt or invoice</h2>
           </div>
 
           <ImageDropzone
@@ -236,10 +236,10 @@ export default function ImportPage() {
               {processing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Analizando…
+                  Analyzing…
                 </>
               ) : (
-                'Procesar con OCR'
+                'Process with OCR'
               )}
             </Button>
           )}
@@ -249,7 +249,7 @@ export default function ImportPage() {
         <section className="rounded-[10px] border border-border bg-surface p-6">
           <div className="mb-4 flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-text-muted" />
-            <h2 className="font-serif text-lg">Importar extracto bancario</h2>
+            <h2 className="font-serif text-lg">Import bank statement</h2>
           </div>
 
           {!csvParsed ? (

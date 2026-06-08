@@ -145,10 +145,10 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
 
   const confidenceBadge: { tone: 'green' | 'gold' | 'danger'; label: string } =
     realConfidence === 'high'
-      ? { tone: 'green', label: 'Validado' }
+      ? { tone: 'green', label: 'Validated' }
       : realConfidence === 'medium'
-        ? { tone: 'gold', label: 'Revisar montos' }
-        : { tone: 'danger', label: 'Revisión obligatoria' }
+        ? { tone: 'gold', label: 'Review amounts' }
+        : { tone: 'danger', label: 'Review required' }
 
   const imageUrl = URL.createObjectURL(imageBlob)
 
@@ -161,7 +161,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
             <div className="sticky top-0 z-10 border-b border-border bg-surface px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h2 className="font-serif text-xl">Resultado OCR</h2>
+                  <h2 className="font-serif text-xl">OCR result</h2>
                   <Badge tone={confidenceBadge.tone}>{confidenceBadge.label}</Badge>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
             <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-[240px_1fr]">
               {/* Image */}
               <div>
-                <Label className="mb-2 block text-[11px] uppercase tracking-[0.06em] text-text-muted">Imagen</Label>
+                <Label className="mb-2 block text-[11px] uppercase tracking-[0.06em] text-text-muted">Image</Label>
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(imageUrl)}
@@ -188,15 +188,15 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
               <div className="space-y-4">
                 <div className="grid grid-cols-[1fr_120px_100px] gap-3">
                   <div className="grid gap-1.5">
-                    <Label>Comercio</Label>
+                    <Label>Merchant</Label>
                     <Input value={merchant} onChange={e => setMerchant(e.target.value)} />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Fecha</Label>
+                    <Label>Date</Label>
                     <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Moneda</Label>
+                    <Label>Currency</Label>
                     <Select value={currency} onValueChange={v => setCurrency(v as 'COP' | 'USD' | 'EUR')}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -207,9 +207,9 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                 </div>
 
                 <div className="grid gap-1.5">
-                  <Label>Categoría</Label>
+                  <Label>Category</Label>
                   <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
                       {expenseCategories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                     </SelectContent>
@@ -218,16 +218,16 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
 
                 {capitalAccounts.length > 0 && (
                   <div className="grid gap-1.5">
-                    <Label>Cuenta</Label>
+                    <Label>Account</Label>
                     <Select
                       value={accountId ?? '__none__'}
                       onValueChange={v => setAccountId(v === '__none__' ? null : v)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Ninguna" />
+                        <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">Ninguna</SelectItem>
+                        <SelectItem value="__none__">None</SelectItem>
                         {capitalAccounts.map(acc => (
                           <SelectItem key={acc.id} value={acc.id}>
                             {acc.name} ({acc.currency})
@@ -243,16 +243,16 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                   return selAcc && currency !== selAcc.currency
                 })() && (
                   <div className="grid gap-1.5">
-                    <Label>Monto real debitado en {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
+                    <Label>Actual amount debited in {capitalAccounts.find(a => a.id === accountId)!.currency}</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      placeholder={`Opcional · TRM oficial: ${officialTrm.toLocaleString()}`}
+                      placeholder={`Optional · official FX rate: ${officialTrm.toLocaleString('en-US')}`}
                       value={actualAmount ?? ''}
                       onChange={(e) => setActualAmount(e.target.value === '' ? null : Number(e.target.value))}
                     />
                     <p className="text-[11px] text-text-muted">
-                      Si lo dejas vacío se usa la TRM oficial. Llena este campo si el banco te cobró un monto distinto por margen o comisiones.
+                      If left empty, the official FX rate is used. Fill this in if the bank charged a different amount due to spread or fees.
                     </p>
                   </div>
                 )}
@@ -260,20 +260,20 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                 {/* Validation warning */}
                 {realConfidence === 'low' && result.validation && (
                   <div className="rounded-md border border-danger-strong/30 bg-danger-strong/5 px-4 py-3 text-[13px] text-danger-strong">
-                    <p className="font-medium">El total calculado ({formatMoney(result.validation.computedSubtotal, currency)}) no coincide con el total del recibo ({formatMoney(result.total, currency)}). Diferencia: {formatMoney(result.validation.subtotalDelta, currency)}. Revisa los items antes de guardar.</p>
+                    <p className="font-medium">Calculated total ({formatMoney(result.validation.computedSubtotal, currency)}) does not match the receipt total ({formatMoney(result.total, currency)}). Difference: {formatMoney(result.validation.subtotalDelta, currency)}. Review the items before saving.</p>
                   </div>
                 )}
 
                 {/* Items table */}
                 <div>
-                  <Label className="mb-2 block text-[11px] uppercase tracking-[0.06em] text-text-muted">Ítems ({items.length})</Label>
+                  <Label className="mb-2 block text-[11px] uppercase tracking-[0.06em] text-text-muted">Items ({items.length})</Label>
                   <div className="rounded-md border border-border">
                     <table className="w-full text-left text-[13px]">
                       <thead>
                         <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-text-faint">
-                          <th className="py-1.5 pl-3 pr-2 font-medium">Descripción</th>
-                          <th className="w-16 py-1.5 px-1 text-center font-medium">Cant.</th>
-                          <th className="w-24 py-1.5 px-1 text-right font-medium">Precio</th>
+                          <th className="py-1.5 pl-3 pr-2 font-medium">Description</th>
+                          <th className="w-16 py-1.5 px-1 text-center font-medium">Qty</th>
+                          <th className="w-24 py-1.5 px-1 text-right font-medium">Price</th>
                           <th className="w-24 py-1.5 px-1 text-right font-medium">Subtotal</th>
                           <th className="w-8 py-1.5 pr-2" />
                         </tr>
@@ -327,7 +327,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                       onClick={addItem}
                       className="flex w-full items-center justify-center gap-1 py-1.5 text-[12px] text-text-muted hover:text-text"
                     >
-                      <Plus className="h-3 w-3" /> Agregar ítem
+                      <Plus className="h-3 w-3" /> Add item
                     </button>
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                         <span className="font-mono text-[13px]">{formatMoney(itemsTotal, currency)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Descuento</span>
+                        <span className="text-[12px] uppercase tracking-[0.06em] text-text-muted">Discount</span>
                         <span className="font-mono text-[13px] text-brand">−{formatMoney(discount, currency)}</span>
                       </div>
                     </>
@@ -354,14 +354,14 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
 
                 {/* Actions */}
                 <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                   {onSaveTransaction && (
                     <Button
                       variant="outline"
                       onClick={handleSaveTransaction}
                       disabled={saving || !categoryId}
                     >
-                      {saving ? 'Guardando…' : 'Guardar como transacción'}
+                      {saving ? 'Saving…' : 'Save as transaction'}
                     </Button>
                   )}
                   {onSaveInvoice && (
@@ -369,7 +369,7 @@ export function OcrPreviewDialog({ open, onOpenChange, result, imageBlob, catego
                       onClick={handleSaveInvoice}
                       disabled={saving || !categoryId || items.length === 0}
                     >
-                      {saving ? 'Guardando…' : 'Guardar como factura'}
+                      {saving ? 'Saving…' : 'Save as invoice'}
                     </Button>
                   )}
                 </div>

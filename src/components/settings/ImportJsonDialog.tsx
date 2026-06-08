@@ -59,7 +59,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
     if (!file) return
 
     if (!file.name.endsWith('.json')) {
-      setError('El archivo debe ser .json')
+      setError('File must be .json')
       return
     }
 
@@ -67,13 +67,13 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
     try {
       parsed = JSON.parse(await file.text())
     } catch {
-      setError('El archivo no es JSON válido')
+      setError('File is not valid JSON')
       return
     }
 
     const obj = parsed as Record<string, unknown>
     if (typeof obj !== 'object' || obj === null) {
-      setError('El JSON no tiene la estructura esperada')
+      setError('JSON does not have the expected structure')
       return
     }
 
@@ -81,7 +81,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
     const hasInv = Array.isArray(obj.invoices) && obj.invoices.length > 0
     const hasDebts = Array.isArray(obj.debts) && obj.debts.length > 0
     if (!hasTx && !hasInv && !hasDebts) {
-      setError('El JSON no tiene datos para importar (transactions, invoices, debts)')
+      setError('JSON has no data to import (transactions, invoices, debts)')
       return
     }
 
@@ -91,7 +91,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
     const badCopTx = txRows.some((tx) => tx.currency === 'COP' && (!tx.trm || Number(tx.trm) <= 1))
     const badCopInv = invRows.some((inv) => inv.currency === 'COP' && (!inv.trm || Number(inv.trm) <= 1))
     if (badCopTx || badCopInv) {
-      setError('Algunas transacciones/facturas COP tienen TRM inválida (<=1). Corrige el JSON antes de importar.')
+      setError('Some COP transactions/invoices have invalid FX rate (<=1). Fix the JSON before importing.')
       return
     }
 
@@ -111,7 +111,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
   async function handleImport() {
     if (!preview) return
     setImporting(true)
-    toast.loading('Importando datos...', { id: 'import-bulk' })
+    toast.loading('Importing data...', { id: 'import-bulk' })
 
     try {
       const result = await api.post<{
@@ -125,16 +125,16 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
       if (result.success) {
         const c = result.counts!
         toast.success(
-          `Importadas ${c.looseTransactions} tx, ${c.invoices} facturas (${c.invoiceItems} ítems), ${c.debts} deudas`,
+          `Imported ${c.looseTransactions} tx, ${c.invoices} invoices (${c.invoiceItems} items), ${c.debts} debts`,
         )
         await queryClient.invalidateQueries()
         handleOpenChange(false)
       } else {
-        toast.error(result.error ?? 'Error desconocido en el import')
+        toast.error(result.error ?? 'Unknown import error')
       }
     } catch (err) {
       toast.dismiss('import-bulk')
-      toast.error(err instanceof Error ? err.message : 'Error al importar')
+      toast.error(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setImporting(false)
     }
@@ -144,9 +144,9 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Importar datos desde JSON</DialogTitle>
+          <DialogTitle>Import data from JSON</DialogTitle>
           <DialogDescription>
-            Selecciona un archivo JSON generado por la exportación o el parser de CSV.
+            Select a JSON file from export or the CSV parser.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +156,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
             onClick={() => fileRef.current?.click()}
           >
             <Upload className="h-8 w-8 text-text-muted" />
-            <p className="text-[13px] text-text-muted">Click para elegir archivo .json</p>
+            <p className="text-[13px] text-text-muted">Click to choose a .json file</p>
             <input
               ref={fileRef}
               type="file"
@@ -171,22 +171,22 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
               <p className="font-medium">{preview.filename}</p>
               <ul className="text-text-muted space-y-0.5">
                 {preview.invoiceCount > 0 && (
-                  <li>{preview.invoiceCount} facturas con {preview.invoiceItemCount} ítems</li>
+                  <li>{preview.invoiceCount} invoices with {preview.invoiceItemCount} items</li>
                 )}
                 {preview.looseTxCount > 0 && (
-                  <li>{preview.looseTxCount} transacciones sueltas</li>
+                  <li>{preview.looseTxCount} standalone transactions</li>
                 )}
                 {preview.debtCount > 0 && (
-                  <li>{preview.debtCount} deudas</li>
+                  <li>{preview.debtCount} debts</li>
                 )}
                 {preview.customCatCount > 0 && (
-                  <li>{preview.customCatCount} categorías custom</li>
+                  <li>{preview.customCatCount} custom categories</li>
                 )}
               </ul>
             </div>
 
             <div className="rounded-lg border border-danger-strong/30 bg-danger-strong/5 px-4 py-3 text-[13px] text-danger-strong">
-              Esto BORRA todos tus datos actuales y los reemplaza con el contenido del archivo.
+              This will DELETE all your current data and replace it with the file contents.
             </div>
 
             <label className="flex items-start gap-2 text-[13px] cursor-pointer">
@@ -196,7 +196,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
                 onChange={(e) => setConfirmed(e.target.checked)}
                 className="mt-0.5 accent-accent"
               />
-              <span>Entiendo que esto borra mis datos actuales</span>
+              <span>I understand this will delete my current data</span>
             </label>
           </div>
         )}
@@ -207,7 +207,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={importing}>
-            Cancelar
+            Cancel
           </Button>
           {preview && (
             <Button
@@ -215,7 +215,7 @@ export function ImportJsonDialog({ open, onOpenChange }: ImportJsonDialogProps) 
               onClick={handleImport}
               disabled={!confirmed || importing}
             >
-              {importing ? 'Importando...' : 'Importar y reemplazar'}
+              {importing ? 'Importing...' : 'Import and replace'}
             </Button>
           )}
         </DialogFooter>

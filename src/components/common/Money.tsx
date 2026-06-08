@@ -18,8 +18,7 @@ interface MoneyProps {
  * Display canónico de un monto monetario.
  *
  *  - `inline` (default): "USD 45,14" o "$184.520" en la fuente actual.
- *  - `kpi`: serif grande (Fraunces) con prefijo de moneda en sans más pequeño,
- *    como en las cards del dashboard.
+ *  - `kpi`: Hanken Grotesk grande con prefijo de moneda más pequeño.
  *  - `tabular`: monospace (JetBrains Mono) para tablas y listas, con el signo
  *    a la izquierda si es negativo.
  */
@@ -40,7 +39,7 @@ export function Money({
   if (variant === 'kpi') {
     return (
       <div className={cn('leading-none', className)}>
-        <div className="font-serif text-[26px] font-medium tracking-[-0.02em]">
+        <div className="text-[26px] font-bold tracking-[-0.02em]">
           <span className="mr-0.5 font-sans text-sm font-normal text-text-muted">
             {symbol}
           </span>

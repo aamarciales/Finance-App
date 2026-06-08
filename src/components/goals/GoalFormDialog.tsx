@@ -24,11 +24,11 @@ import type { Goal } from '@/types/domain'
 import type { GoalFormData } from '@/hooks/useGoals'
 
 const goalSchema = z.object({
-  name: z.string().min(1, 'Nombre obligatorio'),
+  name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   iconKey: z.string().min(1),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  targetAmount: z.number({ message: 'Monto obligatorio' }).positive(),
+  targetAmount: z.number({ message: 'Amount is required' }).positive(),
   currentAmount: z.number().min(0),
   currency: z.enum(CURRENCIES),
   monthlyContribution: z.number().min(0).optional(),
@@ -45,12 +45,12 @@ interface GoalFormDialogProps {
 }
 
 const ICONS = [
-  { value: 'shield', label: 'Protección' },
+  { value: 'shield', label: 'Protection' },
   { value: 'plane', label: 'Viaje' },
-  { value: 'laptop', label: 'Tecnología' },
+  { value: 'laptop', label: 'Technology' },
   { value: 'home', label: 'Hogar' },
-  { value: 'car', label: 'Vehículo' },
-  { value: 'graduation-cap', label: 'Educación' },
+  { value: 'car', label: 'Vehicle' },
+  { value: 'graduation-cap', label: 'Education' },
   { value: 'heart', label: 'Salud' },
   { value: 'briefcase', label: 'Negocio' },
   { value: 'gem', label: 'Lujo' },
@@ -130,25 +130,25 @@ export function GoalFormDialog({ open, onOpenChange, onSubmit, editGoal }: GoalF
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
-            {isEditing ? 'Editar meta' : 'Nueva meta'}
+            {isEditing ? 'Edit goal' : 'New goal'}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label>Nombre</Label>
-            <Input {...register('name')} placeholder="Ej. Fondo de emergencia" />
+            <Label>Name</Label>
+            <Input {...register('name')} placeholder="E.g. Emergency fund" />
             {errors.name && <p className="text-[12px] text-danger-strong">{errors.name.message}</p>}
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Descripción</Label>
-            <Input {...register('description')} placeholder="Ej. 6 meses de gastos" />
+            <Label>Description</Label>
+            <Input {...register('description')} placeholder="E.g. 6 months of expenses" />
           </div>
 
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div className="grid gap-1.5">
-              <Label>Monto objetivo</Label>
+              <Label>Target amount</Label>
               <Input
                 type="number"
                 step="any"
@@ -158,7 +158,7 @@ export function GoalFormDialog({ open, onOpenChange, onSubmit, editGoal }: GoalF
               {errors.targetAmount && <p className="text-[12px] text-danger-strong">{errors.targetAmount.message}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Label>Moneda</Label>
+              <Label>Currency</Label>
               <Controller name="currency" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -192,12 +192,12 @@ export function GoalFormDialog({ open, onOpenChange, onSubmit, editGoal }: GoalF
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Fecha objetivo</Label>
+            <Label>Target date</Label>
             <Input type="date" {...register('targetDate')} />
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Ícono</Label>
+            <Label>Icon</Label>
             <Controller name="iconKey" control={control} render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -226,8 +226,8 @@ export function GoalFormDialog({ open, onOpenChange, onSubmit, editGoal }: GoalF
           </div>
 
           <DialogFooter className="gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando…' : 'Guardar'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

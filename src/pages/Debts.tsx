@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { displayLocale } from '../lib/locale'
 import { Plus, Trash2, Pencil, CreditCard, HandCoins } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -25,11 +25,11 @@ import { useForex } from '@/hooks/useForex'
 import type { Debt, DebtType } from '@/types/domain'
 
 const DEBT_TYPE_LABELS: Record<DebtType, string> = {
-  credit_card: 'Tarjeta de crédito',
-  personal_loan: 'Préstamo personal',
-  family_loan: 'Préstamo familiar',
-  mortgage: 'Hipoteca',
-  other: 'Otra',
+  credit_card: 'Credit card',
+  personal_loan: 'Personal loan',
+  family_loan: 'Family loan',
+  mortgage: 'Mortgage',
+  other: 'Other',
 }
 
 const DEBT_TYPE_BADGE: Record<DebtType, 'danger' | 'warm' | 'gray' | 'info' | 'gold'> = {
@@ -73,26 +73,26 @@ export default function DebtsPage() {
   return (
     <>
       <PageHeader
-        title="Deudas"
-        subtitle="Saldos, intereses y cronograma de pagos"
+        title="Debts"
+        subtitle="Balances, interest, and payment schedule"
         actions={
           <Button onClick={() => setFormOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" />
-            Nueva deuda
+            New debt
           </Button>
         }
       />
 
       {loading ? (
-        <div className="py-10 text-center text-text-muted">Cargando…</div>
+        <div className="py-10 text-center text-text-muted">Loading…</div>
       ) : debts.length === 0 ? (
         <EmptyState
-          title="Sin deudas activas"
-          description="Registra deudas para hacer seguimiento de pagos y saldos"
+          title="No active debts"
+          description="Add debts to track payments and balances"
           icon={<CreditCard className="h-8 w-8 text-text-faint" />}
           action={
             <Button onClick={() => setFormOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Registrar deuda
+              <Plus className="h-4 w-4" /> Add debt
             </Button>
           }
         />
@@ -101,7 +101,7 @@ export default function DebtsPage() {
           {activeDebts.length > 0 && (
             <div>
               <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
-                Activas ({activeDebts.length})
+                Active ({activeDebts.length})
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {activeDebts.map(debt => (
@@ -120,7 +120,7 @@ export default function DebtsPage() {
           {paidDebts.length > 0 && (
             <div>
               <h3 className="mb-3 text-[11px] uppercase tracking-[0.08em] text-text-muted">
-                Saldadas ({paidDebts.length})
+                Paid off ({paidDebts.length})
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {paidDebts.map(debt => (
@@ -167,14 +167,14 @@ export default function DebtsPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar deuda "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>Delete debt "{deleteTarget?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará la deuda. Los pagos ya registrados no se modifican.
+              The debt will be deleted. Recorded payments will not be changed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -195,7 +195,7 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
   let nextPaymentLabel = ''
   if (debt.nextPaymentDate) {
     const d = parseISO(debt.nextPaymentDate)
-    if (!isNaN(d.getTime())) nextPaymentLabel = format(d, 'dd MMM yyyy', { locale: es })
+    if (!isNaN(d.getTime())) nextPaymentLabel = format(d, 'dd MMM yyyy', { locale: displayLocale })
   }
 
   return (
@@ -207,7 +207,7 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-medium">{debt.name}</span>
-            {debt.isPaid && <Badge tone="green">Saldada</Badge>}
+            {debt.isPaid && <Badge tone="green">Paid off</Badge>}
           </div>
           <div className="text-[12px] text-text-muted">
             {debt.creditor}
@@ -232,15 +232,15 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
           />
         </div>
         <div className="mt-1.5 flex items-center justify-between text-[12px] text-text-muted">
-          <span>{progress.toFixed(0)}% pagado</span>
-          <span>Cuota {debt.paidInstallments}/{debt.totalInstallments}</span>
+          <span>{progress.toFixed(0)}% paid</span>
+          <span>Installment {debt.paidInstallments}/{debt.totalInstallments}</span>
         </div>
       </div>
 
       {/* Amounts */}
       <div className="mb-3 space-y-1">
         <div className="flex items-center justify-between text-[13px]">
-          <span className="text-text-muted">Saldo</span>
+          <span className="text-text-muted">Balance</span>
           <Money amount={debt.currentBalance} currency={debt.currency} variant="inline" className="font-mono font-medium" />
         </div>
         <div className="flex items-center justify-between text-[13px]">
@@ -251,13 +251,13 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
         </div>
         {debt.interestRate > 0 && (
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-text-muted">Interés</span>
+            <span className="text-text-muted">Interest</span>
             <span className="font-mono">{debt.interestRate}% EA</span>
           </div>
         )}
         {nextPaymentLabel && !debt.isPaid && (
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-text-muted">Próximo pago</span>
+            <span className="text-text-muted">Next payment</span>
             <span className="font-mono text-[12px]">{nextPaymentLabel}</span>
           </div>
         )}
@@ -271,14 +271,14 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
             className="flex-1 gap-1.5 h-9"
             onClick={onPay}
           >
-            <HandCoins className="h-4 w-4" /> Pagar cuota
+            <HandCoins className="h-4 w-4" /> Pay installment
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0"
             onClick={onEdit}
-            aria-label="Editar"
+            aria-label="Edit"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -287,7 +287,7 @@ function DebtCard({ debt, onEdit, onDelete, onPay }: {
             size="icon"
             className="h-9 w-9 shrink-0 text-danger-strong hover:text-danger-strong"
             onClick={onDelete}
-            aria-label="Eliminar"
+            aria-label="Delete"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
